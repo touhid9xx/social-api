@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Env & secrets
+.env
+.env.local
+*.pem
+*.key
+
+secrets/
+
+
+# Data
+data/
+!data/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Contracts auto-generated but COMMITTED intentionally
+# (do NOT ignore contracts/)
+
+# Logs
+*.log
+logs/

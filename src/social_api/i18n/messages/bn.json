@@ -1,0 +1,21 @@
+{
+  "app.name": "সোশ্যাল এপিআই",
+  "health.ok": "সার্ভিস সচল আছে",
+  "health.ready": "সার্ভিস প্রস্তুত",
+  "auth.login.success": "লগইন সফল হয়েছে",
+  "auth.login.failed": "ইমেইল বা পাসওয়ার্ড ভুল",
+  "auth.register.success": "রেজিস্ট্রেশন সফল, ইমেইল যাচাই করুন",
+  "auth.token.expired": "সেশন শেষ, অনুগ্রহ করে আবার লগইন করুন",
+  "auth.forbidden": "এই কাজ করার অনুমতি আপনার নেই",
+  "post.created": "পোস্ট সফলভাবে তৈরি হয়েছে",
+  "post.not_found": "পোস্ট পাওয়া যায়নি",
+  "post.forbidden": "এই পোস্ট আপনি পরিবর্তন করতে পারবেন না",
+  "comment.created": "মন্তব্য যোগ হয়েছে",
+  "follow.success": "আপনি এখন {username} কে ফলো করছেন",
+  "unfollow.success": "আপনি {username} কে আনফলো করেছেন",
+  "notification.new_follower": "{username} আপনাকে ফলো শুরু করেছেন",
+  "notification.new_like": "{username} আপনার পোস্ট পছন্দ করেছেন",
+  "notification.new_comment": "{username} আপনার পোস্টে মন্তব্য করেছেন",
+  "gdpr.export.ready": "আপনার ডেটা এক্সপোর্ট প্রস্তুত",
+  "gdpr.delete.scheduled": "অ্যাকাউন্ট ডিলিট নির্ধারিত হয়েছে, ৩০ দিনে কার্যকর"
+}

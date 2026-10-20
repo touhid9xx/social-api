@@ -1,0 +1,21 @@
+{
+  "app.name": "Social API",
+  "health.ok": "Service is healthy",
+  "health.ready": "Service is ready",
+  "auth.login.success": "Login successful",
+  "auth.login.failed": "Invalid email or password",
+  "auth.register.success": "Registration successful, please verify your email",
+  "auth.token.expired": "Session expired, please log in again",
+  "auth.forbidden": "You do not have permission to perform this action",
+  "post.created": "Post created successfully",
+  "post.not_found": "Post not found",
+  "post.forbidden": "You cannot modify this post",
+  "comment.created": "Comment added",
+  "follow.success": "You are now following {username}",
+  "unfollow.success": "You unfollowed {username}",
+  "notification.new_follower": "{username} started following you",
+  "notification.new_like": "{username} liked your post",
+  "notification.new_comment": "{username} commented on your post",
+  "gdpr.export.ready": "Your data export is ready",
+  "gdpr.delete.scheduled": "Account deletion scheduled, effective in 30 days"
+}
