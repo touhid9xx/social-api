@@ -4,6 +4,10 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+.node_nodules/
+node_nodules/
+
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
