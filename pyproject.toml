@@ -97,12 +97,21 @@ select = [
     "E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "S",
     "PLR1704",
     "PLW2901",
+    "RUF100",   # unused noqa
+    "RUF101",   # redirected noqa
+    "PT",       # pytest style
+    "TID",      # banned imports / tidy imports
+    "ERA",
 ]
 ignore = ["S101"]  # allow assert in tests (handled via per-file below)
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
 "alembic/**" = ["N999"]
+"scripts/**" = ["T201"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.ruff.format]
 quote-style = "double"
@@ -123,6 +132,7 @@ show_error_codes = true
 plugins = ["pydantic.mypy"]
 mypy_path = "src"
 packages = ["social_api"]
+files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["magic", "aiosmtpd.*", "testcontainers.*"]
@@ -147,9 +157,15 @@ markers = [
 [tool.coverage.run]
 source = ["src/social_api"]
 branch = true
-omit = ["*/__init__.py"]
+omit = [
+    "*/__init__.py",
+    # M0 stubs — exclude until the milestone that implements them:
+    "src/social_api/db/*",                     # M3
+    "src/social_api/cache/*",                  # M3
+    "src/social_api/observability/tracing.py", # M21
+]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 60  # raise to 85 by M2
+fail_under = 60  # M0 target; raise to 85 by M2 (M2 checklist item)

@@ -63,8 +63,13 @@ jobs:
       - name: Bandit
         run: bandit -r src -c pyproject.toml
 
-      - name: Pytest
-        run: pytest tests/unit --cov=src/social_api --cov-report=term-missing
+      - name: Pytest (coverage gate 85%)
+        run: |
+          pytest tests/unit \
+            --cov=src/social_api \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=85
 
       - name: Contract drift check
         run: |

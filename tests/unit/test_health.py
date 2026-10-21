@@ -52,4 +52,5 @@ async def test_404_error_shape(client: AsyncClient) -> None:
     body = r.json()
     assert body["status"] == 404
     assert body["path"] == "/does-not-exist"
-    assert "error" in body and "request_id" in body
+    assert "error" in body
+    assert "request_id" in body
