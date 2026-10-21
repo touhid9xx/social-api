@@ -22,14 +22,10 @@ def make_settings(**overrides: Any) -> Settings:
     """
     Build a `Settings` instance isolated from the .env file.
 
-    pydantic-settings accepts `_env_file`, `_env_prefix`, etc. at runtime, but
-    its `BaseSettings.__init__` is typed as `**values: Any`, so Pyright/Pylance
-    flags those keywords as "unknown parameters" — a known typing gap in
-    pydantic-settings. This helper centralizes the call so tests stay clean
-    under Pyright, and mypy still validates the *field* types via the
-    pydantic.mypy plugin.
+    pydantic-settings accepts `_env_file`, `_env_prefix`, etc. at runtime.
+    This helper centralizes the call so tests stay clean under Pyright/Pylance.
     """
-    return Settings(_env_file=None, **overrides)  # type: ignore[call-arg]
+    return Settings(_env_file=None, **overrides)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -38,17 +34,20 @@ def _settings() -> None:
     get_settings.cache_clear()
 
 
+# ---------------------------------------------------------------------------
+# Prometheus global registry hygiene
+# ---------------------------------------------------------------------------
+
+
 def _clear_prometheus_registry() -> None:
     """Clear all prometheus collectors and reset the instrumentator guard."""
     from prometheus_client import REGISTRY
 
-    # Clear all registered collectors (private attr — no public clear API exists)
-    collectors = REGISTRY._names_to_collectors  # type: ignore[attr-defined]
+    collectors = REGISTRY._names_to_collectors
     for name in list(collectors):
         with contextlib.suppress(KeyError):
             REGISTRY.unregister(collectors[name])
 
-    # Reset the "already instrumented?" guard so the next create_app() re-wires.
     with contextlib.suppress(ImportError):
         from social_api.observability.metrics import reset_metrics_for_tests
 

@@ -1,12 +1,15 @@
 # Social API — Modular Monolith Backend
 
-Production-grade social media backend (Facebook-like) — Python 3.12 + FastAPI.
+[![CI](https://github.com/touhid9xx/social-api/actions/workflows/ci.yml/badge.svg)](https://github.com/<YOUR_GH_USER>/<YOUR_REPO>/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
+![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Milestone 0:** Hello-world FastAPI with full infrastructure wired:
-structured logging, PII redaction, request IDs, consistent error shape,
-i18n (en/bn), health probes, Prometheus metrics endpoint, Docker stack
-(MySQL, Redis, Jaeger, Prometheus, Grafana), Alembic stub, CI stub,
-API contract export (`contracts/`).
+Production-grade social media backend (Facebook-like) — Python 3.12 + FastAPI,
+modular monolith, backend-only.
+
+**Status:** M2 — CI hardened, contract drift enforced end-to-end.
 
 ## Quickstart
 
@@ -16,15 +19,10 @@ py -3.12 -m venv venv
 pip install -e ".[dev]"
 
 copy .env.example .env
-# Generate ENCRYPTION_KEY and JWT keys — see M0 chat notes
+# Generate ENCRYPTION_KEY and JWT keys — see docs/setup.md (added M26)
 
-.\scripts\dev-up.ps1          # start docker services
-uvicorn social_api.main:app --reload
+.\scripts\dev-up.ps1                     # docker services
+uvicorn social_api.main:app --reload     # API on :8000
 
-# Visit:
-#   http://localhost:8000/docs
-#   http://localhost:8000/health
-#   http://localhost:8000/health/ready
-#   http://localhost:8000/metrics
-
-python scripts/export_api_contract.py   # regenerate contracts/
+python scripts/export_api_contract.py    # regenerate contracts/
+.\scripts\check_all.ps1                  # mirror CI locally

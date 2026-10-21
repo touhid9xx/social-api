@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     app_name: str = "Social API"
     app_env: Literal["development", "staging", "production"] = "development"
     app_debug: bool = True
-    app_host: str = "0.0.0.0"  # noqa: S104
+    app_host: str = "0.0.0.0"  # noqa: S104  # nosec B104
     app_port: int = 8000
     app_base_url: str = "http://localhost:8000"
     api_v1_prefix: str = "/api/v1"
@@ -45,9 +45,9 @@ class Settings(BaseSettings):
     mysql_host: str = "127.0.0.1"
     mysql_port: int = 3306
     mysql_user: str = "social"
-    mysql_password: str = "socialpass"  # noqa: S105
+    mysql_password: str = "socialpass"  # noqa: S105  # nosec B105
     mysql_db: str = "social"
-    database_url: str = "mysql+asyncmy://social:socialpass@127.0.0.1:3306/social?charset=utf8mb4"
+    database_url: str = "mysql+asyncmy://social:socialpass@127.0.0.1:3307/social?charset=utf8mb4"
 
     # --- Redis ---
     redis_url: str = "redis://127.0.0.1:6379/0"

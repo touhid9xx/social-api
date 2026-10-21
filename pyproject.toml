@@ -169,3 +169,7 @@ omit = [
 show_missing = true
 skip_covered = false
 fail_under = 60  # M0 target; raise to 85 by M2 (M2 checklist item)
+
+[tool.bandit]
+exclude_dirs = ["tests", "alembic", "venv", ".venv", "data", "contracts", "scripts"]
+skips = ["B101", "B104"]   # B101: assert in tests; B104: intentional dev bind 0.0.0.0
