@@ -1,3 +1,5 @@
+# scripts/check_api_contract_drift.py
+
 """
 Fail if committed contracts/openapi.json is out of sync with current code.
 

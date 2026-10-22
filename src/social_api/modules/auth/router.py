@@ -39,7 +39,12 @@ async def register(
     payload: RegisterRequest,
     session: AsyncSession = Depends(get_db),
 ) -> RegisterResponse:
-    return await _service(session).register(email=payload.email, password=payload.password)
+    result = await _service(session).register(email=payload.email, password=payload.password)
+    # Commit BEFORE response is sent — ensures subsequent requests see the row.
+    # (yield dependency teardown runs AFTER response is sent when BaseHTTPMiddleware
+    # is in the stack — SlowAPI + Prometheus are both BaseHTTPMiddleware.)
+    await session.commit()
+    return result
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -50,7 +55,10 @@ async def login(
     payload: LoginRequest,
     session: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
-    return await _service(session).login(email=payload.email, password=payload.password)
+    result = await _service(session).login(email=payload.email, password=payload.password)
+    # Commit last_login_at update before response.
+    await session.commit()
+    return result
 
 
 @router.post("/refresh", response_model=AuthTokens)
@@ -61,7 +69,9 @@ async def refresh(
     payload: RefreshRequest,
     session: AsyncSession = Depends(get_db),
 ) -> AuthTokens:
-    return await _service(session).refresh(refresh_token=payload.refresh_token)
+    result = await _service(session).refresh(refresh_token=payload.refresh_token)
+    await session.commit()
+    return result
 
 
 @router.post(
@@ -74,9 +84,8 @@ async def logout(
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> Response:
-    # CurrentUser already validated access token; blacklist it.
-    access_token = user.raw_token
-    await _service(session).logout(access_token=access_token)
+    await _service(session).logout(access_token=user.raw_token)
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

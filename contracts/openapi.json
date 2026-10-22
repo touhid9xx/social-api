@@ -261,7 +261,7 @@
         "tags": [
           "users"
         ],
-        "summary": "My profile",
+        "summary": "Get Me",
         "operationId": "get_me_api_v1_users_me_get",
         "responses": {
           "200": {
@@ -309,7 +309,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Update my profile",
+        "summary": "Update Me",
         "operationId": "update_me_api_v1_users_me_patch",
         "requestBody": {
           "content": {
@@ -379,7 +379,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Grant consent",
+        "summary": "Grant Consent",
         "operationId": "grant_consent_api_v1_users_me_consent_post",
         "requestBody": {
           "content": {
@@ -469,7 +469,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Public profile",
+        "summary": "Get Profile",
         "operationId": "get_profile_api_v1_users__user_id__get",
         "security": [
           {
@@ -497,6 +497,496 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/follows/{user_id}": {
+      "post": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Follow a user (idempotent)",
+        "operationId": "follow_api_v1_follows__user_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Unfollow a user (idempotent)",
+        "operationId": "unfollow_api_v1_follows__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/followers": {
+      "get": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Followers",
+        "operationId": "followers_api_v1_users__user_id__followers_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowListPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/following": {
+      "get": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Following",
+        "operationId": "following_api_v1_users__user_id__following_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowListPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/follow-status": {
+      "get": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Status Endpoint",
+        "operationId": "status_endpoint_api_v1_users__user_id__follow_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/follow-counts": {
+      "get": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Counts",
+        "operationId": "counts_api_v1_users__user_id__follow_counts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowCounts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/blocks/{user_id}": {
+      "post": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Block",
+        "operationId": "block_api_v1_blocks__user_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Unblock",
+        "operationId": "unblock_api_v1_blocks__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mutes/{user_id}": {
+      "post": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Mute",
+        "operationId": "mute_api_v1_mutes__user_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "follows"
+        ],
+        "summary": "Unmute",
+        "operationId": "unmute_api_v1_mutes__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -647,6 +1137,126 @@
           "hard_delete_after"
         ],
         "title": "DeleteMeResponse"
+      },
+      "FollowCounts": {
+        "properties": {
+          "followers": {
+            "type": "integer",
+            "title": "Followers"
+          },
+          "following": {
+            "type": "integer",
+            "title": "Following"
+          }
+        },
+        "type": "object",
+        "required": [
+          "followers",
+          "following"
+        ],
+        "title": "FollowCounts"
+      },
+      "FollowListPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FollowUserView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "FollowListPage"
+      },
+      "FollowStatus": {
+        "properties": {
+          "is_following": {
+            "type": "boolean",
+            "title": "Is Following"
+          },
+          "is_followed_by": {
+            "type": "boolean",
+            "title": "Is Followed By"
+          },
+          "is_blocked_by_me": {
+            "type": "boolean",
+            "title": "Is Blocked By Me"
+          },
+          "has_blocked_me": {
+            "type": "boolean",
+            "title": "Has Blocked Me"
+          },
+          "is_muted_by_me": {
+            "type": "boolean",
+            "title": "Is Muted By Me"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_following",
+          "is_followed_by",
+          "is_blocked_by_me",
+          "has_blocked_me",
+          "is_muted_by_me"
+        ],
+        "title": "FollowStatus"
+      },
+      "FollowUserView": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "followed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Followed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "followed_at"
+        ],
+        "title": "FollowUserView",
+        "description": "One entry in a followers/following list. PII-free."
       },
       "HTTPValidationError": {
         "properties": {

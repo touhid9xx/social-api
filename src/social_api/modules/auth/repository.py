@@ -1,3 +1,4 @@
+# modules/auth/repository.py
 """User repository — ORM-only, returns domain objects (User)."""
 
 from __future__ import annotations

@@ -124,9 +124,7 @@ class UserConsent(Base):
     __tablename__ = "user_consent"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     channel: Mapped[ConsentChannel] = mapped_column(
         consent_channel_enum,
         nullable=False,
@@ -152,7 +150,4 @@ class UserConsent(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<UserConsent id={self.id} channel={self.channel.value} "
-            f"granted={self.granted}>"
-        )
+        return f"<UserConsent id={self.id} channel={self.channel.value} granted={self.granted}>"

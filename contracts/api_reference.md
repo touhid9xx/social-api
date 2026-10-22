@@ -105,6 +105,156 @@ Base URL: `/`
 
 ---
 
+### `DELETE` /api/v1/blocks/{user_id}
+
+**Summary:** Unblock
+
+**Tags:** follows
+
+**operationId:** `unblock_api_v1_blocks__user_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/blocks/{user_id}
+
+**Summary:** Block
+
+**Tags:** follows
+
+**operationId:** `block_api_v1_blocks__user_id__post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `DELETE` /api/v1/follows/{user_id}
+
+**Summary:** Unfollow a user (idempotent)
+
+**Tags:** follows
+
+**operationId:** `unfollow_api_v1_follows__user_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/follows/{user_id}
+
+**Summary:** Follow a user (idempotent)
+
+**Tags:** follows
+
+**operationId:** `follow_api_v1_follows__user_id__post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `DELETE` /api/v1/mutes/{user_id}
+
+**Summary:** Unmute
+
+**Tags:** follows
+
+**operationId:** `unmute_api_v1_mutes__user_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/mutes/{user_id}
+
+**Summary:** Mute
+
+**Tags:** follows
+
+**operationId:** `mute_api_v1_mutes__user_id__post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/users/me
 
 **Summary:** Delete Me
@@ -124,7 +274,7 @@ Base URL: `/`
 
 ### `GET` /api/v1/users/me
 
-**Summary:** My profile
+**Summary:** Get Me
 
 **Tags:** users
 
@@ -141,7 +291,7 @@ Base URL: `/`
 
 ### `PATCH` /api/v1/users/me
 
-**Summary:** Update my profile
+**Summary:** Update Me
 
 **Tags:** users
 
@@ -181,7 +331,7 @@ Base URL: `/`
 
 ### `POST` /api/v1/users/me/consent
 
-**Summary:** Grant consent
+**Summary:** Grant Consent
 
 **Tags:** users
 
@@ -229,7 +379,7 @@ Base URL: `/`
 
 ### `GET` /api/v1/users/{user_id}
 
-**Summary:** Public profile
+**Summary:** Get Profile
 
 **Tags:** users
 
@@ -243,6 +393,110 @@ Base URL: `/`
 | Name | In | Required | Schema |
 |---|---|---|---|
 | user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/users/{user_id}/follow-counts
+
+**Summary:** Counts
+
+**Tags:** follows
+
+**operationId:** `counts_api_v1_users__user_id__follow_counts_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/users/{user_id}/follow-status
+
+**Summary:** Status Endpoint
+
+**Tags:** follows
+
+**operationId:** `status_endpoint_api_v1_users__user_id__follow_status_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/users/{user_id}/followers
+
+**Summary:** Followers
+
+**Tags:** follows
+
+**operationId:** `followers_api_v1_users__user_id__followers_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/users/{user_id}/following
+
+**Summary:** Following
+
+**Tags:** follows
+
+**operationId:** `following_api_v1_users__user_id__following_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
 
 
 **Responses:**

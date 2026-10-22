@@ -28,6 +28,31 @@ export interface DeleteMeResponse {
   hard_delete_after: string;
 }
 
+export interface FollowCounts {
+  followers: number;
+  following: number;
+}
+
+export interface FollowListPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
+export interface FollowStatus {
+  is_following: boolean;
+  is_followed_by: boolean;
+  is_blocked_by_me: boolean;
+  has_blocked_me: boolean;
+  is_muted_by_me: boolean;
+}
+
+export interface FollowUserView {
+  user_id: number;
+  display_name?: unknown;
+  avatar_url?: unknown;
+  followed_at: string;
+}
+
 export interface HTTPValidationError {
   detail?: unknown[];
 }

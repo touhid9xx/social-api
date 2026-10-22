@@ -80,7 +80,13 @@ class UsersService:
             p = await self._profiles.create_default(user_id)
         return p
 
-    # ---- Read ----
+    # ---- Read (self) ----
+    async def get_self_profile(self, *, user_id: int) -> ProfileSelf:
+        """Return the caller's own profile (ensures a default row exists)."""
+        profile = await self._ensure_profile(user_id)
+        return _to_self(profile)
+
+    # ---- Read (public) ----
     async def get_public_profile(
         self, *, target_user_id: int, viewer_id: int | None
     ) -> ProfilePublic:
@@ -88,18 +94,20 @@ class UsersService:
         if profile is None:
             raise ProfileNotFoundError()
 
-        # Visibility enforcement (basic — full followers graph check in M6).
-        if profile.visibility == Visibility.PRIVATE and viewer_id != target_user_id:
+        if viewer_id == target_user_id:
+            return _to_public(profile)
+
+        if profile.visibility == Visibility.PRIVATE:
             raise ProfileVisibilityError()
-        if profile.visibility == Visibility.FOLLOWERS and viewer_id != target_user_id:
-            # M6 will implement: allow if viewer follows target.
+
+        if profile.visibility == Visibility.FOLLOWERS:
+            if viewer_id is None:
+                raise ProfileVisibilityError()
+            # TODO(M6): real follows-graph check
+            # Placeholder until FollowsService lands in M6.
             raise ProfileVisibilityError()
 
         return _to_public(profile)
-
-    async def get_self_profile(self, *, user_id: int) -> ProfileSelf:
-        profile = await self._ensure_profile(user_id)
-        return _to_self(profile)
 
     # ---- Update ----
     async def update_profile(

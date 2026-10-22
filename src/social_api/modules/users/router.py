@@ -25,25 +25,28 @@ def _svc(session: AsyncSession) -> UsersService:
     return UsersService(session)
 
 
-# ---- /me routes FIRST (avoid conflict with /{user_id}) ----
-@router.get("/me", response_model=ProfileSelf, summary="My profile")
+@router.get("/me", response_model=ProfileSelf)
 async def get_me(
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProfileSelf:
-    return await _svc(session).get_self_profile(user_id=user.user.id)
+    result = await _svc(session).get_self_profile(user_id=user.user.id)
+    await session.commit()  # get_self_profile may create default profile
+    return result
 
 
-@router.patch("/me", response_model=ProfileSelf, summary="Update my profile")
+@router.patch("/me", response_model=ProfileSelf)
 async def update_me(
     payload: ProfileUpdate,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProfileSelf:
-    return await _svc(session).update_profile(user_id=user.user.id, payload=payload)
+    result = await _svc(session).update_profile(user_id=user.user.id, payload=payload)
+    await session.commit()
+    return result
 
 
-@router.post("/me/consent", status_code=201, summary="Grant consent")
+@router.post("/me/consent", status_code=201)
 async def grant_consent(
     payload: ConsentGrantRequest,
     request: Request,
@@ -58,6 +61,7 @@ async def grant_consent(
         ip=client_ip,
         user_agent=user_agent,
     )
+    await session.commit()
     return {"message": "Consent recorded"}
 
 
@@ -72,6 +76,7 @@ async def revoke_consent(
     session: AsyncSession = Depends(get_db),
 ) -> Response:
     await _svc(session).revoke_consent(user_id=user.user.id, channel=channel)
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -89,11 +94,12 @@ async def delete_me(
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> DeleteMeResponse:
-    return await _svc(session).soft_delete_me(user_id=user.user.id)
+    result = await _svc(session).soft_delete_me(user_id=user.user.id)
+    await session.commit()
+    return result
 
 
-# ---- /{user_id} AFTER /me ----
-@router.get("/{user_id}", response_model=ProfilePublic, summary="Public profile")
+@router.get("/{user_id}", response_model=ProfilePublic)
 async def get_profile(
     user_id: int,
     viewer: CurrentUser = Depends(get_current_user),

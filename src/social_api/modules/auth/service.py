@@ -70,9 +70,13 @@ class AuthService:
         pwd_hash = hash_password(password)
         user = await self._repo.create(email=email, password_hash=pwd_hash)
 
-        # M4: verification email comes in M10 via Celery; we just log the intent.
-        logger.info("user_registered", user_id=user.id, role=user.role.value)
+        # Eagerly create profile (so /me never 404s on first call)
+        from social_api.modules.users.service import UsersService
 
+        users_svc = UsersService(self._repo._s)
+        await users_svc.get_self_profile(user_id=user.id)
+
+        logger.info("user_registered", user_id=user.id, role=user.role.value)
         return RegisterResponse(
             user=_to_public(user),
             message="Registration successful, please verify your email",
