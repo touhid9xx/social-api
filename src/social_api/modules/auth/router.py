@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.core.rate_limit import _key_by_ip, limiter
@@ -36,6 +35,7 @@ def _service(session: AsyncSession) -> AuthService:
 @limiter.limit("5/minute", key_func=_key_by_ip)
 async def register(
     request: Request,
+    response: Response,
     payload: RegisterRequest,
     session: AsyncSession = Depends(get_db),
 ) -> RegisterResponse:
@@ -46,6 +46,7 @@ async def register(
 @limiter.limit("5/minute", key_func=_key_by_ip)
 async def login(
     request: Request,
+    response: Response,
     payload: LoginRequest,
     session: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
@@ -56,6 +57,7 @@ async def login(
 @limiter.limit("30/minute", key_func=_key_by_ip)
 async def refresh(
     request: Request,
+    response: Response,
     payload: RefreshRequest,
     session: AsyncSession = Depends(get_db),
 ) -> AuthTokens:

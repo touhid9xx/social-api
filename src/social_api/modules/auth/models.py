@@ -1,3 +1,4 @@
+# modules/auth/models.py
 """User model — M4 baseline."""
 
 from __future__ import annotations

@@ -8,6 +8,26 @@ export interface AuthTokens {
   expires_in: number;
 }
 
+export interface ConsentGrantRequest {
+  channel: string;
+}
+
+export interface ConsentList {
+  consents: unknown[];
+}
+
+export interface ConsentRecord {
+  channel: string;
+  granted: boolean;
+  granted_at: unknown;
+  revoked_at: unknown;
+}
+
+export interface DeleteMeResponse {
+  message: string;
+  hard_delete_after: string;
+}
+
 export interface HTTPValidationError {
   detail?: unknown[];
 }
@@ -20,6 +40,47 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: unknown;
   tokens: unknown;
+}
+
+export interface ProfilePublic {
+  user_id: number;
+  display_name?: unknown;
+  bio?: unknown;
+  avatar_url?: unknown;
+  location?: unknown;
+  website?: unknown;
+  visibility: string;
+}
+
+export interface ProfileSelf {
+  user_id: number;
+  display_name?: unknown;
+  bio?: unknown;
+  avatar_url?: unknown;
+  location?: unknown;
+  website?: unknown;
+  visibility: string;
+  pii_visibility: string;
+  dob?: unknown;
+  phone?: unknown;
+  address?: unknown;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfileUpdate {
+  display_name?: unknown;
+  bio?: unknown;
+  avatar_url?: unknown;
+  location?: unknown;
+  website?: unknown;
+  visibility?: unknown;
+  pii_visibility?: unknown;
+  dob?: unknown;
+  phone?: unknown;
+  address?: unknown;
+  version: number;
 }
 
 export interface RefreshRequest {
