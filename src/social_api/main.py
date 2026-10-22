@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from social_api import __version__
 from social_api.cache.redis import close_redis, init_redis
@@ -62,6 +64,12 @@ def create_app() -> FastAPI:
     )
 
     register_middleware(app)
+    from social_api.core.rate_limit import limiter, rate_limit_error_handler
+
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_error_handler)  # type: ignore[arg-type]
+
     register_exception_handlers(app)
     setup_tracing(app)
     setup_metrics(app)

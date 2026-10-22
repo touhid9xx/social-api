@@ -1,11 +1,10 @@
-"""API v1 aggregate router. Grows with each milestone."""
+"""API v1 aggregate router."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-api_router = APIRouter()
+from social_api.api.v1 import auth
 
-# Milestones will add: auth, users, posts, comments, likes, follows,
-# feed, media, notifications, chat, presence, moderation, audit, gdpr,
-# admin, ws.
+api_router = APIRouter()
+api_router.include_router(auth.router)

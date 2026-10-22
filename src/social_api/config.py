@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     mysql_host: str = "127.0.0.1"
     mysql_port: int = 3306
     mysql_user: str = "social"
-    mysql_password: str = "socialpass"  # noqa: S105
+    mysql_password: str = "socialpass"
     mysql_db: str = "social"
     database_url: str = "mysql+asyncmy://social:socialpass@127.0.0.1:3307/social?charset=utf8mb4"
 

@@ -9,6 +9,7 @@ Strategy:
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
@@ -93,3 +94,14 @@ def fake_redis(monkeypatch: pytest.MonkeyPatch) -> Any:
     yield fake
     # cleanup
     monkeypatch.setattr(redis_mod, "_client", None, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _disable_rate_limit() -> Any:
+    os.environ["RATE_LIMIT_ENABLED"] = "false"
+    from social_api.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    os.environ.pop("RATE_LIMIT_ENABLED", None)
+    get_settings.cache_clear()

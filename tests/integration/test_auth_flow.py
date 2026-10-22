@@ -1,0 +1,95 @@
+"""End-to-end auth flow against testcontainers MySQL + fakeredis."""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from social_api.main import create_app
+
+pytestmark = [pytest.mark.integration]
+
+
+@pytest.fixture
+async def auth_client(
+    use_testcontainers_db: str,
+    fake_redis: object,
+) -> AsyncIterator[AsyncClient]:
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            yield c
+
+
+async def test_register_login_me_logout_flow(auth_client: AsyncClient) -> None:
+    email = "alice@example.com"
+    password = "Str0ng!Passw0rd"
+
+    # 1. Register
+    r = await auth_client.post("/api/v1/auth/register", json={"email": email, "password": password})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["user"]["role"] == "user"
+    # No PII in response
+    assert "email" not in body["user"]
+    assert "password" not in body["user"]
+
+    # 2. Duplicate register -> 409
+    r = await auth_client.post("/api/v1/auth/register", json={"email": email, "password": password})
+    assert r.status_code == 409
+    assert r.json()["error"] == "EMAIL_ALREADY_REGISTERED"
+
+    # 3. Login wrong password -> 401
+    r = await auth_client.post(
+        "/api/v1/auth/login", json={"email": email, "password": "Wrong!12345678"}
+    )
+    assert r.status_code == 401
+    assert r.json()["error"] == "INVALID_CREDENTIALS"
+
+    # 4. Login correct -> tokens
+    r = await auth_client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    tokens = r.json()["tokens"]
+    access = tokens["access_token"]
+    refresh = tokens["refresh_token"]
+    assert tokens["token_type"] == "Bearer"
+
+    # 5. /me works with access
+    r = await auth_client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {access}"})
+    assert r.status_code == 200
+    assert r.json()["role"] == "user"
+
+    # 6. Refresh rotates tokens
+    r = await auth_client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
+    assert r.status_code == 200, r.text
+    new_tokens = r.json()
+    assert new_tokens["refresh_token"] != refresh
+
+    # 7. Old refresh rejected now
+    r = await auth_client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
+    assert r.status_code == 401
+    assert r.json()["error"] in {"TOKEN_REVOKED", "INVALID_TOKEN"}
+
+    # 8. Logout blacklists access
+    r = await auth_client.post("/api/v1/auth/logout", headers={"Authorization": f"Bearer {access}"})
+    assert r.status_code == 204
+
+    # 9. /me with logged-out access -> 401
+    r = await auth_client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {access}"})
+    assert r.status_code == 401
+
+
+async def test_weak_password_rejected(auth_client: AsyncClient) -> None:
+    r = await auth_client.post(
+        "/api/v1/auth/register", json={"email": "x@y.com", "password": "short"}
+    )
+    assert r.status_code == 422
+    assert r.json()["error"] == "VALIDATION_ERROR"
+
+
+async def test_me_without_token(auth_client: AsyncClient) -> None:
+    r = await auth_client.get("/api/v1/auth/me")
+    assert r.status_code == 401
