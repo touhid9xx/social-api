@@ -1,17 +1,36 @@
-"""Health endpoints (liveness + readiness)."""
+"""Health endpoints (liveness + readiness + per-dependency probes)."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from social_api.cache.redis import ping_redis
 from social_api.config import get_settings
+from social_api.db.session import ping_db
 from social_api.logging_config import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["health"])
+
+_Status = Literal["ok", "degraded", "down"]
+
+
+def _check_payload(
+    *,
+    ok: bool,
+    latency_ms: float,
+    error: str | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "status": "ok" if ok else "down",
+        "latency_ms": latency_ms,
+    }
+    if error is not None:
+        payload["error"] = error
+    return payload
 
 
 @router.get("/health", summary="Liveness probe")
@@ -26,22 +45,55 @@ async def health() -> dict[str, Any]:
     }
 
 
-@router.get("/health/ready", summary="Readiness probe")
+@router.get("/health/db", summary="Database readiness probe")
+async def health_db() -> JSONResponse:
+    ok, latency_ms, error = await ping_db()
+    body = _check_payload(ok=ok, latency_ms=latency_ms, error=error)
+    return JSONResponse(status_code=200 if ok else 503, content=body)
+
+
+@router.get("/health/redis", summary="Redis readiness probe")
+async def health_redis() -> JSONResponse:
+    ok, latency_ms, error = await ping_redis()
+    body = _check_payload(ok=ok, latency_ms=latency_ms, error=error)
+    return JSONResponse(status_code=200 if ok else 503, content=body)
+
+
+@router.get("/health/ready", summary="Readiness probe (aggregate)")
 async def readiness() -> JSONResponse:
     """
-    Returns 200 only if dependencies are OK.
-    M0: DB/Redis not wired yet -> report them as 'not_configured'.
-    Later milestones fill them in.
+    Aggregate readiness across dependencies.
+
+    Overall status:
+      - "ready"       : all OK
+      - "degraded"    : some OK, some down (e.g. Redis down but DB up)
+      - "not_ready"   : critical dep down (DB)
+    HTTP status:
+      - 200 when ready or degraded (Redis down shouldn't block startup)
+      - 503 when DB is down (hard dependency)
     """
-    checks: dict[str, dict[str, Any]] = {
-        "db": {"status": "not_configured"},
-        "redis": {"status": "not_configured"},
-        "celery": {"status": "not_configured"},
-    }
-    # All 'not_configured' is OK for M0 (no deps used yet)
-    ready = all(c["status"] in {"ok", "not_configured"} for c in checks.values())
-    status_code = 200 if ready else 503
+    db_ok, db_latency, db_err = await ping_db()
+    redis_ok, redis_latency, redis_err = await ping_redis()
+
+    db_payload = _check_payload(ok=db_ok, latency_ms=db_latency, error=db_err)
+    redis_payload = _check_payload(ok=redis_ok, latency_ms=redis_latency, error=redis_err)
+
+    checks = {"db": db_payload, "redis": redis_payload}
+
+    if db_ok and redis_ok:
+        overall: _Status = "ok"
+        http_status = 200
+        label = "ready"
+    elif db_ok and not redis_ok:
+        overall = "degraded"
+        http_status = 200  # let app serve reads without cache
+        label = "degraded"
+    else:
+        overall = "down"
+        http_status = 503
+        label = "not_ready"
+
     return JSONResponse(
-        status_code=status_code,
-        content={"status": "ready" if ready else "not_ready", "checks": checks},
+        status_code=http_status,
+        content={"status": label, "overall": overall, "checks": checks},
     )

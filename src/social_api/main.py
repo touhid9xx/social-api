@@ -10,7 +10,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from social_api import __version__
+from social_api.cache.redis import close_redis, init_redis
 from social_api.config import get_settings
+from social_api.db.session import dispose_engine, init_engine
 from social_api.exceptions import register_exception_handlers
 from social_api.i18n import t
 from social_api.logging_config import configure_logging, get_logger
@@ -32,9 +34,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         version=__version__,
         env=settings.app_env,
     )
+
+    # Wire infrastructure
+    init_engine()
+    init_redis()
+
     try:
         yield
     finally:
+        await close_redis()
+        await dispose_engine()
         logger.info("app_shutdown", service=settings.app_name)
 
 
@@ -52,17 +61,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Middleware (outermost last)
     register_middleware(app)
-
-    # Exception handlers
     register_exception_handlers(app)
-
-    # Observability
     setup_tracing(app)
     setup_metrics(app)
 
-    # Root + health
     @app.get("/", include_in_schema=False)
     async def root() -> dict[str, Any]:
         return {
@@ -75,12 +78,10 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
 
-    # API v1 aggregate router (empty for now; grows every milestone)
     from social_api.api.v1 import api_router
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-    # Localized welcome example (proves i18n works end-to-end)
     @app.get("/_i18n_demo", include_in_schema=False)
     async def i18n_demo(request: Request) -> JSONResponse:
         locale = request.headers.get("Accept-Language")

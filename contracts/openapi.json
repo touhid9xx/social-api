@@ -30,13 +30,51 @@
         }
       }
     },
+    "/health/db": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Database readiness probe",
+        "operationId": "health_db_health_db_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/redis": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Redis readiness probe",
+        "operationId": "health_redis_health_redis_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/health/ready": {
       "get": {
         "tags": [
           "health"
         ],
-        "summary": "Readiness probe",
-        "description": "Returns 200 only if dependencies are OK.\nM0: DB/Redis not wired yet -> report them as 'not_configured'.\nLater milestones fill them in.",
+        "summary": "Readiness probe (aggregate)",
+        "description": "Aggregate readiness across dependencies.\n\nOverall status:\n  - \"ready\"       : all OK\n  - \"degraded\"    : some OK, some down (e.g. Redis down but DB up)\n  - \"not_ready\"   : critical dep down (DB)\nHTTP status:\n  - 200 when ready or degraded (Redis down shouldn't block startup)\n  - 503 when DB is down (hard dependency)",
         "operationId": "readiness_health_ready_get",
         "responses": {
           "200": {

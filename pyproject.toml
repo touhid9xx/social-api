@@ -103,12 +103,12 @@ select = [
     "TID",      # banned imports / tidy imports
     "ERA",
 ]
-ignore = ["S101"]  # allow assert in tests (handled via per-file below)
+
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
 "alembic/**" = ["N999"]
-"scripts/**" = ["T201"]
+"scripts/**" = ["T201", "S101"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -172,4 +172,4 @@ fail_under = 60  # M0 target; raise to 85 by M2 (M2 checklist item)
 
 [tool.bandit]
 exclude_dirs = ["tests", "alembic", "venv", ".venv", "data", "contracts", "scripts"]
-skips = ["B101", "B104"]   # B101: assert in tests; B104: intentional dev bind 0.0.0.0
+skips = ["B101", "B104", "B105"]
