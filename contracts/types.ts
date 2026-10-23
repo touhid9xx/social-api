@@ -8,6 +8,36 @@ export interface AuthTokens {
   expires_in: number;
 }
 
+export interface CommentCreate {
+  body: string;
+  parent_id?: unknown;
+}
+
+export interface CommentPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
+export interface CommentUpdate {
+  body: string;
+  version: number;
+}
+
+export interface CommentView {
+  id: number;
+  post_id: number;
+  author_id: number;
+  parent_id: unknown;
+  depth: number;
+  body: string;
+  like_count: number;
+  created_at: string;
+  updated_at: string;
+  is_liked_by_me?: boolean;
+  is_edited?: boolean;
+  replies?: unknown[];
+}
+
 export interface ConsentGrantRequest {
   channel: string;
 }
@@ -57,6 +87,17 @@ export interface HTTPValidationError {
   detail?: unknown[];
 }
 
+export interface LikeUser {
+  user_id: number;
+  display_name?: unknown;
+  avatar_url?: unknown;
+}
+
+export interface LikeUserPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -65,6 +106,36 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: unknown;
   tokens: unknown;
+}
+
+export interface PostCreate {
+  body: string;
+  visibility?: string;
+}
+
+export interface PostPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
+export interface PostUpdate {
+  body?: unknown;
+  visibility?: unknown;
+  version: number;
+}
+
+export interface PostView {
+  id: number;
+  author_id: number;
+  body: string;
+  visibility: string;
+  like_count: number;
+  comment_count: number;
+  media_count: number;
+  created_at: string;
+  updated_at: string;
+  is_liked_by_me?: boolean;
+  is_edited?: boolean;
 }
 
 export interface ProfilePublic {

@@ -155,6 +155,61 @@ Base URL: `/`
 
 ---
 
+### `DELETE` /api/v1/comments/{comment_id}
+
+**Summary:** Delete Comment
+
+**Tags:** comments
+
+**operationId:** `delete_comment_api_v1_comments__comment_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| comment_id | path | True | `{"type": "integer", "title": "Comment Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `PATCH` /api/v1/comments/{comment_id}
+
+**Summary:** Update Comment
+
+**Tags:** comments
+
+**operationId:** `update_comment_api_v1_comments__comment_id__patch`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| comment_id | path | True | `{"type": "integer", "title": "Comment Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/CommentUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/follows/{user_id}
 
 **Summary:** Unfollow a user (idempotent)
@@ -205,6 +260,86 @@ Base URL: `/`
 
 ---
 
+### `DELETE` /api/v1/likes/{target_type}/{target_id}
+
+**Summary:** Unlike
+
+**Tags:** likes
+
+**operationId:** `unlike_api_v1_likes__target_type___target_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| target_type | path | True | `{"type": "string", "title": "Target Type"}` |
+| target_id | path | True | `{"type": "integer", "title": "Target Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/likes/{target_type}/{target_id}
+
+**Summary:** Like
+
+**Tags:** likes
+
+**operationId:** `like_api_v1_likes__target_type___target_id__post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| target_type | path | True | `{"type": "string", "title": "Target Type"}` |
+| target_id | path | True | `{"type": "integer", "title": "Target Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/likes/{target_type}/{target_id}/users
+
+**Summary:** List Likers
+
+**Tags:** likes
+
+**operationId:** `list_likers_api_v1_likes__target_type___target_id__users_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| target_type | path | True | `{"type": "string", "title": "Target Type"}` |
+| target_id | path | True | `{"type": "integer", "title": "Target Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/mutes/{user_id}
 
 **Summary:** Unmute
@@ -251,6 +386,193 @@ Base URL: `/`
 **Responses:**
 
 - `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/posts
+
+**Summary:** Create Post
+
+**Tags:** posts
+
+**operationId:** `create_post_api_v1_posts_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/PostCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/posts/by-author/{author_id}
+
+**Summary:** List By Author
+
+**Tags:** posts
+
+**operationId:** `list_by_author_api_v1_posts_by_author__author_id__get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| author_id | path | True | `{"type": "integer", "title": "Author Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `DELETE` /api/v1/posts/{post_id}
+
+**Summary:** Delete Post
+
+**Tags:** posts
+
+**operationId:** `delete_post_api_v1_posts__post_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/posts/{post_id}
+
+**Summary:** Get Post
+
+**Tags:** posts
+
+**operationId:** `get_post_api_v1_posts__post_id__get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `PATCH` /api/v1/posts/{post_id}
+
+**Summary:** Update Post
+
+**Tags:** posts
+
+**operationId:** `update_post_api_v1_posts__post_id__patch`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/PostUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/posts/{post_id}/comments
+
+**Summary:** List Comments
+
+**Tags:** comments
+
+**operationId:** `list_comments_api_v1_posts__post_id__comments_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/posts/{post_id}/comments
+
+**Summary:** Create Comment
+
+**Tags:** comments
+
+**operationId:** `create_comment_api_v1_posts__post_id__comments_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/CommentCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
 - `422` — Validation Error
 
 ---

@@ -27,8 +27,8 @@ class _FakeFollowsRepo:
         return (a, b) in self.blocks or (b, a) in self.blocks
 
     async def follow(self, *, follower_id: int, followee_id: int) -> None:
-        if (follower_id, followee_id) in self.follows:
-            raise Exception("duplicate")
+        # Real repo uses MySQL INSERT IGNORE — idempotent, no exception
+        # on duplicate. `set.add()` naturally matches that behavior.
         self.follows.add((follower_id, followee_id))
 
     async def unfollow(self, *, follower_id: int, followee_id: int) -> bool:
@@ -69,7 +69,7 @@ async def test_double_follow_is_idempotent() -> None:
     svc._users = _FakeUsersRepo()  # type: ignore[assignment]
 
     await svc.follow(follower_id=1, followee_id=2)
-    # Second follow — should not raise
+    # Second follow — should not raise (INSERT IGNORE is idempotent).
     await svc.follow(follower_id=1, followee_id=2)
     assert repo.follows == {(1, 2)}
 
