@@ -102,6 +102,20 @@ def create_app() -> FastAPI:
             }
         )
 
+    # Static media (local backend only)
+    if get_settings().app_env in {"development", "staging"}:
+        from pathlib import Path
+
+        from fastapi.staticfiles import StaticFiles
+
+        media_dir = Path(get_settings().media_root)
+        media_dir.mkdir(parents=True, exist_ok=True)
+        app.mount(
+            "/static/media",
+            StaticFiles(directory=str(media_dir)),
+            name="static-media",
+        )
+
     return app
 
 

@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     media_max_video_bytes: int = 100 * 1024 * 1024
     skip_virus_scan: bool = True
 
+    media_backend: str = "local"
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+
     # --- Email ---
     smtp_host: str = "127.0.0.1"
     smtp_port: int = 1025

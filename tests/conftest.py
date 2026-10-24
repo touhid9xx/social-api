@@ -21,6 +21,7 @@ from httpx import ASGITransport, AsyncClient
 from social_api.cache import redis as redis_mod
 from social_api.config import get_settings
 from social_api.main import create_app
+from social_api.media.storage import StoredObject
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -105,3 +106,33 @@ def _disable_rate_limit() -> Any:
     yield
     os.environ.pop("RATE_LIMIT_ENABLED", None)
     get_settings.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# Fake storage backend for tests
+# ---------------------------------------------------------------------------
+class InMemoryStorage:
+    """In-memory StorageBackend for fast tests."""
+
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.content_types: dict[str, str] = {}
+
+    async def put(self, *, key: str, data: bytes, content_type: str) -> StoredObject:
+        from social_api.media.storage import StoredObject
+
+        self.objects[key] = data
+        self.content_types[key] = content_type
+        return StoredObject(key=key, size_bytes=len(data), url=f"mem://{key}")
+
+    async def delete(self, *, key: str) -> None:
+        self.objects.pop(key, None)
+        self.content_types.pop(key, None)
+
+    async def url_for(self, *, key: str) -> str:
+        return f"mem://{key}"
+
+
+@pytest.fixture
+def mem_storage() -> InMemoryStorage:
+    return InMemoryStorage()

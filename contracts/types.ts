@@ -8,6 +8,10 @@ export interface AuthTokens {
   expires_in: number;
 }
 
+export interface Body_upload_media_api_v1_media_post {
+  file: string;
+}
+
 export interface CommentCreate {
   body: string;
   parent_id?: unknown;
@@ -106,6 +110,17 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: unknown;
   tokens: unknown;
+}
+
+export interface MediaView {
+  id: number;
+  owner_id: number;
+  post_id: unknown;
+  kind: string;
+  mime: string;
+  size_bytes: number;
+  url: string;
+  created_at: string;
 }
 
 export interface PostCreate {

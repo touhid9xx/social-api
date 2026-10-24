@@ -340,6 +340,105 @@ Base URL: `/`
 
 ---
 
+### `POST` /api/v1/media
+
+**Summary:** Upload Media
+
+**Tags:** media
+
+**operationId:** `upload_media_api_v1_media_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Request Body:**
+
+- `multipart/form-data` -> `#/components/schemas/Body_upload_media_api_v1_media_post`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `DELETE` /api/v1/media/{media_id}
+
+**Summary:** Delete Media
+
+**Tags:** media
+
+**operationId:** `delete_media_api_v1_media__media_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| media_id | path | True | `{"type": "integer", "title": "Media Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/media/{media_id}
+
+**Summary:** Get Media
+
+**Tags:** media
+
+**operationId:** `get_media_api_v1_media__media_id__get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| media_id | path | True | `{"type": "integer", "title": "Media Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/media/{media_id}/attach/{post_id}
+
+**Summary:** Attach To Post
+
+**Tags:** media
+
+**operationId:** `attach_to_post_api_v1_media__media_id__attach__post_id__post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| media_id | path | True | `{"type": "integer", "title": "Media Id"}` |
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/mutes/{user_id}
 
 **Summary:** Unmute
