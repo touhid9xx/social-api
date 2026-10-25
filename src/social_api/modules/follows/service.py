@@ -72,6 +72,19 @@ class FollowsService:
         if target is None:
             raise FollowTargetNotFoundError()
 
+    async def _invalidate_feed_best_effort(self, *, follower_id: int, reason: str) -> None:
+        """Best-effort cache invalidation — never fails the caller."""
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            await FeedService(self._s).invalidate_for_follow_change(follower_id=follower_id)
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning(
+                "feed_invalidate_failed",
+                follower_id=follower_id,
+                error=type(exc).__name__,
+            )
+
     async def follow(self, *, follower_id: int, followee_id: int) -> None:
         if follower_id == followee_id:
             raise CannotFollowSelfError()
@@ -84,14 +97,17 @@ class FollowsService:
         await self._repo.follow(follower_id=follower_id, followee_id=followee_id)
         logger.info("user_followed", follower_id=follower_id, followee_id=followee_id)
 
+        await self._invalidate_feed_best_effort(follower_id=follower_id, reason="follow")
+
     async def unfollow(self, *, follower_id: int, followee_id: int) -> None:
         removed = await self._repo.unfollow(follower_id=follower_id, followee_id=followee_id)
-        logger.info(
-            "unfollow_attempt",
-            follower_id=follower_id,
-            followee_id=followee_id,
-            removed=removed,
-        )
+        if removed:
+            logger.info(
+                "user_unfollowed",
+                follower_id=follower_id,
+                followee_id=followee_id,
+            )
+            await self._invalidate_feed_best_effort(follower_id=follower_id, reason="unfollow")
 
     async def list_followers(
         self, *, user_id: int, cursor: str | None, limit: int | None
@@ -163,6 +179,20 @@ class FollowsService:
             blocked_id=blocked_id,
             follows_removed=removed,
         )
+
+        # Best-effort cache invalidation for both parties
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            fs = FeedService(self._s)
+            await fs.invalidate_for_block(a_id=blocker_id, b_id=blocked_id)
+        except Exception:
+            logger.warning(
+                "feed_invalidate_failed",
+                blocker_id=blocker_id,
+                blocked_id=blocked_id,
+                reason="block",
+            )
 
     async def unblock(self, *, blocker_id: int, blocked_id: int) -> None:
         await self._repo.unblock(blocker_id=blocker_id, blocked_id=blocked_id)

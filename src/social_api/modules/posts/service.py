@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,7 @@ from social_api.modules.posts.schemas import (
     PostUpdate,
     PostView,
 )
+from social_api.modules.users.exceptions import OptimisticLockError
 from social_api.modules.users.models import Visibility
 
 logger = get_logger(__name__)
@@ -83,7 +84,27 @@ class PostsService:
         post = await self._repo.create(
             author_id=author_id, body=payload.body, visibility=payload.visibility
         )
-        logger.info("post_created", post_id=post.id, author_id=author_id)
+
+        # Invalidate home feed cache for author + followers
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            await FeedService(self._s).invalidate_for_new_post(author_id=post.author_id)
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning("feed_invalidate_failed", post_id=post.id, error=type(exc).__name__)
+
+        # metrics
+        try:
+            from social_api.observability.metrics import posts_created_total
+
+            posts_created_total.inc()
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.debug(
+                "metric_inc_failed",
+                metric="posts_created_total",
+                error=type(exc).__name__,
+            )
+
         return _to_view(post)
 
     # ---- Get ----
@@ -107,8 +128,6 @@ class PostsService:
         if post.author_id != viewer_id:
             raise PostForbiddenError()
         if post.version != payload.version:
-            from social_api.modules.users.exceptions import OptimisticLockError
-
             raise OptimisticLockError(
                 detail={
                     "current_version": post.version,
@@ -137,10 +156,17 @@ class PostsService:
         if not (is_owner or is_staff):
             raise ForbiddenError()
 
-        from datetime import UTC
-
         post.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await self._repo.save(post)
+
+        # Invalidate home feed cache for author + followers
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            await FeedService(self._s).invalidate_for_new_post(author_id=post.author_id)
+        except Exception:
+            logger.warning("feed_invalidate_failed", post_id=post.id)
+
         logger.info(
             "post_deleted",
             post_id=post.id,

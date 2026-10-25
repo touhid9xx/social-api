@@ -210,6 +210,32 @@ Base URL: `/`
 
 ---
 
+### `GET` /api/v1/feed/home
+
+**Summary:** Home Feed
+
+**Tags:** feed
+
+**operationId:** `home_feed_api_v1_feed_home_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 50, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/follows/{user_id}
 
 **Summary:** Unfollow a user (idempotent)

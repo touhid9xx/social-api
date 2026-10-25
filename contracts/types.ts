@@ -91,6 +91,12 @@ export interface HTTPValidationError {
   detail?: unknown[];
 }
 
+export interface HomeFeedPage {
+  items: unknown[];
+  next_cursor?: unknown;
+  cache_hit?: boolean;
+}
+
 export interface LikeUser {
   user_id: number;
   display_name?: unknown;

@@ -1871,6 +1871,78 @@
           }
         }
       }
+    },
+    "/api/v1/feed/home": {
+      "get": {
+        "tags": [
+          "feed"
+        ],
+        "summary": "Home Feed",
+        "operationId": "home_feed_api_v1_feed_home_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 50,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeFeedPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2311,6 +2383,38 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HomeFeedPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PostView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "cache_hit": {
+            "type": "boolean",
+            "title": "Cache Hit",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "HomeFeedPage"
       },
       "LikeUser": {
         "properties": {

@@ -34,8 +34,17 @@ def app() -> FastAPI:
     return create_app()
 
 
-@pytest_asyncio.fixture
-async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
+@pytest_asyncio.fixture()
+async def client(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
+
+    from social_api.observability import health as health_mod
+
+    async def _ok() -> tuple[bool, float, str | None]:
+        return True, 0.1, None
+
+    monkeypatch.setattr(health_mod, "ping_db", _ok)
+    monkeypatch.setattr(health_mod, "ping_redis", _ok)
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

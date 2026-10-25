@@ -50,9 +50,7 @@ class Media(Base, SoftDeleteMixin, VersionMixin):
 
     __tablename__ = "media"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, primary_key=True, autoincrement=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     owner_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
