@@ -62,6 +62,12 @@ export interface DeleteMeResponse {
   hard_delete_after: string;
 }
 
+export interface ExploreFeedPage {
+  items: unknown[];
+  next_cursor?: unknown;
+  cache_hit?: boolean;
+}
+
 export interface FollowCounts {
   followers: number;
   following: number;

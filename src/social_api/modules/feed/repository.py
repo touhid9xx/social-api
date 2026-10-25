@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -186,3 +188,24 @@ class FeedRepository:
         )
         res = await self._s.execute(stmt)
         return {row[0]: int(row[1]) for row in res.all()}
+
+    async def trending_source_posts(
+        self,
+        *,
+        created_after_epoch: float,
+        limit: int,
+    ) -> list[Post]:
+
+        cutoff_dt = datetime.fromtimestamp(created_after_epoch, tz=UTC).replace(tzinfo=None)
+        stmt = (
+            select(Post)
+            .where(
+                Post.deleted_at.is_(None),
+                Post.visibility == Visibility.PUBLIC,
+                Post.created_at >= cutoff_dt,
+            )
+            .order_by(Post.created_at.desc(), Post.id.desc())
+            .limit(limit)
+        )
+        res = await self._s.execute(stmt)
+        return list(res.scalars().all())

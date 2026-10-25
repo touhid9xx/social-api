@@ -34,7 +34,18 @@ posts_created_total = Counter("posts_created_total", "Total posts created")
 likes_total = Counter("likes_total", "Total likes")
 comments_total = Counter("comments_total", "Total comments")
 
+explore_generation_seconds = Histogram(
+    "explore_generation_duration_seconds",
+    "Time to generate an explore feed page",
+    labelnames=["type"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
 
+trending_score_histogram = Histogram(
+    "trending_score_value",
+    "Distribution of computed trending scores",
+    buckets=(0.01, 0.1, 1.0, 5.0, 20.0, 100.0, 500.0, 2000.0),
+)
 # ---------------------------------------------------------------------------
 # Auto-instrumentation (idempotent — safe to call setup_metrics() many times)
 # ---------------------------------------------------------------------------

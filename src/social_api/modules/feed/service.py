@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +20,7 @@ from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
 from social_api.modules.feed.cache import FEED_CACHE_CAP, FeedCache
 from social_api.modules.feed.repository import FeedRepository
-from social_api.modules.feed.schemas import HomeFeedPage
+from social_api.modules.feed.schemas import ExploreFeedPage, HomeFeedPage
 from social_api.modules.likes.repository import LikesRepository
 from social_api.modules.posts.models import Post
 from social_api.modules.posts.repository import PostsRepository
@@ -65,6 +65,50 @@ def _observe_cache_miss() -> None:
         logger.debug(
             "metric_observe_failed",
             metric="feed_cache_misses",
+            error=type(exc).__name__,
+        )
+
+
+def _observe_cache_hit_explore() -> None:
+    try:
+        from social_api.observability.metrics import feed_cache_hits
+
+        feed_cache_hits.labels(type="explore").inc()
+    except Exception as exc:  # pragma: no cover
+        logger.debug(
+            "metric_observe_failed",
+            metric="feed_cache_hits",
+            type="explore",
+            error=type(exc).__name__,
+        )
+
+
+def _observe_cache_miss_explore() -> None:
+    try:
+        from social_api.observability.metrics import feed_cache_misses
+
+        feed_cache_misses.labels(type="explore").inc()
+    except Exception as exc:  # pragma: no cover
+        logger.debug(
+            "metric_observe_failed",
+            metric="feed_cache_misses",
+            type="explore",
+            error=type(exc).__name__,
+        )
+
+
+def _observe_explore_generation(seconds: float) -> None:
+    try:
+        from social_api.observability.metrics import (
+            explore_generation_seconds,
+        )
+
+        explore_generation_seconds.labels(type="explore").observe(seconds)
+    except Exception as exc:  # pragma: no cover
+        logger.debug(
+            "metric_observe_failed",
+            metric="explore_generation_seconds",
+            type="explore",
             error=type(exc).__name__,
         )
 
@@ -239,3 +283,94 @@ class FeedService:
 
     async def invalidate_for_mute(self, *, muter_id: int) -> None:
         await self._cache.invalidate(user_id=muter_id)
+
+    async def explore(
+        self,
+        *,
+        viewer_id: int,
+        cursor: str | None,
+        limit: int | None,
+    ) -> ExploreFeedPage:
+
+        started = time.perf_counter()
+        lmt = clamp_limit(limit)
+
+        cts: datetime | None = None
+        cid: int | None = None
+        if cursor:
+            try:
+                vals = decode_cursor(cursor)
+                cts = datetime.fromisoformat(vals[0])
+                cid = int(vals[1])
+            except (PaginationError, ValueError, IndexError):
+                raise BadRequestError("Invalid cursor", detail={"code": "INVALID_CURSOR"}) from None
+
+        cache_hit = False
+        ordered_ids: list[int] = []
+
+        # Try ZSET (page 1 only — cursor path paginates via created_at/id
+        # offset on the fetched slice)
+        if cts is None:
+            try:
+                if await self._cache.explore_has_entries():
+                    entries = await self._cache.get_explore_ids(
+                        limit=lmt * 3  # over-fetch for filter headroom
+                    )
+                    ordered_ids = [pid for pid, _score in entries]
+                    cache_hit = True
+                    _observe_cache_hit_explore()
+            except Exception as exc:  # pragma: no cover
+                logger.warning("explore_cache_read_failed", error=type(exc).__name__)
+                ordered_ids = []
+                cache_hit = False
+
+        if not ordered_ids:
+            # Cold-start fallback: query DB directly.
+            _observe_cache_miss_explore()
+            recent = await self._repo.trending_source_posts(
+                created_after_epoch=(datetime.now(UTC).timestamp() - 48 * 3600),
+                limit=lmt * 3,
+            )
+            ordered_ids = [p.id for p in recent]
+            cache_hit = False
+
+        # Hydrate (preserves order)
+        rows = await self._repo.fetch_posts_by_ids(post_ids=ordered_ids)
+
+        # Filter: public + not blocked + not self-muted
+        if not rows:
+            page_items: list[Post] = []
+        else:
+            author_ids = list({p.author_id for p in rows})
+            blocked = await self._repo.blocked_with_author_ids(
+                viewer_id=viewer_id, author_ids=author_ids
+            )
+
+            filtered = [
+                p for p in rows if p.visibility == Visibility.PUBLIC and p.author_id not in blocked
+            ]
+
+            # Cursor filter (page 2+)
+            if cts is not None and cid is not None:
+                filtered = [p for p in filtered if (p.created_at, p.id) < (cts, cid)]
+
+            page_items = filtered[:lmt]
+
+        next_cursor: str | None = None
+        if len(page_items) == lmt and len(ordered_ids) > lmt:
+            last = page_items[-1]
+            next_cursor = encode_cursor([last.created_at, last.id])
+
+        post_ids_page = [p.id for p in page_items]
+        liked_ids = await self._likes.exists_batch(
+            user_id=viewer_id, target_type="post", target_ids=post_ids_page
+        )
+
+        elapsed = time.perf_counter() - started
+        _observe_explore_generation(elapsed)
+
+        return ExploreFeedPage(
+            items=[_to_view(p, is_liked=p.id in liked_ids) for p in page_items],
+            next_cursor=next_cursor,
+            cache_hit=cache_hit,
+        )

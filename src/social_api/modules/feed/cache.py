@@ -76,3 +76,15 @@ class FeedCache:
             return
         keys = [self._key(uid) for uid in user_ids]
         await self._redis.delete(*keys)
+
+        # ---- Explore (shared global ZSET) ----
+
+    async def get_explore_ids(self, *, limit: int) -> list[tuple[int, float]]:
+        """Top `limit` post ids from shared explore ZSET, highest score first."""
+        raw: list[tuple[str, float]] = await self._redis.zrevrange(
+            "feed:explore", 0, limit - 1, withscores=True
+        )
+        return [(int(member), float(score)) for member, score in raw]
+
+    async def explore_has_entries(self) -> bool:
+        return bool(await self._redis.zcard("feed:explore"))

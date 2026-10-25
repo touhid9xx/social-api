@@ -11,3 +11,9 @@ class HomeFeedPage(BaseModel):
     items: list[PostView]
     next_cursor: str | None = None
     cache_hit: bool = False
+
+
+class ExploreFeedPage(BaseModel):
+    items: list[PostView]
+    next_cursor: str | None = None
+    cache_hit: bool = False

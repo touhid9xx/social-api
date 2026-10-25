@@ -20,7 +20,7 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
     include=[
         "social_api.workers.tasks.feed_fanout",
-        # Future: email, notification, media_process, retention, hard_delete
+        "social_api.workers.tasks.trending",
     ],
 )
 
@@ -40,3 +40,10 @@ celery_app.conf.update(
     task_eager_propagates=True,  # surface task exceptions in tests
     broker_connection_retry_on_startup=True,
 )
+
+celery_app.conf.beat_schedule = {
+    "refresh-explore-zset": {
+        "task": "feed.refresh_explore_zset",
+        "schedule": 300.0,  # every 5 minutes
+    },
+}
