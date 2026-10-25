@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://127.0.0.1:6379/1"
     celery_result_backend: str = "redis://127.0.0.1:6379/2"
     celery_task_always_eager: bool = False
+    feed_fanout_threshold: int = 5000
 
     # --- Media ---
     media_root: str = "./data/media"

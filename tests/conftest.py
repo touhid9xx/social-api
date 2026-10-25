@@ -26,6 +26,7 @@ from social_api.media.storage import StoredObject
 
 @pytest.fixture(scope="session", autouse=True)
 def _settings() -> None:
+    os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
     get_settings.cache_clear()
 
 

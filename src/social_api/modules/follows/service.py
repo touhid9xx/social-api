@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from social_api.core.feature_flags import get_flags
 from social_api.core.pagination import (
     PaginationError,
     clamp_limit,
@@ -26,6 +27,7 @@ from social_api.modules.follows.schemas import (
     FollowStatus,
     FollowUserView,
 )
+from social_api.workers.tasks.feed_fanout import enqueue_backfill
 
 logger = get_logger(__name__)
 
@@ -82,10 +84,19 @@ class FollowsService:
             logger.warning(
                 "feed_invalidate_failed",
                 follower_id=follower_id,
+                reason=reason,
                 error=type(exc).__name__,
             )
 
     async def follow(self, *, follower_id: int, followee_id: int) -> None:
+        """Create a follow edge.
+
+        Order matters:
+          1. Validations (raise — must propagate)
+          2. DB insert (INSERT IGNORE — idempotent)
+          3. Feed cache side effects (best-effort — never fails caller)
+        """
+        # ---- 1. Validations ----
         if follower_id == followee_id:
             raise CannotFollowSelfError()
 
@@ -94,10 +105,36 @@ class FollowsService:
         if await self._repo.blocked_either_direction(follower_id, followee_id):
             raise UserBlockedError()
 
+        # ---- 2. DB insert (idempotent — INSERT IGNORE in repo) ----
         await self._repo.follow(follower_id=follower_id, followee_id=followee_id)
         logger.info("user_followed", follower_id=follower_id, followee_id=followee_id)
 
-        await self._invalidate_feed_best_effort(follower_id=follower_id, reason="follow")
+        # ---- 3. Feed cache side effects (best-effort) ----
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            fs = FeedService(self._s)
+            await fs.invalidate_for_follow_change(follower_id=follower_id)
+
+            if get_flags().is_enabled("feed_fanout_enabled"):
+                from social_api.modules.feed.repository import FeedRepository
+
+                recent = await FeedRepository(self._s).recent_posts_of(
+                    author_id=followee_id, limit=50
+                )
+                if recent:
+                    enqueue_backfill(
+                        follower_id=follower_id,
+                        followee_id=followee_id,
+                        post_ids=[p.id for p in recent],
+                        created_at_isos=[p.created_at.isoformat() for p in recent],
+                    )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning(
+                "feed_follow_side_effects_failed",
+                follower_id=follower_id,
+                error=type(exc).__name__,
+            )
 
     async def unfollow(self, *, follower_id: int, followee_id: int) -> None:
         removed = await self._repo.unfollow(follower_id=follower_id, followee_id=followee_id)
@@ -180,18 +217,18 @@ class FollowsService:
             follows_removed=removed,
         )
 
-        # Best-effort cache invalidation for both parties
         try:
             from social_api.modules.feed.service import FeedService
 
             fs = FeedService(self._s)
             await fs.invalidate_for_block(a_id=blocker_id, b_id=blocked_id)
-        except Exception:
+        except Exception as exc:  # pragma: no cover
             logger.warning(
                 "feed_invalidate_failed",
                 blocker_id=blocker_id,
                 blocked_id=blocked_id,
                 reason="block",
+                error=type(exc).__name__,
             )
 
     async def unblock(self, *, blocker_id: int, blocked_id: int) -> None:
@@ -203,12 +240,34 @@ class FollowsService:
         if muter_id == muted_id:
             raise CannotFollowSelfError()
         await self._ensure_target(muted_id)
-        await self._repo.mute(muter_id=muter_id, muted_id=muted_id)
+        try:
+            await self._repo.mute(muter_id=muter_id, muted_id=muted_id)
+        except Exception:
+            return
         logger.info("user_muted", muter_id=muter_id, muted_id=muted_id)
+
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            await FeedService(self._s).invalidate_for_mute(muter_id=muter_id)
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "feed_mute_invalidate_failed",
+                muter_id=muter_id,
+                error=type(exc).__name__,
+            )
 
     async def unmute(self, *, muter_id: int, muted_id: int) -> None:
         await self._repo.unmute(muter_id=muter_id, muted_id=muted_id)
         logger.info("user_unmuted", muter_id=muter_id, muted_id=muted_id)
 
-    async def is_following(self, *, follower_id: int, followee_id: int) -> bool:
-        return await self._repo.is_following(follower_id=follower_id, followee_id=followee_id)
+        try:
+            from social_api.modules.feed.service import FeedService
+
+            await FeedService(self._s).invalidate_for_mute(muter_id=muter_id)
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "feed_mute_invalidate_failed",
+                muter_id=muter_id,
+                error=type(exc).__name__,
+            )

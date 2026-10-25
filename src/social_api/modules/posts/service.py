@@ -7,6 +7,8 @@ from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from social_api.config import get_settings
+from social_api.core.feature_flags import get_flags
 from social_api.core.pagination import (
     PaginationError,
     clamp_limit,
@@ -33,6 +35,7 @@ from social_api.modules.posts.schemas import (
 )
 from social_api.modules.users.exceptions import OptimisticLockError
 from social_api.modules.users.models import Visibility
+from social_api.workers.tasks.feed_fanout import enqueue_fanout
 
 logger = get_logger(__name__)
 
@@ -75,7 +78,6 @@ class PostsService:
             follower_id=viewer_id, followee_id=author_id
         ):
             raise PostNotFoundError()
-        # Blocked check both ways — hidden from feeds
         if await self._follows.blocked_either_direction(viewer_id, author_id):
             raise PostNotFoundError()
 
@@ -85,27 +87,70 @@ class PostsService:
             author_id=author_id, body=payload.body, visibility=payload.visibility
         )
 
-        # Invalidate home feed cache for author + followers
-        try:
-            from social_api.modules.feed.service import FeedService
+        await self._dispatch_feed_for_new_post(
+            post_id=post.id,
+            author_id=author_id,
+            created_at=post.created_at,
+        )
 
-            await FeedService(self._s).invalidate_for_new_post(author_id=post.author_id)
-        except Exception as exc:  # pragma: no cover — defensive
-            logger.warning("feed_invalidate_failed", post_id=post.id, error=type(exc).__name__)
-
-        # metrics
         try:
             from social_api.observability.metrics import posts_created_total
 
             posts_created_total.inc()
-        except Exception as exc:  # pragma: no cover — defensive
+        except Exception as exc:  # pragma: no cover
             logger.debug(
                 "metric_inc_failed",
                 metric="posts_created_total",
                 error=type(exc).__name__,
             )
 
+        logger.info("post_created", post_id=post.id, author_id=author_id)
         return _to_view(post)
+
+    async def _dispatch_feed_for_new_post(
+        self, *, post_id: int, author_id: int, created_at: datetime
+    ) -> None:
+        try:
+            if not get_flags().is_enabled("feed_fanout_enabled"):
+                from social_api.modules.feed.service import FeedService
+
+                await FeedService(self._s).invalidate_for_new_post(author_id=author_id)
+                return
+
+            threshold = get_settings().feed_fanout_threshold
+            followers = await self._repo.followers_of(user_id=author_id, limit=threshold)
+            if len(followers) >= threshold:
+                # Celebrity — no write-fanout, read-merge handles it.
+                from social_api.modules.feed.service import FeedService
+
+                await FeedService(self._s).invalidate_for_new_post(author_id=author_id)
+                logger.info(
+                    "feed_fanout_skipped_celebrity",
+                    post_id=post_id,
+                    author_id=author_id,
+                    follower_count=len(followers),
+                )
+                return
+
+            # Normal author — queue fanout via typed wrapper (never .delay directly).
+            enqueue_fanout(
+                post_id=post_id,
+                author_id=author_id,
+                created_at_iso=created_at.isoformat(),
+                follower_ids=followers,
+            )
+            logger.info(
+                "feed_fanout_queued",
+                post_id=post_id,
+                author_id=author_id,
+                followers=len(followers),
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning(
+                "feed_dispatch_failed",
+                post_id=post_id,
+                error=type(exc).__name__,
+            )
 
     # ---- Get ----
     async def get(self, *, viewer_id: int, post_id: int) -> PostView:
@@ -150,7 +195,6 @@ class PostsService:
         if post is None:
             raise PostNotFoundError()
 
-        # Owner or moderator/admin may delete
         is_owner = post.author_id == actor.id
         is_staff = actor.role in (UserRole.MODERATOR, UserRole.ADMIN)
         if not (is_owner or is_staff):
@@ -159,13 +203,16 @@ class PostsService:
         post.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await self._repo.save(post)
 
-        # Invalidate home feed cache for author + followers
         try:
             from social_api.modules.feed.service import FeedService
 
             await FeedService(self._s).invalidate_for_new_post(author_id=post.author_id)
-        except Exception:
-            logger.warning("feed_invalidate_failed", post_id=post.id)
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "feed_invalidate_failed",
+                post_id=post.id,
+                error=type(exc).__name__,
+            )
 
         logger.info(
             "post_deleted",
@@ -202,7 +249,6 @@ class PostsService:
             limit=lmt,
         )
 
-        # Filter for viewer visibility
         visible: list[Post] = []
         for p in posts:
             try:
@@ -217,12 +263,10 @@ class PostsService:
 
         next_cursor: str | None = None
         if len(posts) > lmt:
-            # Use the last RAW row (even if filtered) to advance the cursor.
             last_raw = posts[:lmt][-1]
             next_cursor = encode_cursor([last_raw.created_at, last_raw.id])
             visible = visible[:lmt]
 
-        # Like status batch
         post_ids = [p.id for p in visible]
         liked_ids = await self._likes.exists_batch(
             user_id=viewer_id, target_type="post", target_ids=post_ids

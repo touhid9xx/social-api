@@ -8,6 +8,7 @@ from typing import NamedTuple
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from social_api.modules.follows.models import Follow
 from social_api.modules.posts.models import Post
 
 
@@ -54,5 +55,21 @@ class PostsRepository:
             )
         stmt = stmt.order_by(Post.created_at.desc(), Post.id.desc())
         stmt = stmt.limit(limit + 1)
+        res = await self._s.execute(stmt)
+        return list(res.scalars().all())
+
+    async def followers_of(self, *, user_id: int, limit: int) -> list[int]:
+        """
+        Follower user-ids of `user_id`, newest first, limited to `limit`.
+
+        Used by PostsService to decide fanout-vs-celebrity on new post and
+        (if fanout) to pass the follower list to the Celery task.
+        """
+        stmt = (
+            select(Follow.follower_id)
+            .where(Follow.followee_id == user_id)
+            .order_by(Follow.created_at.desc())
+            .limit(limit)
+        )
         res = await self._s.execute(stmt)
         return list(res.scalars().all())

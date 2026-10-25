@@ -149,11 +149,17 @@ module = [
     "testcontainers.*",
     "passlib.*",
     "redis.*",
-    "boto3.*",
-    "botocore.*",
-    "filetype",
+    "celery.*",
+    "kombu.*",
+    "billiard.*",
+    "amqp.*",
+    "filetype.*"
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["social_api.workers.*", "social_api.workers.tasks.*"]
+disallow_untyped_decorators = false
 
 # ----------------------------------------------------------------------------
 # Pytest
