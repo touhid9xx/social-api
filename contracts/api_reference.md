@@ -877,6 +877,86 @@ Base URL: `/`
 
 ---
 
+### `GET` /api/v1/moderation/reports
+
+**Summary:** List Reports
+
+**Tags:** moderation
+
+**operationId:** `list_reports_api_v1_moderation_reports_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| status | query | False | `{"anyOf": [{"$ref": "#/components/schemas/ReportStatus"}, {"type": "null"}], "title": "Status"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/moderation/reports
+
+**Summary:** Create Report
+
+**Tags:** moderation
+
+**operationId:** `create_report_api_v1_moderation_reports_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/ReportCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `PATCH` /api/v1/moderation/reports/{report_id}
+
+**Summary:** Update Report
+
+**Tags:** moderation
+
+**operationId:** `update_report_api_v1_moderation_reports__report_id__patch`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| report_id | path | True | `{"type": "integer", "title": "Report Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/ReportUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/mutes/{user_id}
 
 **Summary:** Unmute

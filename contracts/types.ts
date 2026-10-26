@@ -294,6 +294,42 @@ export interface RegisterResponse {
   message: string;
 }
 
+export interface ReportCreate {
+  target_type: string;
+  target_id: number;
+  reason: string;
+  details?: unknown;
+}
+
+export interface ReportPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
+export interface ReportStatus {
+}
+
+export interface ReportUpdate {
+  status: string;
+  resolution_note?: unknown;
+  version: number;
+}
+
+export interface ReportView {
+  id: number;
+  reporter_id: number;
+  target_type: string;
+  target_id: number;
+  reason: string;
+  details: unknown;
+  status: string;
+  reviewer_id: unknown;
+  resolution_note: unknown;
+  resolved_at: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RoomMemberView {
   user_id: number;
   role: string;
