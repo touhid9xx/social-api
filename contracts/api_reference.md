@@ -839,6 +839,31 @@ Base URL: `/`
 
 ---
 
+### `GET` /api/v1/presence/{user_id}
+
+**Summary:** Get Presence
+
+**Tags:** presence
+
+**operationId:** `get_presence_api_v1_presence__user_id__get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/users/me
 
 **Summary:** Delete Me

@@ -187,6 +187,12 @@ export interface PostView {
   is_edited?: boolean;
 }
 
+export interface PresenceView {
+  user_id: number;
+  online: boolean;
+  connections: number;
+}
+
 export interface ProfilePublic {
   user_id: number;
   display_name?: unknown;

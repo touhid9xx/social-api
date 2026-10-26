@@ -22,6 +22,7 @@ from social_api.middleware import register_middleware
 from social_api.observability.health import router as health_router
 from social_api.observability.metrics import setup_metrics
 from social_api.observability.tracing import setup_tracing
+from social_api.realtime.manager import manager
 
 logger = get_logger(__name__)
 
@@ -44,6 +45,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await manager.close_all()
         await close_redis()
         await dispose_engine()
         logger.info("app_shutdown", service=settings.app_name)
@@ -96,7 +98,11 @@ def create_app() -> FastAPI:
 
     from social_api.api.v1 import api_router
 
+    # WS router under /api/v1
+    from social_api.api.v1.ws import router as ws_router
+
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    app.include_router(ws_router, prefix=settings.api_v1_prefix)
 
     @app.get("/_i18n_demo", include_in_schema=False)
     async def i18n_demo(request: Request) -> JSONResponse:

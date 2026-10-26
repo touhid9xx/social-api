@@ -2236,6 +2236,53 @@
           }
         }
       }
+    },
+    "/api/v1/presence/{user_id}": {
+      "get": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Get Presence",
+        "operationId": "get_presence_api_v1_presence__user_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresenceView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3193,6 +3240,29 @@
           "updated_at"
         ],
         "title": "PostView"
+      },
+      "PresenceView": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "online": {
+            "type": "boolean",
+            "title": "Online"
+          },
+          "connections": {
+            "type": "integer",
+            "title": "Connections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "online",
+          "connections"
+        ],
+        "title": "PresenceView"
       },
       "ProfilePublic": {
         "properties": {
