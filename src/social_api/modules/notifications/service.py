@@ -19,9 +19,7 @@ from social_api.modules.notifications.exceptions import (
     NotificationForbiddenError,
     NotificationNotFoundError,
 )
-from social_api.modules.notifications.models import (
-    Notification,
-)
+from social_api.modules.notifications.models import Notification
 from social_api.modules.notifications.repository import (
     NotificationsRepository,
 )
@@ -129,6 +127,7 @@ class NotificationsService:
             preview=excerpt,
         )
 
+    # ---- Internal: create + best-effort WS push ----
     async def _safe_create(
         self,
         *,
@@ -139,7 +138,13 @@ class NotificationsService:
         target_id: int,
         preview: str | None = None,
     ) -> None:
-        """Best-effort create; never fails the caller."""
+        """Create a notification row (idempotent via daily dedupe) + WS push.
+
+        The notification row is the source of truth. The WS push is a
+        best-effort delivery optimisation: if Redis is down, no subscriber
+        is connected, or the flag is off, the client will still see the
+        notification on the next inbox fetch / unread-count poll.
+        """
         try:
             row = await self._repo.create(
                 user_id=user_id,
@@ -149,19 +154,42 @@ class NotificationsService:
                 target_id=target_id,
                 preview=preview,
             )
-            if row is not None:
-                # M14 will hook Redis pub/sub push here.
-                logger.debug(
-                    "notification_created",
-                    notification_id=row.id,
-                    user_id=user_id,
-                    type=type_,
-                )
         except Exception as exc:  # pragma: no cover — defensive
             logger.warning(
                 "notification_create_failed",
                 user_id=user_id,
                 type=type_,
+                error=type(exc).__name__,
+            )
+            return
+
+        if row is None:
+            # Dedupe hit (unique index on user,actor,type,target,day_bucket).
+            # Nothing new to push.
+            return
+
+        logger.debug(
+            "notification_created",
+            notification_id=row.id,
+            user_id=user_id,
+            type=type_,
+        )
+
+        # ---- Best-effort WS push (M14) ----
+        try:
+            from social_api.modules.notifications.realtime import (
+                push_notification,
+            )
+
+            view = _to_view(row)
+            await push_notification(
+                user_id=user_id,
+                notification_payload=view.model_dump(mode="json"),
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning(
+                "ws_push_dispatch_failed",
+                notification_id=row.id,
                 error=type(exc).__name__,
             )
 
@@ -200,20 +228,56 @@ class NotificationsService:
             last = rows[-1]
             next_cursor = encode_cursor([last.created_at, last.id])
 
-        return NotificationPage(items=[_to_view(n) for n in rows], next_cursor=next_cursor)
+        return NotificationPage(
+            items=[_to_view(n) for n in rows],
+            next_cursor=next_cursor,
+        )
 
     async def unread_count(self, *, user_id: int) -> UnreadCount:
         n = await self._repo.unread_count(user_id=user_id)
         return UnreadCount(unread=n)
 
     async def mark_read(self, *, user_id: int, notif_id: int) -> NotificationView:
-        row = await self._repo.mark_read(user_id=user_id, notif_id=notif_id)
-        if row is None:
+        was_unread: bool | None = None
+        row = await self._repo.get_by_id(notif_id)
+        if row is not None and row.user_id == user_id:
+            was_unread = not row.is_read
+
+        updated = await self._repo.mark_read(user_id=user_id, notif_id=notif_id)
+        if updated is None:
             raise NotificationNotFoundError()
-        return _to_view(row)
+
+        if was_unread:
+            try:
+                from social_api.modules.notifications.realtime import (
+                    push_unread_delta,
+                )
+
+                await push_unread_delta(user_id=user_id, delta=-1)
+            except Exception as exc:  # pragma: no cover — defensive
+                logger.warning(
+                    "ws_push_read_failed",
+                    notification_id=notif_id,
+                    error=type(exc).__name__,
+                )
+
+        return _to_view(updated)
 
     async def mark_all_read(self, *, user_id: int) -> MarkReadResponse:
         n = await self._repo.mark_all_read(user_id=user_id)
+        if n > 0:
+            try:
+                from social_api.modules.notifications.realtime import (
+                    push_unread_reset,
+                )
+
+                await push_unread_reset(user_id=user_id)
+            except Exception as exc:  # pragma: no cover — defensive
+                logger.warning(
+                    "ws_push_read_all_failed",
+                    user_id=user_id,
+                    error=type(exc).__name__,
+                )
         return MarkReadResponse(updated=n)
 
     async def delete(self, *, user_id: int, notif_id: int) -> None:
