@@ -541,6 +541,117 @@ Base URL: `/`
 
 ---
 
+### `GET` /api/v1/notifications
+
+**Summary:** List Notifications
+
+**Tags:** notifications
+
+**operationId:** `list_notifications_api_v1_notifications_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| unread_only | query | False | `{"type": "boolean", "default": false, "title": "Unread Only"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 50, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/notifications/read-all
+
+**Summary:** Mark All Read
+
+**Tags:** notifications
+
+**operationId:** `mark_all_read_api_v1_notifications_read_all_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `GET` /api/v1/notifications/unread-count
+
+**Summary:** Unread Count
+
+**Tags:** notifications
+
+**operationId:** `unread_count_api_v1_notifications_unread_count_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `DELETE` /api/v1/notifications/{notif_id}
+
+**Summary:** Delete Notification
+
+**Tags:** notifications
+
+**operationId:** `delete_notification_api_v1_notifications__notif_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| notif_id | path | True | `{"type": "integer", "title": "Notif Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/notifications/{notif_id}/read
+
+**Summary:** Mark Read
+
+**Tags:** notifications
+
+**operationId:** `mark_read_api_v1_notifications__notif_id__read_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| notif_id | path | True | `{"type": "integer", "title": "Notif Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `POST` /api/v1/posts
 
 **Summary:** Create Post

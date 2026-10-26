@@ -13,11 +13,14 @@ pytestmark = [pytest.mark.integration]
 
 
 async def _register_and_login(client: AsyncClient, email: str = "u@example.com") -> dict[str, str]:
+    """Register (or reuse) and login. Tolerates 409 for prior-run rows."""
     pwd = "Str0ng!Passw0rd"
     r = await client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
-    assert r.status_code == 201, r.text
+    if r.status_code not in (201, 409):
+        pytest.fail(f"register failed: {r.status_code} {r.text}")
+
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     tokens = r.json()["tokens"]
     return {
         "access": tokens["access_token"],
@@ -40,17 +43,19 @@ async def uc(
 
 async def test_me_returns_own_pii(uc: AsyncClient) -> None:
     t = await _register_and_login(uc, "me@example.com")
-    r = await uc.get("/api/v1/users/me", headers={"Authorization": f"Bearer {t['access']}"})
+    r = await uc.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {t['access']}"},
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["user_id"] == int(t["user_id"])
     assert "version" in body
-    assert "dob" in body  # even if null, field exists
+    assert "dob" in body
 
 
 async def test_public_profile_hides_pii(uc: AsyncClient) -> None:
     owner = await _register_and_login(uc, "owner@example.com")
-    # Set some PII
     r = await uc.patch(
         "/api/v1/users/me",
         headers={"Authorization": f"Bearer {owner['access']}"},
@@ -61,9 +66,8 @@ async def test_public_profile_hides_pii(uc: AsyncClient) -> None:
             "phone": "+8801700000000",
         },
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
 
-    # Another user views the profile
     other = await _register_and_login(uc, "other@example.com")
     r = await uc.get(
         f"/api/v1/users/{owner['user_id']}",
@@ -72,28 +76,29 @@ async def test_public_profile_hides_pii(uc: AsyncClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["display_name"] == "Owner"
-    # PII MUST be absent
     for pii_field in ("dob", "phone", "address", "version"):
         assert pii_field not in body
 
 
 async def test_optimistic_lock_returns_409(uc: AsyncClient) -> None:
     t = await _register_and_login(uc, "lock@example.com")
-    r = await uc.get("/api/v1/users/me", headers={"Authorization": f"Bearer {t['access']}"})
+    auth = {"Authorization": f"Bearer {t['access']}"}
+
+    r = await uc.get("/api/v1/users/me", headers=auth)
     version = r.json()["version"]
 
     r = await uc.patch(
         "/api/v1/users/me",
-        headers={"Authorization": f"Bearer {t['access']}"},
+        headers=auth,
         json={"version": version, "display_name": "First"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     new_version = r.json()["version"]
     assert new_version == version + 1
 
     r = await uc.patch(
         "/api/v1/users/me",
-        headers={"Authorization": f"Bearer {t['access']}"},
+        headers=auth,
         json={"version": version, "display_name": "Stale"},
     )
     assert r.status_code == 409

@@ -35,6 +35,7 @@ class PostView(BaseModel):
     like_count: int
     comment_count: int
     media_count: int
+    version: int  # clients need this for optimistic-lock retries
     created_at: datetime
     updated_at: datetime
     # Viewer-relative — filled in by service

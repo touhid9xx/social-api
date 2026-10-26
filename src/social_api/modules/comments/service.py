@@ -56,6 +56,7 @@ def _to_view(
 
 class CommentsService:
     def __init__(self, session: AsyncSession) -> None:
+        self._s = session
         self._repo = CommentsRepository(session)
         self._posts = PostsRepository(session)
         self._likes = LikesRepository(session)
@@ -66,6 +67,7 @@ class CommentsService:
             raise PostNotFoundError()
 
         depth = 1
+        parent: Comment | None = None
         if payload.parent_id is not None:
             parent = await self._repo.get_by_id(payload.parent_id)
             if parent is None or parent.post_id != post_id:
@@ -83,6 +85,29 @@ class CommentsService:
         )
         await self._repo.increment_post_comment_count(post_id=post_id)
         logger.info("comment_created", comment_id=c.id, post_id=post_id)
+
+        # Notification (best-effort — never fails the caller)
+        parent_author_id: int | None = parent.author_id if parent else None
+        try:
+            from social_api.modules.notifications.service import (
+                NotificationsService,
+            )
+
+            await NotificationsService(self._s).notify_comment(
+                commenter_id=viewer_id,
+                post_author_id=post.author_id,
+                post_id=post_id,
+                parent_author_id=parent_author_id,
+                parent_comment_id=payload.parent_id,
+                excerpt=c.body[:200],
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "notify_comment_failed",
+                comment_id=c.id,
+                error=type(exc).__name__,
+            )
+
         return _to_view(c)
 
     async def update(

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from starlette.requests import Request
 
 from social_api.config import get_settings
-from social_api.exceptions import TooManyRequestsError
+from social_api.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def _key_by_ip(request: Request) -> str:
@@ -15,7 +19,7 @@ def _key_by_ip(request: Request) -> str:
 
 
 def _key_by_user_or_ip(request: Request) -> str:
-    # If authenticated, use user_id; else fall back to IP
+    # If authenticated, use user_id; else fall back to IP.
     user = getattr(request.state, "user", None)
     if user is not None and getattr(user, "id", None) is not None:
         return f"user:{user.id}"
@@ -34,6 +38,35 @@ limiter = Limiter(
 )
 
 
-def rate_limit_error_handler(request: Request, exc: Exception) -> TooManyRequestsError:
-    """Bridge slowapi's RateLimitExceeded into our AppError shape."""
-    return TooManyRequestsError()
+async def rate_limit_error_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Handle slowapi's RateLimitExceeded — return a 429 JSONResponse.
+
+    Starlette's exception handler MUST return a Response. The previous
+    implementation returned a TooManyRequestsError() instance, which
+    Starlette tried to `await response(...)` on — TypeError:
+    'TooManyRequestsError' object is not callable.
+
+    The JSON envelope matches the app-wide error shape:
+    { error, status, detail, path, request_id }.
+    """
+    request_id = getattr(request.state, "request_id", None)
+    detail = getattr(exc, "detail", "Rate limit exceeded")
+
+    logger.warning(
+        "rate_limit_exceeded",
+        path=request.url.path,
+        request_id=request_id,
+        detail=str(detail),
+    )
+
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "RATE_LIMITED",
+            "status": 429,
+            "detail": str(detail),
+            "path": request.url.path,
+            "request_id": request_id,
+        },
+        headers={"Retry-After": "60"},
+    )

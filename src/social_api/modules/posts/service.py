@@ -1,4 +1,4 @@
-"""Posts service — create/get/update/delete with visibility + blocks."""
+"""Posts service - create/get/update/delete with visibility + blocks."""
 
 from __future__ import annotations
 
@@ -51,10 +51,15 @@ def _to_view(post: Post, *, is_liked: bool = False) -> PostView:
         like_count=post.like_count,
         comment_count=post.comment_count,
         media_count=post.media_count,
+        version=post.version,
         created_at=post.created_at,
         updated_at=post.updated_at,
         is_liked_by_me=is_liked,
-        is_edited=post.updated_at > post.created_at,
+        # Version is a monotone counter (1 at create, +1 on each update).
+        # `version > 1` reliably means "edited at least once" and is
+        # immune to the second-precision truncation of MySQL DATETIME
+        # that makes `updated_at > created_at` fail on fast edits.
+        is_edited=post.version > 1,
     )
 
 
@@ -132,7 +137,7 @@ class PostsService:
                 )
                 return
 
-            # Normal author — queue fanout via typed wrapper (never .delay directly).
+            # Normal author — queue fanout via typed wrapper.
             enqueue_fanout(
                 post_id=post_id,
                 author_id=author_id,
@@ -173,10 +178,12 @@ class PostsService:
         if post.author_id != viewer_id:
             raise PostForbiddenError()
         if post.version != payload.version:
+            # mode="json" — datetime-safe; the error handler uses
+            # plain json.dumps() inside JSONResponse.
             raise OptimisticLockError(
                 detail={
                     "current_version": post.version,
-                    "current": _to_view(post).model_dump(),
+                    "current": _to_view(post).model_dump(mode="json"),
                 }
             )
 

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
+from starlette.types import ExceptionHandler
 
 from social_api import __version__
 from social_api.cache.redis import close_redis, init_redis
@@ -64,11 +64,19 @@ def create_app() -> FastAPI:
     )
 
     register_middleware(app)
+
+    # ---- Rate limiting ----
+    # NOTE: @limiter.limit(...) decorators on routes are the source of truth
+    # for per-endpoint limits. SlowAPIMiddleware is NOT added — it would
+    # double-count each request (middleware + decorator) and trip limits at
+    # half the configured rate.
     from social_api.core.rate_limit import limiter, rate_limit_error_handler
 
     app.state.limiter = limiter
-    app.add_middleware(SlowAPIMiddleware)
-    app.add_exception_handler(RateLimitExceeded, rate_limit_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(
+        RateLimitExceeded,
+        cast(ExceptionHandler, rate_limit_error_handler),
+    )
 
     register_exception_handlers(app)
     setup_tracing(app)
@@ -103,12 +111,12 @@ def create_app() -> FastAPI:
         )
 
     # Static media (local backend only)
-    if get_settings().app_env in {"development", "staging"}:
+    if settings.app_env in {"development", "staging"}:
         from pathlib import Path
 
         from fastapi.staticfiles import StaticFiles
 
-        media_dir = Path(get_settings().media_root)
+        media_dir = Path(settings.media_root)
         media_dir.mkdir(parents=True, exist_ok=True)
         app.mount(
             "/static/media",

@@ -17,6 +17,7 @@ from social_api.logging_config import get_logger
 from social_api.modules.comments.repository import CommentsRepository
 from social_api.modules.likes.repository import LikesRepository
 from social_api.modules.likes.schemas import LikeUser, LikeUserPage
+from social_api.modules.posts.exceptions import LikeTargetNotFoundError
 from social_api.modules.posts.repository import PostsRepository
 from social_api.modules.users.repository import (
     ProfileRepository as UsersProfileRepository,
@@ -27,33 +28,51 @@ logger = get_logger(__name__)
 
 class LikesService:
     def __init__(self, session: AsyncSession) -> None:
+        self._s = session
         self._repo = LikesRepository(session)
         self._posts = PostsRepository(session)
         self._comments = CommentsRepository(session)
         self._profiles = UsersProfileRepository(session)
 
     async def like(self, *, user_id: int, target_type: str, target_id: int) -> None:
-        # Verify target exists
         if target_type == "post":
-            t = await self._posts.get_by_id(target_id)
-            if t is None:
-                from social_api.modules.posts.exceptions import (
-                    LikeTargetNotFoundError,
-                )
-
+            target = await self._posts.get_by_id(target_id)
+            if target is None:
                 raise LikeTargetNotFoundError()
+            author_id = target.author_id
         else:
-            t2 = await self._comments.get_by_id(target_id)
-            if t2 is None:
-                from social_api.modules.posts.exceptions import (
-                    LikeTargetNotFoundError,
-                )
-
+            target2 = await self._comments.get_by_id(target_id)
+            if target2 is None:
                 raise LikeTargetNotFoundError()
+            author_id = target2.author_id
 
         added = await self._repo.add(user_id=user_id, target_type=target_type, target_id=target_id)
-        if added:
-            logger.info("liked", user_id=user_id, target_type=target_type, target_id=target_id)
+        if not added:
+            return  # already liked -> no notification
+
+        logger.info(
+            "liked",
+            user_id=user_id,
+            target_type=target_type,
+            target_id=target_id,
+        )
+        try:
+            from social_api.modules.notifications.service import (
+                NotificationsService,
+            )
+
+            await NotificationsService(self._s).notify_like(
+                liker_id=user_id,
+                target_author_id=author_id,
+                target_type=target_type,
+                target_id=target_id,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "notify_like_failed",
+                user_id=user_id,
+                error=type(exc).__name__,
+            )
 
     async def unlike(self, *, user_id: int, target_type: str, target_id: int) -> None:
         await self._repo.remove(user_id=user_id, target_type=target_type, target_id=target_id)

@@ -1,4 +1,4 @@
-"""Users service — profiles, consent, soft-delete, visibility enforcement."""
+"""Users service - profiles, consent, soft-delete, visibility enforcement."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from social_api.logging_config import get_logger
 from social_api.modules.auth.models import User
 from social_api.modules.auth.repository import UserRepository
+from social_api.modules.follows.repository import FollowsRepository
 from social_api.modules.users.exceptions import (
     OptimisticLockError,
     ProfileNotFoundError,
@@ -73,6 +74,7 @@ class UsersService:
         self._profiles = ProfileRepository(session)
         self._consents = ConsentRepository(session)
         self._users = UserRepository(session)
+        self._follows = FollowsRepository(session)
 
     async def _ensure_profile(self, user_id: int) -> Profile:
         p = await self._profiles.get_by_user_id(user_id)
@@ -103,9 +105,11 @@ class UsersService:
         if profile.visibility == Visibility.FOLLOWERS:
             if viewer_id is None:
                 raise ProfileVisibilityError()
-            # TODO(M6): real follows-graph check
-            # Placeholder until FollowsService lands in M6.
-            raise ProfileVisibilityError()
+            # Real follows-graph check (was TODO(M6) — resolved in M12 polish).
+            if not await self._follows.is_following(
+                follower_id=viewer_id, followee_id=target_user_id
+            ):
+                raise ProfileVisibilityError()
 
         return _to_public(profile)
 
@@ -120,10 +124,13 @@ class UsersService:
 
         if profile.version != payload.version:
             # 409 with current state so the client can rebase.
+            # mode="json" produces ISO strings / JSON-safe scalars — the
+            # error handler builds a JSONResponse with plain json.dumps()
+            # and cannot serialize datetime.
             raise OptimisticLockError(
                 detail={
                     "current_version": profile.version,
-                    "current": _to_self(profile).model_dump(),
+                    "current": _to_self(profile).model_dump(mode="json"),
                 }
             )
 
@@ -206,8 +213,8 @@ class UsersService:
         logger.info("user_soft_deleted", user_id=user_id)
         return DeleteMeResponse(
             message=(
-                "Account scheduled for deletion. It will be permanently removed "
-                f"after {_SOFT_DELETE_HARD_DELETE_DAYS} days."
+                "Account scheduled for deletion. It will be permanently "
+                f"removed after {_SOFT_DELETE_HARD_DELETE_DAYS} days."
             ),
             hard_delete_after=hard_delete_at,
         )

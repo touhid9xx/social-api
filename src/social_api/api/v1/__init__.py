@@ -11,6 +11,7 @@ from social_api.api.v1 import (
     follows,
     likes,
     media,
+    notifications,
     posts,
     users,
 )
@@ -24,3 +25,4 @@ api_router.include_router(comments.router)
 api_router.include_router(likes.router)
 api_router.include_router(media.router)
 api_router.include_router(feed.router)
+api_router.include_router(notifications.router)

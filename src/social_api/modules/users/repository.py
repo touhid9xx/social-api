@@ -32,7 +32,19 @@ class ProfileRepository:
         return profile
 
     async def save(self, profile: Profile) -> None:
+        """Flush pending changes and re-read server-generated columns.
+
+        `updated_at` is set by the DB (server_default / ON UPDATE
+        CURRENT_TIMESTAMP). After flush() the ORM marks it expired
+        because it has not seen the DB-generated value. Accessing
+        `profile.updated_at` in the response builder then triggers a
+        sync lazy load outside the greenlet:
+            MissingGreenlet: greenlet_spawn has not been called
+        refresh() pulls the new value inside the async context, so
+        downstream access is safe.
+        """
         await self._s.flush()
+        await self._s.refresh(profile)
 
 
 class ConsentRepository:

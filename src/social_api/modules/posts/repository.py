@@ -28,14 +28,25 @@ class PostsRepository:
     async def create(self, *, author_id: int, body: str, visibility: str) -> Post:
         from social_api.modules.users.models import Visibility
 
-        post = Post(author_id=author_id, body=body, visibility=Visibility(visibility))
+        post = Post(
+            author_id=author_id,
+            body=body,
+            visibility=Visibility(visibility),
+        )
         self._s.add(post)
         await self._s.flush()
         await self._s.refresh(post)
         return post
 
     async def save(self, post: Post) -> None:
+        """Flush pending changes and re-read server-generated columns.
+
+        Same rationale as ProfileRepository.save(): `updated_at` is a
+        server-side timestamp; after flush() the ORM expires it and
+        accessing it in the response builder triggers MissingGreenlet.
+        """
         await self._s.flush()
+        await self._s.refresh(post)
 
     async def list_by_author(
         self,
@@ -50,7 +61,10 @@ class PostsRepository:
             stmt = stmt.where(
                 or_(
                     Post.created_at < cursor_ts,
-                    and_(Post.created_at == cursor_ts, Post.id < cursor_id),
+                    and_(
+                        Post.created_at == cursor_ts,
+                        Post.id < cursor_id,
+                    ),
                 )
             )
         stmt = stmt.order_by(Post.created_at.desc(), Post.id.desc())
@@ -59,12 +73,7 @@ class PostsRepository:
         return list(res.scalars().all())
 
     async def followers_of(self, *, user_id: int, limit: int) -> list[int]:
-        """
-        Follower user-ids of `user_id`, newest first, limited to `limit`.
-
-        Used by PostsService to decide fanout-vs-celebrity on new post and
-        (if fanout) to pass the follower list to the Celery task.
-        """
+        """Follower user-ids of `user_id`, newest first, limited to `limit`."""
         stmt = (
             select(Follow.follower_id)
             .where(Follow.followee_id == user_id)

@@ -109,6 +109,22 @@ class FollowsService:
         await self._repo.follow(follower_id=follower_id, followee_id=followee_id)
         logger.info("user_followed", follower_id=follower_id, followee_id=followee_id)
 
+        # Fire-and-forget notification (best-effort)
+        try:
+            from social_api.modules.notifications.service import (
+                NotificationsService,
+            )
+
+            await NotificationsService(self._s).notify_follow(
+                follower_id=follower_id, followee_id=followee_id
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "notify_follow_failed",
+                follower_id=follower_id,
+                error=type(exc).__name__,
+            )
+
         # ---- 3. Feed cache side effects (best-effort) ----
         try:
             from social_api.modules.feed.service import FeedService

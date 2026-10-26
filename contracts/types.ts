@@ -124,6 +124,10 @@ export interface LoginResponse {
   tokens: unknown;
 }
 
+export interface MarkReadResponse {
+  updated: number;
+}
+
 export interface MediaView {
   id: number;
   owner_id: number;
@@ -132,6 +136,23 @@ export interface MediaView {
   mime: string;
   size_bytes: number;
   url: string;
+  created_at: string;
+}
+
+export interface NotificationPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
+export interface NotificationView {
+  id: number;
+  type: string;
+  target_type: string;
+  target_id: number;
+  actor_id: number;
+  is_read: boolean;
+  read_at: unknown;
+  preview: unknown;
   created_at: string;
 }
 
@@ -159,6 +180,7 @@ export interface PostView {
   like_count: number;
   comment_count: number;
   media_count: number;
+  version: number;
   created_at: string;
   updated_at: string;
   is_liked_by_me?: boolean;
@@ -218,6 +240,10 @@ export interface RegisterRequest {
 export interface RegisterResponse {
   user: unknown;
   message: string;
+}
+
+export interface UnreadCount {
+  unread: number;
 }
 
 export interface UserPublic {
