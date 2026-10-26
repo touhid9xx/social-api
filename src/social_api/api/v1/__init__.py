@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from social_api.api.v1 import (
     auth,
+    chat,
     comments,
     feed,
     follows,
@@ -19,6 +20,7 @@ from social_api.api.v1 import (
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
+api_router.include_router(chat.router)
 api_router.include_router(users.router)
 api_router.include_router(follows.router)
 api_router.include_router(posts.router)

@@ -62,6 +62,10 @@ export interface DeleteMeResponse {
   hard_delete_after: string;
 }
 
+export interface DirectRoomCreate {
+  other_user_id: number;
+}
+
 export interface ExploreFeedPage {
   items: unknown[];
   next_cursor?: unknown;
@@ -137,6 +141,31 @@ export interface MediaView {
   size_bytes: number;
   url: string;
   created_at: string;
+}
+
+export interface MemberReadState {
+  user_id: number;
+  last_read_message_id: unknown;
+}
+
+export interface MessageCreate {
+  body: string;
+  media_id?: unknown;
+}
+
+export interface MessagePage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
+export interface MessageView {
+  id: number;
+  room_id: number;
+  sender_id: number;
+  body: string;
+  media_id: unknown;
+  created_at: string;
+  is_edited?: boolean;
 }
 
 export interface NotificationPage {
@@ -234,6 +263,14 @@ export interface ProfileUpdate {
   version: number;
 }
 
+export interface ReadReceiptsList {
+  members: unknown[];
+}
+
+export interface ReadRequest {
+  message_id: number;
+}
+
 export interface RefreshRequest {
   refresh_token: string;
 }
@@ -246,6 +283,14 @@ export interface RegisterRequest {
 export interface RegisterResponse {
   user: unknown;
   message: string;
+}
+
+export interface RoomView {
+  id: number;
+  type: string;
+  title: unknown;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface UnreadCount {

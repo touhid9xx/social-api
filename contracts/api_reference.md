@@ -155,6 +155,258 @@ Base URL: `/`
 
 ---
 
+### `DELETE` /api/v1/chat/messages/{message_id}
+
+**Summary:** Delete Message
+
+**Tags:** chat
+
+**operationId:** `delete_message_api_v1_chat_messages__message_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| message_id | path | True | `{"type": "integer", "title": "Message Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/chat/rooms
+
+**Summary:** List My Rooms
+
+**Tags:** chat
+
+**operationId:** `list_my_rooms_api_v1_chat_rooms_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `POST` /api/v1/chat/rooms/direct
+
+**Summary:** Create Direct Room
+
+**Tags:** chat
+
+**operationId:** `create_direct_room_api_v1_chat_rooms_direct_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/DirectRoomCreate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/chat/rooms/{room_id}
+
+**Summary:** Get Room
+
+**Tags:** chat
+
+**operationId:** `get_room_api_v1_chat_rooms__room_id__get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/chat/rooms/{room_id}/messages
+
+**Summary:** List Messages
+
+**Tags:** chat
+
+**operationId:** `list_messages_api_v1_chat_rooms__room_id__messages_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/chat/rooms/{room_id}/messages
+
+**Summary:** Send Message
+
+**Tags:** chat
+
+**operationId:** `send_message_api_v1_chat_rooms__room_id__messages_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/MessageCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/chat/rooms/{room_id}/read
+
+**Summary:** Mark Read
+
+**Tags:** chat
+
+**operationId:** `mark_read_api_v1_chat_rooms__room_id__read_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/ReadRequest`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/chat/rooms/{room_id}/read-receipts
+
+**Summary:** List Read Receipts
+
+**Tags:** chat
+
+**operationId:** `list_read_receipts_api_v1_chat_rooms__room_id__read_receipts_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/chat/rooms/{room_id}/typing
+
+**Summary:** Typing
+
+**Tags:** chat
+
+**operationId:** `typing_api_v1_chat_rooms__room_id__typing_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/chat/rooms/{room_id}/unread-count
+
+**Summary:** Unread Count
+
+**Tags:** chat
+
+**operationId:** `unread_count_api_v1_chat_rooms__room_id__unread_count_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/comments/{comment_id}
 
 **Summary:** Delete Comment
