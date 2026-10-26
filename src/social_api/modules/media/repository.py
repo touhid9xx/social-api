@@ -54,4 +54,16 @@ class MediaRepository:
         return m
 
     async def save(self, m: Media) -> None:
+        """Flush pending changes and re-read server-generated columns.
+
+        `updated_at` is set by the DB (server_default + onupdate). After
+        flush(), the ORM marks it expired because it hasn't seen the
+        DB-generated value. Accessing `m.updated_at` in a response
+        builder then triggers a sync lazy load outside the greenlet:
+            MissingGreenlet: greenlet_spawn has not been called
+        refresh() rehydrates inside the async context.
+
+        Same pattern as ProfileRepository.save / PostsRepository.save.
+        """
         await self._s.flush()
+        await self._s.refresh(m)

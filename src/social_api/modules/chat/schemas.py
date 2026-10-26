@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RoomTypeLiteral = Literal["direct", "group"]
 
@@ -67,3 +67,44 @@ class ReadRequest(BaseModel):
 
 class UnreadCount(BaseModel):
     unread: int
+
+
+class GroupRoomCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=120)
+    member_ids: list[int] = Field(default_factory=list, max_length=99)
+
+    @field_validator("member_ids")
+    @classmethod
+    def _dedupe_members(cls, v: list[int]) -> list[int]:
+        # Reject duplicates (silent dedupe is surprising)
+        if len(set(v)) != len(v):
+            raise ValueError("member_ids contains duplicates")
+        # No zeros / negatives
+        if any(m <= 0 for m in v):
+            raise ValueError("member_ids must be positive integers")
+        return v
+
+
+class RoomUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=120)
+    version: int = Field(ge=1)
+
+
+class AddMemberRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: int = Field(ge=1)
+
+
+class RoomMemberView(BaseModel):
+    user_id: int
+    role: Literal["member", "admin"]
+    joined_at: datetime
+
+
+class RoomMembersList(BaseModel):
+    members: list[RoomMemberView]

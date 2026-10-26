@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,23 +17,38 @@ from social_api.logging_config import get_logger
 from social_api.modules.auth.models import User, UserRole
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.chat.exceptions import (
+    AdminRequiredError,
+    AlreadyMemberError,
     CannotChatWithSelfError,
     ChatRoomForbiddenError,
     ChatRoomNotFoundError,
+    DirectChatNotAllowedError,
+    LastAdminCannotLeaveError,
+    MediaAlreadyUsedError,
+    MediaNotOwnedError,
     MessageForbiddenError,
     MessageNotFoundError,
     ReadReceiptInvalidError,
     UserBlockedChatError,
 )
-from social_api.modules.chat.models import ChatRoom, Message
+from social_api.modules.chat.models import (
+    ChatRoom,
+    MemberRole,
+    Message,
+    RoomType,
+)
 from social_api.modules.chat.repository import ChatRepository
 from social_api.modules.chat.schemas import (
     DirectRoomCreate,
+    GroupRoomCreate,
     MemberReadState,
     MessageCreate,
     MessagePage,
     MessageView,
     ReadReceiptsList,
+    RoomMembersList,
+    RoomMemberView,
+    RoomUpdate,
     RoomView,
     UnreadCount,
 )
@@ -71,7 +86,11 @@ class ChatService:
         self._users = UserRepository(session)
         self._follows = FollowsRepository(session)
 
-    # ---- Rooms ----
+        from social_api.modules.media.repository import MediaRepository
+
+        self._media_repo = MediaRepository(session)
+
+    # ---- Rooms (direct) ----
     async def find_or_create_direct(self, *, user_id: int, payload: DirectRoomCreate) -> RoomView:
         if payload.other_user_id == user_id:
             raise CannotChatWithSelfError()
@@ -115,6 +134,164 @@ class ChatService:
         rooms = await self._repo.list_user_rooms(user_id=user_id)
         return [_to_room_view(r) for r in rooms]
 
+    # ---- Rooms (group) ----
+    async def create_group(self, *, creator_id: int, payload: GroupRoomCreate) -> RoomView:
+        # Filter out creator (auto-added as admin).
+        member_ids = [m for m in payload.member_ids if m != creator_id]
+
+        # Verify all members exist and are not blocked with creator.
+        for uid in member_ids:
+            target = await self._users.get_by_id(uid)
+            if target is None:
+                raise ChatRoomNotFoundError()
+            if await self._follows.blocked_either_direction(creator_id, uid):
+                raise UserBlockedChatError()
+
+        room = await self._repo.create_group_room(
+            title=payload.title,
+            admin_id=creator_id,
+            member_ids=member_ids,
+        )
+        logger.info(
+            "chat_group_created",
+            room_id=room.id,
+            admin_id=creator_id,
+            members=len(member_ids) + 1,
+        )
+        return _to_room_view(room)
+
+    async def update_title(self, *, user_id: int, room_id: int, payload: RoomUpdate) -> RoomView:
+        room = await self._repo.get_room(room_id)
+        if room is None:
+            raise ChatRoomNotFoundError()
+        if room.type != RoomType.GROUP:
+            raise DirectChatNotAllowedError()
+
+        member = await self._repo.get_member(room_id=room_id, user_id=user_id)
+        if member is None:
+            raise ChatRoomForbiddenError()
+        if member.role != MemberRole.ADMIN:
+            raise AdminRequiredError()
+
+        if room.version != payload.version:
+            from social_api.modules.users.exceptions import (
+                OptimisticLockError,
+            )
+
+            raise OptimisticLockError(
+                detail={
+                    "current_version": room.version,
+                    "current": _to_room_view(room).model_dump(mode="json"),
+                }
+            )
+
+        room.title = payload.title
+        room.version += 1
+        await self._repo.save_room(room)
+        logger.info("chat_group_title_updated", room_id=room_id)
+        return _to_room_view(room)
+
+    async def list_members(self, *, user_id: int, room_id: int) -> RoomMembersList:
+        await self.get_room_for_member(user_id=user_id, room_id=room_id)
+        members = await self._repo.list_members(room_id=room_id)
+        return RoomMembersList(
+            members=[
+                RoomMemberView(
+                    user_id=m.user_id,
+                    role=m.role.value,
+                    joined_at=m.joined_at,
+                )
+                for m in members
+            ]
+        )
+
+    async def add_member(self, *, actor_id: int, room_id: int, target_id: int) -> RoomMemberView:
+        room = await self._repo.get_room(room_id)
+        if room is None:
+            raise ChatRoomNotFoundError()
+        if room.type != RoomType.GROUP:
+            raise DirectChatNotAllowedError()
+
+        actor = await self._repo.get_member(room_id=room_id, user_id=actor_id)
+        if actor is None:
+            raise ChatRoomForbiddenError()
+        if actor.role != MemberRole.ADMIN:
+            raise AdminRequiredError()
+
+        if await self._repo.get_member(room_id=room_id, user_id=target_id):
+            raise AlreadyMemberError()
+
+        target = await self._users.get_by_id(target_id)
+        if target is None:
+            raise ChatRoomNotFoundError()
+        if await self._follows.blocked_either_direction(actor_id, target_id):
+            raise UserBlockedChatError()
+
+        m = await self._repo.add_member(
+            room_id=room_id,
+            user_id=target_id,
+            role=MemberRole.MEMBER,
+        )
+        logger.info(
+            "chat_member_added",
+            room_id=room_id,
+            user_id=target_id,
+            by=actor_id,
+        )
+        return RoomMemberView(
+            user_id=m.user_id,
+            role=m.role.value,
+            joined_at=m.joined_at,
+        )
+
+    async def remove_member(self, *, actor_id: int, room_id: int, target_id: int) -> None:
+        room = await self._repo.get_room(room_id)
+        if room is None:
+            raise ChatRoomNotFoundError()
+        if room.type != RoomType.GROUP:
+            raise DirectChatNotAllowedError()
+
+        actor = await self._repo.get_member(room_id=room_id, user_id=actor_id)
+        if actor is None:
+            raise ChatRoomForbiddenError()
+
+        # Self-removal (leave) is allowed for any member; removing
+        # others requires admin.
+        if target_id != actor_id and actor.role != MemberRole.ADMIN:
+            raise AdminRequiredError()
+
+        target = await self._repo.get_member(room_id=room_id, user_id=target_id)
+        if target is None:
+            raise ChatRoomNotFoundError()
+
+        # Last-admin rule: if target is an admin and only 1 admin left
+        # and there are other members, refuse — the room would be
+        # orphaned. Last-member-leaving case is allowed (room gets
+        # soft-deleted below).
+        if target.role == MemberRole.ADMIN:
+            admin_count = await self._repo.count_admins(room_id=room_id)
+            if admin_count <= 1:
+                member_count = await self._repo.count_members(room_id=room_id)
+                if member_count > 1:
+                    raise LastAdminCannotLeaveError()
+
+        removed = await self._repo.remove_member(room_id=room_id, user_id=target_id)
+        if not removed:
+            raise ChatRoomNotFoundError()
+
+        # If room now empty -> soft-delete.
+        remaining = await self._repo.count_members(room_id=room_id)
+        if remaining == 0:
+            await self._repo.soft_delete_room(room_id=room_id)
+            logger.info("chat_room_auto_deleted", room_id=room_id)
+
+        logger.info(
+            "chat_member_removed",
+            room_id=room_id,
+            user_id=target_id,
+            by=actor_id,
+        )
+
     # ---- Messages ----
     async def send_message(
         self,
@@ -130,6 +307,10 @@ class ChatService:
         if member is None:
             raise ChatRoomForbiddenError()
 
+        # Media validation (if any).
+        if payload.media_id is not None:
+            await self._validate_media_for_message(media_id=payload.media_id, sender_id=sender_id)
+
         m = await self._repo.create_message(
             room_id=room_id,
             sender_id=sender_id,
@@ -137,7 +318,11 @@ class ChatService:
             media_id=payload.media_id,
         )
 
-        # Best-effort WS fan-out to the other room members.
+        # Bind media to message (prevents reuse).
+        if payload.media_id is not None:
+            await self._attach_media_to_message(media_id=payload.media_id, message_id=m.id)
+
+        # WS push (best-effort).
         try:
             await self._publish_message_event(room_id=room_id, message=m, sender_id=sender_id)
         except Exception as exc:  # pragma: no cover
@@ -152,8 +337,34 @@ class ChatService:
             message_id=m.id,
             room_id=room_id,
             sender_id=sender_id,
+            has_media=payload.media_id is not None,
         )
         return _to_message_view(m)
+
+    async def _validate_media_for_message(self, *, media_id: int, sender_id: int) -> None:
+        media = await self._media_repo.get_by_id(media_id)
+        if media is None:
+            raise MediaNotOwnedError()
+        if media.owner_id != sender_id:
+            raise MediaNotOwnedError()
+        # Bind-collision guard: media may be attached to a post OR a
+        # message already.
+        if getattr(media, "post_id", None) is not None:
+            raise MediaAlreadyUsedError()
+        if getattr(media, "message_id", None) is not None:
+            raise MediaAlreadyUsedError()
+
+    async def _attach_media_to_message(self, *, media_id: int, message_id: int) -> None:
+        from sqlalchemy.exc import IntegrityError
+
+        media = await self._media_repo.get_by_id(media_id)
+        if media is None:
+            raise MediaNotOwnedError()
+        media.message_id = message_id
+        try:
+            await self._media_repo.save(media)
+        except IntegrityError:
+            raise MediaAlreadyUsedError() from None
 
     async def _publish_message_event(
         self, *, room_id: int, message: Message, sender_id: int
@@ -231,8 +442,6 @@ class ChatService:
         is_staff = actor.role in (UserRole.MODERATOR, UserRole.ADMIN)
         if not (is_owner or is_staff):
             raise MessageForbiddenError()
-
-        from datetime import UTC
 
         m.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await self._repo.save_message(m)

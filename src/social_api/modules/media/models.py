@@ -14,7 +14,6 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -57,6 +56,11 @@ class Media(Base, SoftDeleteMixin, VersionMixin):
     post_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("posts.id", ondelete="SET NULL"), nullable=True
     )
+    message_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     mime: Mapped[str] = mapped_column(String(64), nullable=False)
     kind: Mapped[MediaKind] = mapped_column(
@@ -80,7 +84,8 @@ class Media(Base, SoftDeleteMixin, VersionMixin):
     __table_args__ = (
         Index("ix_media_owner_created", "owner_id", "created_at"),
         Index("ix_media_post_id", "post_id"),
-        UniqueConstraint("owner_id", "sha256", name="uq_media_owner_sha"),
+        Index("uq_media_owner_sha", "owner_id", "sha256", unique=True),
+        Index("uq_media_message_id", "message_id", unique=True),
         Index("ix_media_deleted_at", "deleted_at"),
         CheckConstraint("size_bytes > 0", name="ck_media_size_positive"),
     )

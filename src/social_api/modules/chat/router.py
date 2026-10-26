@@ -9,13 +9,18 @@ from social_api.core.rate_limit import _key_by_user_or_ip, limiter
 from social_api.db.session import get_db
 from social_api.deps import CurrentUser, get_current_user
 from social_api.modules.chat.schemas import (
+    AddMemberRequest,
     DirectRoomCreate,
+    GroupRoomCreate,
     MemberReadState,
     MessageCreate,
     MessagePage,
     MessageView,
     ReadReceiptsList,
     ReadRequest,
+    RoomMembersList,
+    RoomMemberView,
+    RoomUpdate,
     RoomView,
     UnreadCount,
 )
@@ -63,18 +68,12 @@ async def get_room(
 @limiter.limit("30/minute", key_func=_key_by_user_or_ip)
 async def send_message(
     request: Request,
-    response: Response,  # ← slowapi needs this to inject headers
+    response: Response,  # slowapi header injection target
     room_id: int,
     payload: MessageCreate,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> MessageView:
-    # `request` and `response` are required by slowapi's @limiter.limit
-    # when headers_enabled=True (which our Limiter has, for X-RateLimit-*).
-    # FastAPI creates the Response object automatically; slowapi injects
-    # rate-limit headers into it after our handler returns. The body is
-    # still serialized from the return value — Response param is not
-    # touched by us directly.
     _ = (request, response)
     return await _svc(session).send_message(
         sender_id=user.user.id, room_id=room_id, payload=payload
@@ -152,7 +151,7 @@ async def unread_count(
 @limiter.limit("60/minute", key_func=_key_by_user_or_ip)
 async def typing(
     request: Request,
-    response: Response,  # ← slowapi needs this to inject headers
+    response: Response,  # slowapi header injection target
     room_id: int,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
@@ -160,4 +159,75 @@ async def typing(
     _ = (request, response)
     await _svc(session).publish_typing(user_id=user.user.id, room_id=room_id)
     await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/rooms/group",
+    response_model=RoomView,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("10/minute", key_func=_key_by_user_or_ip)
+async def create_group(
+    request: Request,
+    response: Response,  # slowapi header injection target
+    payload: GroupRoomCreate,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> RoomView:
+    _ = (request, response)
+    return await _svc(session).create_group(creator_id=user.user.id, payload=payload)
+
+
+@router.patch("/rooms/{room_id}", response_model=RoomView)
+async def update_room(
+    room_id: int,
+    payload: RoomUpdate,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> RoomView:
+    return await _svc(session).update_title(user_id=user.user.id, room_id=room_id, payload=payload)
+
+
+@router.get("/rooms/{room_id}/members", response_model=RoomMembersList)
+async def list_members(
+    room_id: int,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> RoomMembersList:
+    return await _svc(session).list_members(user_id=user.user.id, room_id=room_id)
+
+
+@router.post(
+    "/rooms/{room_id}/members",
+    response_model=RoomMemberView,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("30/minute", key_func=_key_by_user_or_ip)
+async def add_member(
+    request: Request,
+    response: Response,  # slowapi header injection target
+    room_id: int,
+    payload: AddMemberRequest,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> RoomMemberView:
+    _ = (request, response)
+    return await _svc(session).add_member(
+        actor_id=user.user.id, room_id=room_id, target_id=payload.user_id
+    )
+
+
+@router.delete(
+    "/rooms/{room_id}/members/{target_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def remove_member(
+    room_id: int,
+    target_id: int,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    await _svc(session).remove_member(actor_id=user.user.id, room_id=room_id, target_id=target_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -9,8 +9,8 @@ Flow:
   4. accept() upgrade.
   5. Track via ConnectionManager + Redis presence counter.
   6. Spawn two tasks:
-     a. Reader loop: client messages (ping, etc.), refresh TTL.
-     b. Pub/sub loop: subscribe to `ws:user:{id}`, push events to client.
+     a. Reader loop: client messages (ping, join_room, leave_room), refresh TTL.
+     b. Pub/sub loop: user + room channels, push events to client.
   7. On close: cleanup presence, disconnect.
 """
 
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from typing import Any
 
 import jwt
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
@@ -31,10 +32,10 @@ from social_api.realtime.channels import (
     presence_decr,
     presence_heartbeat,
     presence_incr,
-    subscribe_user,
 )
 from social_api.realtime.events import build_event, parse_event
 from social_api.realtime.manager import manager
+from social_api.realtime.rooms import RoomSubscription
 
 logger = get_logger(__name__)
 
@@ -61,9 +62,19 @@ async def _authenticate_ws(token: str) -> int | None:
         return None
 
 
-async def _reader_loop(ws: WebSocket, user_id: int) -> None:
-    """Read client messages; respond to ping; refresh presence TTL."""
+async def _reader_loop(
+    ws: WebSocket,
+    user_id: int,
+    pubsub: Any,
+    room_subs: RoomSubscription,
+) -> None:
+    """Read client messages; handle ping, join_room, leave_room."""
+    from social_api.db.session import get_sessionmaker
+    from social_api.modules.chat.repository import ChatRepository
+
     redis = get_redis()
+    sm = get_sessionmaker()
+
     while True:
         try:
             raw = await asyncio.wait_for(ws.receive_text(), timeout=READ_TIMEOUT_SECONDS)
@@ -76,20 +87,83 @@ async def _reader_loop(ws: WebSocket, user_id: int) -> None:
             return
 
         event = parse_event(raw)
-        if event and event.get("type") == "ping":
+        if not event:
+            continue
+
+        etype = event.get("type")
+        if etype == "ping":
             await presence_heartbeat(redis=redis, user_id=user_id)
             await ws.send_text(build_event(type_="pong"))
+            continue
+
+        if etype == "join_room":
+            data = event.get("data") or {}
+            room_id = data.get("room_id")
+            if not isinstance(room_id, int):
+                await ws.send_text(
+                    build_event(
+                        type_="error",
+                        data={"code": "INVALID_ROOM_ID"},
+                    )
+                )
+                continue
+
+            # Verify membership in a short session.
+            ok = False
+            async with sm() as session:
+                try:
+                    member = await ChatRepository(session).get_member(
+                        room_id=room_id, user_id=user_id
+                    )
+                    ok = member is not None
+                except Exception:
+                    ok = False
+
+            if not ok:
+                await ws.send_text(
+                    build_event(
+                        type_="error",
+                        data={
+                            "code": "NOT_A_MEMBER",
+                            "room_id": room_id,
+                        },
+                    )
+                )
+                continue
+
+            is_new = await room_subs.join(room_id=room_id)
+            if is_new:
+                await pubsub.subscribe(f"ws:room:{room_id}")
+            await ws.send_text(build_event(type_="joined", data={"room_id": room_id}))
+            continue
+
+        if etype == "leave_room":
+            data = event.get("data") or {}
+            room_id = data.get("room_id")
+            if not isinstance(room_id, int):
+                continue
+            was_member = await room_subs.leave(room_id=room_id)
+            if was_member:
+                await pubsub.unsubscribe(f"ws:room:{room_id}")
+            await ws.send_text(build_event(type_="left", data={"room_id": room_id}))
+            continue
 
 
-async def _pubsub_loop(ws: WebSocket, user_id: int) -> None:
-    """Subscribe to this user's Redis channel; push to client."""
-    redis = get_redis()
+async def _pubsub_loop(ws: WebSocket, user_id: int, pubsub: Any) -> None:
+    """Receive messages from all subscribed channels; push to client."""
     try:
-        async for message in subscribe_user(redis=redis, user_id=user_id):
-            await ws.send_text(message)
+        while True:
+            msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if msg is None:
+                continue
+            data = msg.get("data")
+            if isinstance(data, bytes):
+                data = data.decode("utf-8")
+            if isinstance(data, str):
+                await ws.send_text(data)
     except WebSocketDisconnect:
         return
-    except Exception as exc:  # pragma: no cover — defensive
+    except Exception as exc:  # pragma: no cover
         logger.warning(
             "ws_pubsub_loop_error",
             user_id=user_id,
@@ -114,18 +188,15 @@ async def ws_endpoint(
     ws: WebSocket,
     token: str | None = Query(default=None),
 ) -> None:
-    # 1) Feature flag
     if not get_flags().is_enabled("ws_enabled"):
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # 2) Rate limit
     ip = ws.client.host if ws.client else "unknown"
     if not await check_ws_connect_limit(ip=ip):
-        await ws.close(code=4029)  # custom policy-violation-close
+        await ws.close(code=4029)
         return
 
-    # 3) Auth
     if not token:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -134,14 +205,19 @@ async def ws_endpoint(
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # 4) Accept + track
     await ws.accept()
     redis = get_redis()
     await manager.connect(user_id=user_id, ws=ws)
     await presence_incr(redis=redis, user_id=user_id)
 
-    reader_task = asyncio.create_task(_reader_loop(ws, user_id))
-    pubsub_task = asyncio.create_task(_pubsub_loop(ws, user_id))
+    # Create pubsub and subscribe to the user channel + future rooms.
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(f"ws:user:{user_id}")
+
+    room_subs = RoomSubscription()
+
+    reader_task = asyncio.create_task(_reader_loop(ws, user_id, pubsub, room_subs))
+    pubsub_task = asyncio.create_task(_pubsub_loop(ws, user_id, pubsub))
     heartbeat_task = asyncio.create_task(_heartbeat_loop(ws, user_id))
 
     try:
@@ -155,6 +231,18 @@ async def ws_endpoint(
                 t.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await t
+
+        # Cleanup room subs + user sub + pubsub close.
+        joined = await room_subs.clear()
+        for rid in joined:
+            with contextlib.suppress(Exception):
+                await pubsub.unsubscribe(f"ws:room:{rid}")
+        with contextlib.suppress(Exception):
+            await pubsub.unsubscribe(f"ws:user:{user_id}")
+        # redis-py's PubSub.aclose() is not fully typed in current stubs;
+        # narrow ignore — behavior correct at runtime.
+        with contextlib.suppress(Exception):
+            await pubsub.aclose()  # type: ignore[no-untyped-call]
         await manager.disconnect(user_id=user_id, ws=ws)
         await presence_decr(redis=redis, user_id=user_id)
         logger.info("ws_session_closed", user_id=user_id)

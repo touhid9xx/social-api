@@ -220,6 +220,29 @@ Base URL: `/`
 
 ---
 
+### `POST` /api/v1/chat/rooms/group
+
+**Summary:** Create Group
+
+**Tags:** chat
+
+**operationId:** `create_group_api_v1_chat_rooms_group_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/GroupRoomCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `GET` /api/v1/chat/rooms/{room_id}
 
 **Summary:** Get Room
@@ -241,6 +264,117 @@ Base URL: `/`
 **Responses:**
 
 - `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `PATCH` /api/v1/chat/rooms/{room_id}
+
+**Summary:** Update Room
+
+**Tags:** chat
+
+**operationId:** `update_room_api_v1_chat_rooms__room_id__patch`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/RoomUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/chat/rooms/{room_id}/members
+
+**Summary:** List Members
+
+**Tags:** chat
+
+**operationId:** `list_members_api_v1_chat_rooms__room_id__members_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `POST` /api/v1/chat/rooms/{room_id}/members
+
+**Summary:** Add Member
+
+**Tags:** chat
+
+**operationId:** `add_member_api_v1_chat_rooms__room_id__members_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/AddMemberRequest`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `DELETE` /api/v1/chat/rooms/{room_id}/members/{target_id}
+
+**Summary:** Remove Member
+
+**Tags:** chat
+
+**operationId:** `remove_member_api_v1_chat_rooms__room_id__members__target_id__delete`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+| target_id | path | True | `{"type": "integer", "title": "Target Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
 - `422` — Validation Error
 
 ---
