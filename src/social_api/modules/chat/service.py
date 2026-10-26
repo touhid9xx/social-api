@@ -14,6 +14,7 @@ from social_api.core.pagination import (
 )
 from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
+from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User, UserRole
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.chat.exceptions import (
@@ -75,7 +76,10 @@ def _to_message_view(m: Message) -> MessageView:
         body=m.body,
         media_id=m.media_id,
         created_at=m.created_at,
-        is_edited=m.updated_at > m.created_at,
+        # `version > 1` — monotone edit signal, immune to MySQL DATETIME
+        # second-precision truncation that makes `updated_at > created_at`
+        # fail on fast edits. Same fix as posts/comments.
+        is_edited=m.version > 1,
     )
 
 
@@ -158,6 +162,19 @@ class ChatService:
             admin_id=creator_id,
             members=len(member_ids) + 1,
         )
+
+        # Audit — creating a persistent group with N members is a
+        # state-changing administrative action worth a forensic trail.
+        await AuditService(self._s).write(
+            actor_id=creator_id,
+            action="CREATE_CHAT_GROUP",
+            entity="chat_room",
+            entity_id=room.id,
+            after={
+                "title": room.title,
+                "member_ids": member_ids,
+            },
+        )
         return _to_room_view(room)
 
     async def update_title(self, *, user_id: int, room_id: int, payload: RoomUpdate) -> RoomView:
@@ -185,10 +202,25 @@ class ChatService:
                 }
             )
 
+        old_title = room.title
         room.title = payload.title
         room.version += 1
         await self._repo.save_room(room)
-        logger.info("chat_group_title_updated", room_id=room_id)
+        logger.info(
+            "chat_group_title_updated",
+            room_id=room_id,
+            actor_id=user_id,
+        )
+
+        # Audit — admin renaming a group is a staff-like action.
+        await AuditService(self._s).write(
+            actor_id=user_id,
+            action="UPDATE_CHAT_GROUP_TITLE",
+            entity="chat_room",
+            entity_id=room_id,
+            before={"title": old_title},
+            after={"title": room.title},
+        )
         return _to_room_view(room)
 
     async def list_members(self, *, user_id: int, room_id: int) -> RoomMembersList:
@@ -237,6 +269,15 @@ class ChatService:
             room_id=room_id,
             user_id=target_id,
             by=actor_id,
+        )
+
+        # Audit — admin adding a member is a state-changing admin action.
+        await AuditService(self._s).write(
+            actor_id=actor_id,
+            action="ADD_CHAT_MEMBER",
+            entity="chat_room",
+            entity_id=room_id,
+            after={"target_user_id": target_id, "role": "member"},
         )
         return RoomMemberView(
             user_id=m.user_id,
@@ -290,6 +331,21 @@ class ChatService:
             room_id=room_id,
             user_id=target_id,
             by=actor_id,
+        )
+
+        # Audit — self-leave vs admin-kick are both state-changing; the
+        # is_self flag lets forensics distinguish "left voluntarily" from
+        # "removed by admin".
+        is_self_leave = target_id == actor_id
+        await AuditService(self._s).write(
+            actor_id=actor_id,
+            action="REMOVE_CHAT_MEMBER",
+            entity="chat_room",
+            entity_id=room_id,
+            after={
+                "target_user_id": target_id,
+                "is_self_leave": is_self_leave,
+            },
         )
 
     # ---- Messages ----
@@ -450,6 +506,21 @@ class ChatService:
             message_id=message_id,
             actor_id=actor.id,
             as_staff=is_staff and not is_owner,
+        )
+
+        # Audit — deleting a message is destructive. Self-delete vs
+        # staff-delete are both sensitive (content disappears); as_staff
+        # flag captures the distinction for forensic review.
+        await AuditService(self._s).write(
+            actor_id=actor.id,
+            action="DELETE_CHAT_MESSAGE",
+            entity="message",
+            entity_id=m.id,
+            after={
+                "room_id": m.room_id,
+                "sender_id": m.sender_id,
+                "as_staff": is_staff and not is_owner,
+            },
         )
 
     # ---- Read receipts ----

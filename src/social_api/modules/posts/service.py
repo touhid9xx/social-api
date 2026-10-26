@@ -17,6 +17,7 @@ from social_api.core.pagination import (
 )
 from social_api.exceptions import BadRequestError, ForbiddenError
 from social_api.logging_config import get_logger
+from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User, UserRole
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.follows.repository import FollowsRepository
@@ -89,7 +90,9 @@ class PostsService:
     # ---- Create ----
     async def create(self, *, author_id: int, payload: PostCreate) -> PostView:
         post = await self._repo.create(
-            author_id=author_id, body=payload.body, visibility=payload.visibility
+            author_id=author_id,
+            body=payload.body,
+            visibility=payload.visibility,
         )
 
         await self._dispatch_feed_for_new_post(
@@ -178,8 +181,8 @@ class PostsService:
         if post.author_id != viewer_id:
             raise PostForbiddenError()
         if post.version != payload.version:
-            # mode="json" — datetime-safe; the error handler uses
-            # plain json.dumps() inside JSONResponse.
+            # mode="json" — datetime-safe; the error handler uses plain
+            # json.dumps() inside JSONResponse.
             raise OptimisticLockError(
                 detail={
                     "current_version": post.version,
@@ -193,7 +196,20 @@ class PostsService:
             post.visibility = Visibility(payload.visibility)
         post.version += 1
         await self._repo.save(post)
-        logger.info("post_updated", post_id=post.id)
+
+        # Note: no audit row for author-edit. Post edits are low-sensitivity
+        # user actions, logged at INFO. If a future staff-edit endpoint is
+        # added (PATCH /moderation/posts/{id}), that path should audit.
+        logger.info(
+            "post_updated",
+            post_id=post.id,
+            author_id=post.author_id,
+            fields=[
+                k
+                for k, v in payload.model_dump(exclude_unset=True, exclude={"version"}).items()
+                if v is not None
+            ],
+        )
         return _to_view(post)
 
     # ---- Delete (soft) ----
@@ -220,6 +236,19 @@ class PostsService:
                 post_id=post.id,
                 error=type(exc).__name__,
             )
+
+        # Audit delete — both self-delete and staff-delete are sensitive
+        # actions. The `as_staff` flag distinguishes them for forensic review.
+        await AuditService(self._s).write(
+            actor_id=actor.id,
+            action="DELETE_POST",
+            entity="post",
+            entity_id=post.id,
+            after={
+                "author_id": post.author_id,
+                "as_staff": is_staff and not is_owner,
+            },
+        )
 
         logger.info(
             "post_deleted",
@@ -276,7 +305,9 @@ class PostsService:
 
         post_ids = [p.id for p in visible]
         liked_ids = await self._likes.exists_batch(
-            user_id=viewer_id, target_type="post", target_ids=post_ids
+            user_id=viewer_id,
+            target_type="post",
+            target_ids=post_ids,
         )
 
         return PostPage(

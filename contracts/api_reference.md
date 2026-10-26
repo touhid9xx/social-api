@@ -8,6 +8,65 @@ Base URL: `/`
 
 ## Endpoints
 
+### `GET` /api/v1/audit
+
+**Summary:** List All Audit
+
+**Tags:** audit
+
+**operationId:** `list_all_audit_api_v1_audit_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| actor_id | query | False | `{"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Actor Id"}` |
+| action | query | False | `{"anyOf": [{"enum": ["REGISTER", "LOGIN", "LOGOUT", "PROFILE_UPDATE", "DELETE_POST", "DELETE_COMMENT", "BLOCK", "UNBLOCK", "MUTE", "UNMUTE", "CREATE_CHAT_GROUP", "UPDATE_CHAT_GROUP_TITLE", "ADD_CHAT_MEMBER", "REMOVE_CHAT_MEMBER", "DELETE_CHAT_MESSAGE", "MODERATION_STATUS_UPDATE"], "type": "string"}, {"type": "null"}], "title": "Action"}` |
+| entity | query | False | `{"anyOf": [{"enum": ["user", "profile", "post", "comment", "message", "chat_room", "report"], "type": "string"}, {"type": "null"}], "title": "Entity"}` |
+| entity_id | query | False | `{"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Entity Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
+### `GET` /api/v1/audit/me
+
+**Summary:** My Audit
+
+**Tags:** audit
+
+**operationId:** `my_audit_api_v1_audit_me_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| action | query | False | `{"anyOf": [{"enum": ["REGISTER", "LOGIN", "LOGOUT", "PROFILE_UPDATE", "DELETE_POST", "DELETE_COMMENT", "BLOCK", "UNBLOCK", "MUTE", "UNMUTE", "CREATE_CHAT_GROUP", "UPDATE_CHAT_GROUP_TITLE", "ADD_CHAT_MEMBER", "REMOVE_CHAT_MEMBER", "DELETE_CHAT_MESSAGE", "MODERATION_STATUS_UPDATE"], "type": "string"}, {"type": "null"}], "title": "Action"}` |
+| entity | query | False | `{"anyOf": [{"enum": ["user", "profile", "post", "comment", "message", "chat_room", "report"], "type": "string"}, {"type": "null"}], "title": "Entity"}` |
+| entity_id | query | False | `{"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Entity Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `POST` /api/v1/auth/login
 
 **Summary:** Login
@@ -695,6 +754,57 @@ Base URL: `/`
 
 - `204` — Successful Response
 - `422` — Validation Error
+
+---
+
+### `POST` /api/v1/gdpr/cancel-delete
+
+**Summary:** Cancel Deletion
+
+**Tags:** gdpr
+
+**operationId:** `cancel_deletion_api_v1_gdpr_cancel_delete_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `GET` /api/v1/gdpr/deletion-status
+
+**Summary:** Deletion Status
+
+**Tags:** gdpr
+
+**operationId:** `deletion_status_api_v1_gdpr_deletion_status_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `GET` /api/v1/gdpr/export
+
+**Summary:** Export Data
+
+**Tags:** gdpr
+
+**operationId:** `export_data_api_v1_gdpr_export_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Full user data export. Served as a JSON download (Content-Disposition: attachment).
 
 ---
 

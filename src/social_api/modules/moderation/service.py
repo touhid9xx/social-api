@@ -14,6 +14,7 @@ from social_api.core.pagination import (
 )
 from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
+from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.chat.repository import ChatRepository
@@ -106,7 +107,8 @@ class ModerationService:
             reason=payload.reason,
             details=payload.details,
         )
-        # Repo returns None on unique dedupe hit; matches ReportAlreadyExistsError.
+        # Repo returns None on unique dedupe hit; matches
+        # ReportAlreadyExistsError.
         if row is None:
             raise ReportAlreadyExistsError()
 
@@ -197,6 +199,11 @@ class ModerationService:
         if row.status == new_status:
             return _to_view(row)
 
+        # ---- Capture before-state for the audit diff ----
+        old_status = row.status
+        old_reviewer_id = row.reviewer_id
+        old_note = row.resolution_note
+
         # Apply transition
         row.status = new_status
         row.reviewer_id = reviewer.id
@@ -205,6 +212,28 @@ class ModerationService:
             row.resolved_at = datetime.now(UTC).replace(tzinfo=None)
         row.version += 1
         await self._repo.save(row)
+
+        # ---- Audit: status transition on a moderation report ----
+        # Reviewer just made a decision affecting a user's content /
+        # account — state-changing staff action. Both self-contained
+        # (before/after) so forensics can reconstruct the decision
+        # without joining other tables.
+        await AuditService(self._s).write(
+            actor_id=reviewer.id,
+            action="MODERATION_STATUS_UPDATE",
+            entity="report",
+            entity_id=row.id,
+            before={
+                "status": old_status.value,
+                "reviewer_id": old_reviewer_id,
+                "resolution_note": old_note,
+            },
+            after={
+                "status": row.status.value,
+                "reviewer_id": row.reviewer_id,
+                "resolution_note": row.resolution_note,
+            },
+        )
 
         logger.info(
             "report_updated",

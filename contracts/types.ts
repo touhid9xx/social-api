@@ -5,6 +5,25 @@ export interface AddMemberRequest {
   user_id: number;
 }
 
+export interface AuditLogView {
+  id: number;
+  actor_id: unknown;
+  action: string;
+  entity: string;
+  entity_id: unknown;
+  before: unknown;
+  after: unknown;
+  ip: unknown;
+  user_agent: unknown;
+  request_id: unknown;
+  created_at: string;
+}
+
+export interface AuditPage {
+  items: unknown[];
+  next_cursor?: unknown;
+}
+
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;
@@ -14,6 +33,10 @@ export interface AuthTokens {
 
 export interface Body_upload_media_api_v1_media_post {
   file: string;
+}
+
+export interface CancelResponse {
+  message: string;
 }
 
 export interface CommentCreate {
@@ -64,6 +87,12 @@ export interface ConsentRecord {
 export interface DeleteMeResponse {
   message: string;
   hard_delete_after: string;
+}
+
+export interface DeletionStatusView {
+  scheduled: boolean;
+  scheduled_hard_delete_at: unknown;
+  status: string;
 }
 
 export interface DirectRoomCreate {

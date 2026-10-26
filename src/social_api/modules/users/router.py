@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import contextlib
+
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.db.session import get_db
 from social_api.deps import CurrentUser, get_current_user
+from social_api.modules.gdpr.exceptions import AlreadyScheduledForDeletionError
+from social_api.modules.gdpr.service import GdprService
 from social_api.modules.users.schemas import (
     ConsentGrantRequest,
     ConsentList,
@@ -94,7 +98,13 @@ async def delete_me(
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> DeleteMeResponse:
-    result = await _svc(session).soft_delete_me(user_id=user.user.id)
+    users = _svc(session)
+    result = await users.soft_delete_me(user_id=user.user.id)
+
+    gdpr = GdprService(session)
+    with contextlib.suppress(AlreadyScheduledForDeletionError):
+        await gdpr.schedule_deletion(user=user.user)
+
     await session.commit()
     return result
 

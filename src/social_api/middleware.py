@@ -20,14 +20,29 @@ RequestHandler = Callable[[Request], Awaitable[Response]]
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
-    """Assigns request_id, measures latency, binds structlog context."""
+    """Assigns request_id, binds client_ip + user_agent, measures latency.
+
+    Context values (request_id, client_ip, user_agent) are bound to
+    structlog.contextvars so downstream handlers (e.g. AuditService) can
+    read them via structlog.contextvars.get_contextvars() without
+    plumbing the request object through every call.
+
+    PII note: client_ip is bound raw so the audit service can persist it,
+    but it is redacted at log-emit time by the PII processor in
+    logging_config.py.
+    """
 
     async def dispatch(self, request: Request, call_next: RequestHandler) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.state.request_id = request_id
 
+        # Bind everything in one call — clean slate first, then all keys.
         structlog.contextvars.clear_contextvars()
-        structlog.contextvars.bind_contextvars(request_id=request_id)
+        structlog.contextvars.bind_contextvars(
+            request_id=request_id,
+            client_ip=(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent"),
+        )
 
         start = time.perf_counter()
         try:
@@ -67,10 +82,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault(
-            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+            "Permissions-Policy",
+            "geolocation=(), microphone=(), camera=()",
         )
         response.headers.setdefault(
-            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
         )
         return response
 

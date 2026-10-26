@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.logging_config import get_logger
+from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.follows.repository import FollowsRepository
@@ -70,11 +71,41 @@ def _to_self(profile: Profile) -> ProfileSelf:
 
 class UsersService:
     def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+        self._s = session
         self._profiles = ProfileRepository(session)
         self._consents = ConsentRepository(session)
         self._users = UserRepository(session)
         self._follows = FollowsRepository(session)
+
+    async def _audit(
+        self,
+        *,
+        actor_id: int,
+        action: str,
+        entity_id: int,
+        after: dict[str, object] | None = None,
+    ) -> None:
+        """Best-effort audit write. Never fails the caller.
+
+        Audit is a forensic observation — if the write itself fails
+        (Redis/DB hiccup, table lock), the business action must still
+        complete. Same pattern as FollowsService._audit.
+        """
+        try:
+            await AuditService(self._s).write(
+                actor_id=actor_id,
+                action=action,
+                entity="user",
+                entity_id=entity_id,
+                after=after,
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning(
+                "audit_write_failed",
+                action=action,
+                entity_id=entity_id,
+                error=type(exc).__name__,
+            )
 
     async def _ensure_profile(self, user_id: int) -> Profile:
         p = await self._profiles.get_by_user_id(user_id)
@@ -105,7 +136,7 @@ class UsersService:
         if profile.visibility == Visibility.FOLLOWERS:
             if viewer_id is None:
                 raise ProfileVisibilityError()
-            # Real follows-graph check (was TODO(M6) — resolved in M12 polish).
+            # Real follows-graph check.
             if not await self._follows.is_following(
                 follower_id=viewer_id, followee_id=target_user_id
             ):
@@ -144,11 +175,23 @@ class UsersService:
             else:
                 setattr(profile, key, value)
 
-        # Optimistic locking: SQLAlchemy will bump `version` on flush
+        # Optimistic locking: SQLAlchemy will bump `version` on flush.
         profile.version += 1
         await self._profiles.save(profile)
 
-        logger.info("profile_updated", user_id=user_id, fields=list(data.keys()))
+        # Best-effort audit — field NAMES only (values may be PII).
+        await self._audit(
+            actor_id=user_id,
+            action="PROFILE_UPDATE",
+            entity_id=profile.id,
+            after={"fields_changed": list(data.keys())},
+        )
+
+        logger.info(
+            "profile_updated",
+            user_id=user_id,
+            fields=list(data.keys()),
+        )
         return _to_self(profile)
 
     # ---- Consent ----
@@ -163,6 +206,15 @@ class UsersService:
         ch = ConsentChannel(channel)
         row = await self._consents.grant(user_id, ch, ip=ip, user_agent=user_agent)
         logger.info("consent_granted", user_id=user_id, channel=ch.value)
+
+        # GDPR: consent grant is a legal record — audit it.
+        await self._audit(
+            actor_id=user_id,
+            action="CONSENT_GRANTED",
+            entity_id=user_id,
+            after={"channel": ch.value},
+        )
+
         return ConsentRecord(
             channel=ch.value,
             granted=row.granted,
@@ -178,6 +230,13 @@ class UsersService:
             return
         await self._consents.revoke(active)
         logger.info("consent_revoked", user_id=user_id, channel=ch.value)
+
+        await self._audit(
+            actor_id=user_id,
+            action="CONSENT_REVOKED",
+            entity_id=user_id,
+            after={"channel": ch.value},
+        )
 
     async def list_consents(self, *, user_id: int) -> list[ConsentRecord]:
         rows = await self._consents.list_active(user_id)
@@ -202,7 +261,7 @@ class UsersService:
         user.is_active = False
         await self._users.save(user)
 
-        # Also soft-delete the profile row
+        # Also soft-delete the profile row.
         profile = await self._profiles.get_by_user_id(user_id)
         if profile is not None:
             profile.deleted_at = now
@@ -210,7 +269,24 @@ class UsersService:
 
         hard_delete_at = datetime.now(UTC) + timedelta(days=_SOFT_DELETE_HARD_DELETE_DAYS)
 
-        logger.info("user_soft_deleted", user_id=user_id)
+        # GDPR: user-initiated account deletion is the most sensitive
+        # user action. M19 retention job will query users.deleted_at <
+        # NOW() - 30d and invoke GdprService.hard_delete().
+        await self._audit(
+            actor_id=user_id,
+            action="USER_SOFT_DELETE",
+            entity_id=user_id,
+            after={
+                "hard_delete_after": hard_delete_at.isoformat(),
+                "days_window": _SOFT_DELETE_HARD_DELETE_DAYS,
+            },
+        )
+
+        logger.info(
+            "user_soft_deleted",
+            user_id=user_id,
+            hard_delete_after=hard_delete_at.isoformat(),
+        )
         return DeleteMeResponse(
             message=(
                 "Account scheduled for deletion. It will be permanently "

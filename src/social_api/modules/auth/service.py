@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.cache.keys import RedisKeys
 from social_api.cache.redis import get_redis
@@ -19,6 +20,7 @@ from social_api.core.security import (
     revoke_token,
 )
 from social_api.logging_config import get_logger
+from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.exceptions import (
     EmailAlreadyRegisteredError,
     InactiveUserError,
@@ -60,8 +62,9 @@ def _build_tokens(user: User) -> AuthTokens:
 
 
 class AuthService:
-    def __init__(self, repo: UserRepository) -> None:
-        self._repo = repo
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+        self._repo = UserRepository(session)
 
     async def register(self, *, email: str, password: str) -> RegisterResponse:
         if await self._repo.email_exists(email):
@@ -70,13 +73,24 @@ class AuthService:
         pwd_hash = hash_password(password)
         user = await self._repo.create(email=email, password_hash=pwd_hash)
 
-        # Eagerly create profile (so /me never 404s on first call)
+        # Eagerly create profile (so /me never 404s on first call).
         from social_api.modules.users.service import UsersService
 
-        users_svc = UsersService(self._repo._s)
+        users_svc = UsersService(self._s)
         await users_svc.get_self_profile(user_id=user.id)
 
         logger.info("user_registered", user_id=user.id, role=user.role.value)
+
+        # Audit inside the same transaction — AuditService.write flushes
+        # but does not commit; the router's get_db() commits at request
+        # end, so user + profile + audit row are atomic.
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="REGISTER",
+            entity="user",
+            entity_id=user.id,
+        )
+
         return RegisterResponse(
             user=_to_public(user),
             message="Registration successful, please verify your email",
@@ -95,6 +109,14 @@ class AuthService:
 
         tokens = _build_tokens(user)
         logger.info("user_logged_in", user_id=user.id)
+
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="LOGIN",
+            entity="user",
+            entity_id=user.id,
+        )
+
         return LoginResponse(user=_to_public(user), tokens=tokens)
 
     async def refresh(self, *, refresh_token: str) -> AuthTokens:
@@ -104,7 +126,7 @@ class AuthService:
             raise InvalidTokenError() from None
 
         jti = payload["jti"]
-        # Rotation: if already used -> revoked
+        # Rotation: if already used -> revoked.
         client = get_redis()
         if await client.exists(RedisKeys.jwt_blacklist(jti)):
             raise TokenRevokedError()
@@ -118,14 +140,27 @@ class AuthService:
         if user is None or not user.is_active:
             raise InvalidTokenError()
 
-        # Blacklist old refresh (TTL = remaining lifetime)
+        # Blacklist old refresh (TTL = remaining lifetime).
         await revoke_token(refresh_token, expected_type=REFRESH)
 
         logger.info("refresh_rotated", user_id=user.id)
         return _build_tokens(user)
 
-    async def logout(self, *, access_token: str, refresh_token: str | None = None) -> None:
+    async def logout(
+        self,
+        *,
+        user_id: int,
+        access_token: str,
+        refresh_token: str | None = None,
+    ) -> None:
         await revoke_token(access_token, expected_type=ACCESS)
         if refresh_token:
             await revoke_token(refresh_token, expected_type=REFRESH)
-        logger.info("user_logged_out")
+
+        await AuditService(self._s).write(
+            actor_id=user_id,
+            action="LOGOUT",
+            entity="user",
+            entity_id=user_id,
+        )
+        logger.info("user_logged_out", user_id=user_id)

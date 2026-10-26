@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     # --- CORS ---
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
+    # --- GDPR / retention ---
+    gdpr_deletion_window_days: int = 30
+    retention_notifications_days: int = 365
+    retention_audit_days: int = 730
+    retention_messages_days: int = 365
+    retention_orphan_media_days: int = 30
+    retention_soft_deleted_days: int = 30
+
     # --- Derived helpers (properties) ---
     @property
     def supported_locales_list(self) -> list[str]:

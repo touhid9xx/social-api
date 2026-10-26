@@ -46,6 +46,18 @@ class ProfileRepository:
         await self._s.flush()
         await self._s.refresh(profile)
 
+    async def get_by_user_id_including_deleted(self, user_id: int) -> Profile | None:
+        """Fetch a profile even if it's been soft-deleted.
+
+        Used by GdprService.cancel_deletion() — reversing a pending
+        account deletion must restore the profile that soft_delete_me
+        previously marked deleted. The regular get_by_user_id() filters
+        deleted_at IS NULL and would return None.
+        """
+        stmt = select(Profile).where(Profile.user_id == user_id)
+        res = await self._s.execute(stmt)
+        return res.scalar_one_or_none()
+
 
 class ConsentRepository:
     def __init__(self, session: AsyncSession) -> None:

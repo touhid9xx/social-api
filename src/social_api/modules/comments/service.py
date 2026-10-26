@@ -14,6 +14,7 @@ from social_api.core.pagination import (
 )
 from social_api.exceptions import BadRequestError, ForbiddenError
 from social_api.logging_config import get_logger
+from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User, UserRole
 from social_api.modules.comments.models import MAX_COMMENT_DEPTH, Comment
 from social_api.modules.comments.repository import CommentsRepository
@@ -36,7 +37,10 @@ logger = get_logger(__name__)
 
 
 def _to_view(
-    c: Comment, *, is_liked: bool = False, replies: list[Comment] | None = None
+    c: Comment,
+    *,
+    is_liked: bool = False,
+    replies: list[Comment] | None = None,
 ) -> CommentView:
     return CommentView(
         id=c.id,
@@ -49,7 +53,10 @@ def _to_view(
         created_at=c.created_at,
         updated_at=c.updated_at,
         is_liked_by_me=is_liked,
-        is_edited=c.updated_at > c.created_at,
+        # `version > 1` is a monotone, precision-independent edit signal.
+        # `updated_at > created_at` fails on MySQL DATETIME (seconds)
+        # when a PATCH occurs within the same second as the CREATE.
+        is_edited=c.version > 1,
         replies=[_to_view(r) for r in (replies or [])],
     )
 
@@ -61,7 +68,13 @@ class CommentsService:
         self._posts = PostsRepository(session)
         self._likes = LikesRepository(session)
 
-    async def create(self, *, viewer_id: int, post_id: int, payload: CommentCreate) -> CommentView:
+    async def create(
+        self,
+        *,
+        viewer_id: int,
+        post_id: int,
+        payload: CommentCreate,
+    ) -> CommentView:
         post = await self._posts.get_by_id(post_id)
         if post is None:
             raise PostNotFoundError()
@@ -86,7 +99,7 @@ class CommentsService:
         await self._repo.increment_post_comment_count(post_id=post_id)
         logger.info("comment_created", comment_id=c.id, post_id=post_id)
 
-        # Notification (best-effort — never fails the caller)
+        # Notification (best-effort — never fails the caller).
         parent_author_id: int | None = parent.author_id if parent else None
         try:
             from social_api.modules.notifications.service import (
@@ -111,7 +124,11 @@ class CommentsService:
         return _to_view(c)
 
     async def update(
-        self, *, viewer_id: int, comment_id: int, payload: CommentUpdate
+        self,
+        *,
+        viewer_id: int,
+        comment_id: int,
+        payload: CommentUpdate,
     ) -> CommentView:
         c = await self._repo.get_by_id(comment_id)
         if c is None:
@@ -119,17 +136,31 @@ class CommentsService:
         if c.author_id != viewer_id:
             raise CommentForbiddenError()
         if c.version != payload.version:
-            from social_api.modules.users.exceptions import OptimisticLockError
+            from social_api.modules.users.exceptions import (
+                OptimisticLockError,
+            )
 
             raise OptimisticLockError(
                 detail={
                     "current_version": c.version,
-                    "current": _to_view(c).model_dump(),
+                    # mode="json" — datetime-safe; the exception handler
+                    # builds a JSONResponse with plain json.dumps().
+                    "current": _to_view(c).model_dump(mode="json"),
                 }
             )
         c.body = payload.body
         c.version += 1
         await self._repo.save(c)
+
+        # No audit row — comment edit is a low-sensitivity author-only
+        # action (checked above: `c.author_id != viewer_id → Forbidden`).
+        # INFO log suffices; audit_log is reserved for destructive /
+        # staff actions like DELETE_COMMENT.
+        logger.info(
+            "comment_updated",
+            comment_id=c.id,
+            author_id=c.author_id,
+        )
         return _to_view(c)
 
     async def delete(self, *, actor: User, comment_id: int) -> None:
@@ -144,7 +175,28 @@ class CommentsService:
         c.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await self._repo.save(c)
         await self._repo.decrement_post_comment_count(post_id=c.post_id)
-        logger.info("comment_deleted", comment_id=comment_id, actor_id=actor.id)
+
+        # Audit — comment delete is destructive; both self-delete and
+        # staff-delete are sensitive actions. `as_staff` distinguishes
+        # forensic trail. Same pattern as DELETE_POST in PostsService.
+        await AuditService(self._s).write(
+            actor_id=actor.id,
+            action="DELETE_COMMENT",
+            entity="comment",
+            entity_id=c.id,
+            after={
+                "author_id": c.author_id,
+                "post_id": c.post_id,
+                "as_staff": is_staff and not is_owner,
+            },
+        )
+
+        logger.info(
+            "comment_deleted",
+            comment_id=comment_id,
+            actor_id=actor.id,
+            as_staff=is_staff and not is_owner,
+        )
 
     async def list_for_post(
         self,
@@ -178,12 +230,14 @@ class CommentsService:
             last = rows[-1]
             next_cursor = encode_cursor([last.created_at, last.id])
 
-        # Load replies for each top-level comment
+        # Load replies for each top-level comment.
         views: list[CommentView] = []
         for r in rows:
             replies = await self._repo.list_replies(parent_id=r.id)
             liked = await self._likes.exists(
-                user_id=viewer_id, target_type="comment", target_id=r.id
+                user_id=viewer_id,
+                target_type="comment",
+                target_id=r.id,
             )
             views.append(_to_view(r, is_liked=liked, replies=replies))
 

@@ -9,6 +9,7 @@ Windows: always run worker with `-P solo` (no fork support).
 from __future__ import annotations
 
 from celery import Celery
+from celery.schedules import crontab
 
 from social_api.config import get_settings
 
@@ -21,6 +22,7 @@ celery_app = Celery(
     include=[
         "social_api.workers.tasks.feed_fanout",
         "social_api.workers.tasks.trending",
+        "social_api.workers.tasks.retention",
     ],
 )
 
@@ -45,5 +47,26 @@ celery_app.conf.beat_schedule = {
     "refresh-explore-zset": {
         "task": "feed.refresh_explore_zset",
         "schedule": 300.0,  # every 5 minutes
+    },
+    # Retention jobs
+    "purge-soft-deleted-users": {
+        "task": "retention.purge_users",
+        "schedule": crontab(hour=2, minute=0),  # daily 02:00 UTC
+    },
+    "purge-old-notifications": {
+        "task": "retention.purge_notifications",
+        "schedule": crontab(hour=3, minute=0),  # daily 03:00 UTC
+    },
+    "purge-orphan-media": {
+        "task": "retention.purge_orphan_media",
+        "schedule": crontab(hour=5, minute=0),  # daily 05:00 UTC
+    },
+    "purge-old-audit": {
+        "task": "retention.purge_audit",
+        "schedule": crontab(hour=4, minute=0, day_of_week=0),  # Sun 04:00
+    },
+    "purge-read-messages": {
+        "task": "retention.purge_read_messages",
+        "schedule": crontab(hour=6, minute=0, day_of_week=0),  # Sun 06:00
     },
 }

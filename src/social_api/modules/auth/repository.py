@@ -1,4 +1,3 @@
-# modules/auth/repository.py
 """User repository — ORM-only, returns domain objects (User)."""
 
 from __future__ import annotations
@@ -44,3 +43,16 @@ class UserRepository:
 
     async def save(self, user: User) -> None:
         await self._s.flush()
+
+    async def get_by_id_including_deleted(self, user_id: int) -> User | None:
+        """Fetch a user even if soft-deleted.
+
+        Used ONLY by get_current_user_allow_deleted (deps.py), which
+        backs /gdpr/cancel-delete and /gdpr/deletion-status. Reversing
+        a pending deletion must load the row that soft_delete_me marked
+        deleted; the regular get_by_id filters deleted_at IS NULL and
+        would return None. Every other auth path uses get_by_id.
+        """
+        stmt = select(User).where(User.id == user_id)
+        res = await self._s.execute(stmt)
+        return res.scalar_one_or_none()

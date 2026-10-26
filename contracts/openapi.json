@@ -3214,6 +3214,397 @@
           }
         }
       }
+    },
+    "/api/v1/audit/me": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "My Audit",
+        "description": "Caller's own audit trail.\n\nUsers can see what actions they've taken (register, login, post,\nreport, etc.). Useful for GDPR data-portability requests (M19) and\nas a \"recent activity\" feed.",
+        "operationId": "my_audit_api_v1_audit_me_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "REGISTER",
+                    "LOGIN",
+                    "LOGOUT",
+                    "PROFILE_UPDATE",
+                    "DELETE_POST",
+                    "DELETE_COMMENT",
+                    "BLOCK",
+                    "UNBLOCK",
+                    "MUTE",
+                    "UNMUTE",
+                    "CREATE_CHAT_GROUP",
+                    "UPDATE_CHAT_GROUP_TITLE",
+                    "ADD_CHAT_MEMBER",
+                    "REMOVE_CHAT_MEMBER",
+                    "DELETE_CHAT_MESSAGE",
+                    "MODERATION_STATUS_UPDATE"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "name": "entity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "user",
+                    "profile",
+                    "post",
+                    "comment",
+                    "message",
+                    "chat_room",
+                    "report"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "List All Audit",
+        "description": "Admin-only: full audit log across all users.\n\n`_admin` is deliberately unused in the body — it's the RBAC gate.\nThe dependency raises 403 before the handler runs for non-admins.",
+        "operationId": "list_all_audit_api_v1_audit_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "actor_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Id"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "REGISTER",
+                    "LOGIN",
+                    "LOGOUT",
+                    "PROFILE_UPDATE",
+                    "DELETE_POST",
+                    "DELETE_COMMENT",
+                    "BLOCK",
+                    "UNBLOCK",
+                    "MUTE",
+                    "UNMUTE",
+                    "CREATE_CHAT_GROUP",
+                    "UPDATE_CHAT_GROUP_TITLE",
+                    "ADD_CHAT_MEMBER",
+                    "REMOVE_CHAT_MEMBER",
+                    "DELETE_CHAT_MESSAGE",
+                    "MODERATION_STATUS_UPDATE"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "name": "entity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "user",
+                    "profile",
+                    "post",
+                    "comment",
+                    "message",
+                    "chat_room",
+                    "report"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gdpr/export": {
+      "get": {
+        "tags": [
+          "gdpr"
+        ],
+        "summary": "Export Data",
+        "description": "GDPR right-of-access: dump everything we have on the caller.\n\nRequires a normal (non-deleted) user — a soft-deleted account\ncannot export its data, per M19 design. If you want export to\nwork during the grace window, switch this dependency to\nget_current_user_allow_deleted. For now: strict.\n\nRate-limited to 1/min — joins several tables and returns a full\nsnapshot; no reason to allow abuse.",
+        "operationId": "export_data_api_v1_gdpr_export_get",
+        "responses": {
+          "200": {
+            "description": "Full user data export. Served as a JSON download (Content-Disposition: attachment).",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gdpr/cancel-delete": {
+      "post": {
+        "tags": [
+          "gdpr"
+        ],
+        "summary": "Cancel Deletion",
+        "description": "Undo a pending account deletion (within the 30-day window).\n\nUses get_current_user_allow_deleted: the user *is* soft-deleted at\nthis point (that's the whole reason they're cancelling), so the\nnormal dependency would 401 before we ever reach the service.\n\nThe service flushes but the caller (this handler) must commit so\nthe reversed deleted_at + is_active persist.",
+        "operationId": "cancel_deletion_api_v1_gdpr_cancel_delete_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gdpr/deletion-status": {
+      "get": {
+        "tags": [
+          "gdpr"
+        ],
+        "summary": "Deletion Status",
+        "description": "Query the state of any pending deletion request.\n\nUses get_current_user_allow_deleted: the user must be able to\ncheck what's scheduled even after /users/me deleted them. This\nis the read-side of the grace window.",
+        "operationId": "deletion_status_api_v1_gdpr_deletion_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionStatusView"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3232,6 +3623,149 @@
           "user_id"
         ],
         "title": "AddMemberRequest"
+      },
+      "AuditLogView": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "entity": {
+            "type": "string",
+            "title": "Entity"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "actor_id",
+          "action",
+          "entity",
+          "entity_id",
+          "before",
+          "after",
+          "ip",
+          "user_agent",
+          "request_id",
+          "created_at"
+        ],
+        "title": "AuditLogView",
+        "description": "Response view. before/after already PII-redacted at write time."
+      },
+      "AuditPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AuditPage"
       },
       "AuthTokens": {
         "properties": {
@@ -3275,6 +3809,19 @@
           "file"
         ],
         "title": "Body_upload_media_api_v1_media_post"
+      },
+      "CancelResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "CancelResponse"
       },
       "CommentCreate": {
         "properties": {
@@ -3536,6 +4083,37 @@
           "hard_delete_after"
         ],
         "title": "DeleteMeResponse"
+      },
+      "DeletionStatusView": {
+        "properties": {
+          "scheduled": {
+            "type": "boolean",
+            "title": "Scheduled"
+          },
+          "scheduled_hard_delete_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled Hard Delete At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheduled",
+          "scheduled_hard_delete_at",
+          "status"
+        ],
+        "title": "DeletionStatusView"
       },
       "DirectRoomCreate": {
         "properties": {

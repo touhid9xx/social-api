@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.core.feature_flags import get_flags
@@ -69,10 +70,38 @@ class FollowsService:
         self._repo = FollowsRepository(session)
         self._users = UserRepository(session)
 
+    # ---- Helpers ----
     async def _ensure_target(self, user_id: int) -> None:
         target = await self._users.get_by_id(user_id)
         if target is None:
             raise FollowTargetNotFoundError()
+
+    async def _audit(
+        self,
+        *,
+        actor_id: int,
+        action: str,
+        target_id: int,
+        after: dict[str, object] | None = None,
+    ) -> None:
+        """Best-effort audit write. Never fails the caller."""
+        try:
+            from social_api.modules.audit.service import AuditService
+
+            await AuditService(self._s).write(
+                actor_id=actor_id,
+                action=action,
+                entity="user",
+                entity_id=target_id,
+                after=after,
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning(
+                "audit_write_failed",
+                action=action,
+                entity_id=target_id,
+                error=type(exc).__name__,
+            )
 
     async def _invalidate_feed_best_effort(self, *, follower_id: int, reason: str) -> None:
         """Best-effort cache invalidation — never fails the caller."""
@@ -88,14 +117,8 @@ class FollowsService:
                 error=type(exc).__name__,
             )
 
+    # ---- Follow ----
     async def follow(self, *, follower_id: int, followee_id: int) -> None:
-        """Create a follow edge.
-
-        Order matters:
-          1. Validations (raise — must propagate)
-          2. DB insert (INSERT IGNORE — idempotent)
-          3. Feed cache side effects (best-effort — never fails caller)
-        """
         # ---- 1. Validations ----
         if follower_id == followee_id:
             raise CannotFollowSelfError()
@@ -107,9 +130,13 @@ class FollowsService:
 
         # ---- 2. DB insert (idempotent — INSERT IGNORE in repo) ----
         await self._repo.follow(follower_id=follower_id, followee_id=followee_id)
-        logger.info("user_followed", follower_id=follower_id, followee_id=followee_id)
+        logger.info(
+            "user_followed",
+            follower_id=follower_id,
+            followee_id=followee_id,
+        )
 
-        # Fire-and-forget notification (best-effort)
+        # Fire-and-forget notification (best-effort).
         try:
             from social_api.modules.notifications.service import (
                 NotificationsService,
@@ -133,7 +160,9 @@ class FollowsService:
             await fs.invalidate_for_follow_change(follower_id=follower_id)
 
             if get_flags().is_enabled("feed_fanout_enabled"):
-                from social_api.modules.feed.repository import FeedRepository
+                from social_api.modules.feed.repository import (
+                    FeedRepository,
+                )
 
                 recent = await FeedRepository(self._s).recent_posts_of(
                     author_id=followee_id, limit=50
@@ -233,6 +262,14 @@ class FollowsService:
             follows_removed=removed,
         )
 
+        await self._audit(
+            actor_id=blocker_id,
+            action="BLOCK",
+            target_id=blocked_id,
+            after={"follows_removed": removed},
+        )
+
+        # Feed invalidation for both parties.
         try:
             from social_api.modules.feed.service import FeedService
 
@@ -249,19 +286,38 @@ class FollowsService:
 
     async def unblock(self, *, blocker_id: int, blocked_id: int) -> None:
         await self._repo.unblock(blocker_id=blocker_id, blocked_id=blocked_id)
-        logger.info("user_unblocked", blocker_id=blocker_id, blocked_id=blocked_id)
+        logger.info(
+            "user_unblocked",
+            blocker_id=blocker_id,
+            blocked_id=blocked_id,
+        )
+
+        await self._audit(
+            actor_id=blocker_id,
+            action="UNBLOCK",
+            target_id=blocked_id,
+        )
 
     # ---- Mute ----
     async def mute(self, *, muter_id: int, muted_id: int) -> None:
         if muter_id == muted_id:
             raise CannotFollowSelfError()
         await self._ensure_target(muted_id)
+
         try:
             await self._repo.mute(muter_id=muter_id, muted_id=muted_id)
-        except Exception:
+        except IntegrityError:
+            # Already muted — idempotent no-op.
             return
         logger.info("user_muted", muter_id=muter_id, muted_id=muted_id)
 
+        await self._audit(
+            actor_id=muter_id,
+            action="MUTE",
+            target_id=muted_id,
+        )
+
+        # Feed invalidation (mute changes what the muter sees).
         try:
             from social_api.modules.feed.service import FeedService
 
@@ -276,6 +332,12 @@ class FollowsService:
     async def unmute(self, *, muter_id: int, muted_id: int) -> None:
         await self._repo.unmute(muter_id=muter_id, muted_id=muted_id)
         logger.info("user_unmuted", muter_id=muter_id, muted_id=muted_id)
+
+        await self._audit(
+            actor_id=muter_id,
+            action="UNMUTE",
+            target_id=muted_id,
+        )
 
         try:
             from social_api.modules.feed.service import FeedService

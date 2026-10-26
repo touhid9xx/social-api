@@ -5,11 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from social_api.api.v1 import (
+    audit,
     auth,
     chat,
     comments,
     feed,
     follows,
+    gdpr,
     likes,
     media,
     moderation,
@@ -32,3 +34,5 @@ api_router.include_router(feed.router)
 api_router.include_router(notifications.router)
 api_router.include_router(presence.router)
 api_router.include_router(moderation.router)
+api_router.include_router(audit.router)
+api_router.include_router(gdpr.router)

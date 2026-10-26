@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from social_api.core.rate_limit import _key_by_ip, limiter
 from social_api.db.session import get_db
 from social_api.deps import CurrentUser, get_current_user
-from social_api.modules.auth.repository import UserRepository
 from social_api.modules.auth.schemas import (
     AuthTokens,
     LoginRequest,
@@ -24,7 +23,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _service(session: AsyncSession) -> AuthService:
-    return AuthService(UserRepository(session))
+    """Construct AuthService — it builds UserRepository internally."""
+    return AuthService(session)
 
 
 @router.post(
@@ -40,9 +40,10 @@ async def register(
     session: AsyncSession = Depends(get_db),
 ) -> RegisterResponse:
     result = await _service(session).register(email=payload.email, password=payload.password)
-    # Commit BEFORE response is sent — ensures subsequent requests see the row.
-    # (yield dependency teardown runs AFTER response is sent when BaseHTTPMiddleware
-    # is in the stack — SlowAPI + Prometheus are both BaseHTTPMiddleware.)
+    # Commit BEFORE response is sent — ensures subsequent requests see the
+    # row. With BaseHTTPMiddleware in the stack (SlowAPI, Prometheus),
+    # yield-dependency teardown runs AFTER the response is sent, so a
+    # client that immediately hits /me or /login would race the commit.
     await session.commit()
     return result
 
@@ -56,7 +57,7 @@ async def login(
     session: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
     result = await _service(session).login(email=payload.email, password=payload.password)
-    # Commit last_login_at update before response.
+    # Commit last_login_at + LOGIN audit before response.
     await session.commit()
     return result
 
@@ -84,7 +85,10 @@ async def logout(
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> Response:
-    await _service(session).logout(access_token=user.raw_token)
+    # Pass user_id from the authenticated dependency — already decoded
+    # and validated. No need to decode the access token ourselves; the
+    # token's only job here is to get revoked (Redis blacklist).
+    await _service(session).logout(user_id=user.user.id, access_token=user.raw_token)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
