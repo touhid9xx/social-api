@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from social_api.cache.redis import get_redis
+from social_api.cache.redis import get_redis, guarded
 from social_api.config import get_settings
 from social_api.core.feature_flags import get_flags
 from social_api.core.pagination import (
@@ -30,6 +30,9 @@ from social_api.modules.users.models import Visibility
 logger = get_logger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Metric helpers (kept inline; see TODO M21 for a metrics facade)
+# ---------------------------------------------------------------------------
 def _observe_feed_generation(seconds: float) -> None:
     try:
         from social_api.observability.metrics import feed_generation_seconds
@@ -99,9 +102,7 @@ def _observe_cache_miss_explore() -> None:
 
 def _observe_explore_generation(seconds: float) -> None:
     try:
-        from social_api.observability.metrics import (
-            explore_generation_seconds,
-        )
+        from social_api.observability.metrics import explore_generation_seconds
 
         explore_generation_seconds.labels(type="explore").observe(seconds)
     except Exception as exc:  # pragma: no cover
@@ -133,9 +134,11 @@ class FeedService:
         return True
 
     async def _celebrity_authors(self, *, following_set: set[int]) -> set[int]:
-        """
-        Return subset of `following_set` whose follower count ≥ threshold.
-        Empty if fanout feature flag is off.
+        """Subset of following_set whose follower count ≥ threshold.
+
+        TODO(M21): cache follower-counts per author with a short TTL to
+        avoid re-running the GROUP BY on every page-1 request. At 1M
+        users and 500-follow viewers this is a real cost.
         """
         if not get_flags().is_enabled("feed_fanout_enabled"):
             return set()
@@ -169,13 +172,12 @@ class FeedService:
         cache_hit = False
         cached_ids: list[tuple[int, float]] = []
         if cts is None:
-            try:
-                cached_ids = await self._cache.get_ids(user_id=user_id, limit=lmt + 1)
-                cache_hit = bool(cached_ids)
-            except Exception as exc:  # pragma: no cover
-                logger.warning("feed_cache_read_failed", error=type(exc).__name__)
-                cached_ids = []
-                cache_hit = False
+            cached_ids = await guarded(
+                lambda: self._cache.get_ids(user_id=user_id, limit=lmt + 1),
+                default=[],
+                op="feed_cache_get",
+            )
+            cache_hit = bool(cached_ids)
 
         following_ids = await self._repo.following_ids(user_id=user_id)
         following_set = set(following_ids)
@@ -208,40 +210,45 @@ class FeedService:
                 for p in rows
                 if await self._is_post_visible(p, viewer_id=user_id, following_set=following_set)
             ]
-            try:
-                await self._cache.replace(
+            await guarded(
+                lambda: self._cache.replace(
                     user_id=user_id,
                     entries=[(p.id, p.created_at) for p in rows],
-                )
-            except Exception as exc:  # pragma: no cover
-                logger.warning("feed_cache_write_failed", error=type(exc).__name__)
+                ),
+                default=None,
+                op="feed_cache_replace",
+            )
             _observe_cache_miss()
 
-        # --- Celebrity read-merge ---
-        # Only on page 1 (fresh feed); pagination on page 2+ uses DB rebuild path.
-        if cts is None:
-            celebrity_ids = await self._celebrity_authors(following_set=following_set)
-            if celebrity_ids:
-                celeb_posts = await self._repo.celebrity_following_posts(
-                    user_id=user_id,
-                    celebrity_ids=list(celebrity_ids),
-                    limit=lmt + 1,
-                )
-                # Merge (dedupe by id)
-                seen = {p.id for p in visible}
-                for cp in celeb_posts:
-                    if cp.id in seen:
-                        continue
-                    if not await self._is_post_visible(
-                        cp, viewer_id=user_id, following_set=following_set
-                    ):
-                        continue
-                    visible.append(cp)
-                    seen.add(cp.id)
-                # Re-sort by (created_at, id) desc
-                visible.sort(key=lambda p: (p.created_at, p.id), reverse=True)
+        # --- Celebrity read-merge (ALL pages, not just page 1) ---
+        # Fan-out skips celebrity authors at write time, so we must
+        # read-merge their recent posts on every page — otherwise
+        # page 2+ of a celebrity-heavy feed silently loses them.
+        # On page 1: merge fresh celebrity posts.
+        # On page 2+: fetch celebrity posts older than cursor, so
+        # pagination stays consistent.
+        celebrity_ids = await self._celebrity_authors(following_set=following_set)
+        if celebrity_ids:
+            celeb_posts = await self._repo.celebrity_following_posts(
+                user_id=user_id,
+                celebrity_ids=list(celebrity_ids),
+                limit=lmt + 1,
+                # Repository filters created_at < cts when provided
+                before_ts=cts,
+            )
+            seen = {p.id for p in visible}
+            for cp in celeb_posts:
+                if cp.id in seen:
+                    continue
+                if not await self._is_post_visible(
+                    cp, viewer_id=user_id, following_set=following_set
+                ):
+                    continue
+                visible.append(cp)
+                seen.add(cp.id)
+            visible.sort(key=lambda p: (p.created_at, p.id), reverse=True)
 
-        # Cursor filter for page 2+
+        # Cursor filter for page 2+ (also filters merged celebrity posts)
         if cts is not None and cid is not None:
             visible = [p for p in visible if (p.created_at, p.id) < (cts, cid)]
 
@@ -268,7 +275,11 @@ class FeedService:
     # ---- Invalidation hooks ----
     async def invalidate_for_new_post(self, *, author_id: int) -> None:
         followers = await self._repo.follower_ids(user_id=author_id)
-        await self._cache.invalidate_many(user_ids=[*followers, author_id])
+        await guarded(
+            lambda: self._cache.invalidate_many(user_ids=[*followers, author_id]),
+            default=None,
+            op="feed_cache_invalidate_new_post",
+        )
         logger.info(
             "feed_invalidated_new_post",
             author_id=author_id,
@@ -276,13 +287,25 @@ class FeedService:
         )
 
     async def invalidate_for_follow_change(self, *, follower_id: int) -> None:
-        await self._cache.invalidate(user_id=follower_id)
+        await guarded(
+            lambda: self._cache.invalidate(user_id=follower_id),
+            default=None,
+            op="feed_cache_invalidate_follow",
+        )
 
     async def invalidate_for_block(self, *, a_id: int, b_id: int) -> None:
-        await self._cache.invalidate_many(user_ids=[a_id, b_id])
+        await guarded(
+            lambda: self._cache.invalidate_many(user_ids=[a_id, b_id]),
+            default=None,
+            op="feed_cache_invalidate_block",
+        )
 
     async def invalidate_for_mute(self, *, muter_id: int) -> None:
-        await self._cache.invalidate(user_id=muter_id)
+        await guarded(
+            lambda: self._cache.invalidate(user_id=muter_id),
+            default=None,
+            op="feed_cache_invalidate_mute",
+        )
 
     async def explore(
         self,
@@ -291,7 +314,6 @@ class FeedService:
         cursor: str | None,
         limit: int | None,
     ) -> ExploreFeedPage:
-
         started = time.perf_counter()
         lmt = clamp_limit(limit)
 
@@ -308,24 +330,29 @@ class FeedService:
         cache_hit = False
         ordered_ids: list[int] = []
 
-        # Try ZSET (page 1 only — cursor path paginates via created_at/id
-        # offset on the fetched slice)
+        # Try ZSET (page 1 only)
         if cts is None:
-            try:
-                if await self._cache.explore_has_entries():
-                    entries = await self._cache.get_explore_ids(
-                        limit=lmt * 3  # over-fetch for filter headroom
-                    )
-                    ordered_ids = [pid for pid, _score in entries]
+            has_entries = await guarded(
+                lambda: self._cache.explore_has_entries(),
+                default=False,
+                op="explore_cache_exists",
+            )
+            if has_entries:
+                empty_entries: list[tuple[int, float]] = []
+                entries: list[tuple[int, float]] = await guarded(
+                    lambda: self._cache.get_explore_ids(limit=lmt * 3),
+                    default=empty_entries,
+                    op="explore_cache_get",
+                )
+                ordered_ids = [pid for pid, _score in entries]
+                if ordered_ids:
                     cache_hit = True
                     _observe_cache_hit_explore()
-            except Exception as exc:  # pragma: no cover
-                logger.warning("explore_cache_read_failed", error=type(exc).__name__)
-                ordered_ids = []
-                cache_hit = False
 
         if not ordered_ids:
             # Cold-start fallback: query DB directly.
+            # TODO(M21): replace magic 48h with a settings value and
+            # pass a datetime, not a float epoch.
             _observe_cache_miss_explore()
             recent = await self._repo.trending_source_posts(
                 created_after_epoch=(datetime.now(UTC).timestamp() - 48 * 3600),
@@ -337,7 +364,6 @@ class FeedService:
         # Hydrate (preserves order)
         rows = await self._repo.fetch_posts_by_ids(post_ids=ordered_ids)
 
-        # Filter: public + not blocked + not self-muted
         if not rows:
             page_items: list[Post] = []
         else:
@@ -351,6 +377,8 @@ class FeedService:
             ]
 
             # Cursor filter (page 2+)
+            # TODO(M21): verify tz-aware vs tz-naive alignment between
+            # decode_cursor output and DB-returned created_at.
             if cts is not None and cid is not None:
                 filtered = [p for p in filtered if (p.created_at, p.id) < (cts, cid)]
 

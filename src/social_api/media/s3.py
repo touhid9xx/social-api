@@ -38,17 +38,18 @@ class S3Storage:
         return f"{self._prefix}/{key}" if self._prefix else key
 
     async def put(self, *, key: str, data: bytes, content_type: str) -> StoredObject:
-        full = self._key(key)
-        await anyio.to_thread.run_sync(
-            lambda: self._client.put_object(
-                Bucket=self._bucket,
-                Key=full,
-                Body=data,
-                ContentType=content_type,
+        from social_api.core.circuit_breakers import s3_breaker
+
+        async def _do() -> StoredObject:
+            full = self._key(key)
+            await anyio.to_thread.run_sync(
+                lambda: self._client.put_object(
+                    Bucket=self._bucket, Key=full, Body=data, ContentType=content_type
+                )
             )
-        )
-        logger.debug("storage_put_s3", key=full, size=len(data))
-        return StoredObject(key=key, size_bytes=len(data), url=await self.url_for(key=key))
+            return StoredObject(key=key, size_bytes=len(data), url=await self.url_for(key=key))
+
+        return await s3_breaker.call(_do)
 
     async def delete(self, *, key: str) -> None:
         full = self._key(key)

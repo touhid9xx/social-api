@@ -73,19 +73,15 @@ async def rate_limit_error_handler(request: Request, exc: RateLimitExceeded) -> 
 
 
 async def check_ws_connect_limit(*, ip: str, limit: int = 10, window_seconds: int = 60) -> bool:
-    """
-    Manual rate limit for WebSocket upgrades (slowapi can't decorate WS).
+    """Manual rate limit for WS upgrades. Fail-open if Redis is down."""
+    from social_api.cache.redis import get_redis, guarded
 
-    Returns True if connection is allowed.
-    """
-    from social_api.cache.redis import get_redis
-
-    client = get_redis()
-    key = f"rl:ws:{ip}"
-    try:
+    async def _do() -> bool:
+        client = get_redis()
+        key = f"rl:ws:{ip}"
         count = int(await client.incr(key))
         if count == 1:
             await client.expire(key, window_seconds)
         return count <= limit
-    except Exception:  # pragma: no cover — Redis down => allow (graceful)
-        return True
+
+    return await guarded(_do, default=True, op="ws_connect_limit")

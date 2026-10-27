@@ -13,7 +13,7 @@
         ],
         "summary": "Liveness probe",
         "description": "Returns 200 if the process is up. No dependency checks.",
-        "operationId": "health_health_get",
+        "operationId": "liveness",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -22,7 +22,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Health Health Get"
+                  "title": "Response Liveness"
                 }
               }
             }
@@ -36,7 +36,7 @@
           "health"
         ],
         "summary": "Database readiness probe",
-        "operationId": "health_db_health_db_get",
+        "operationId": "health_db",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -55,7 +55,7 @@
           "health"
         ],
         "summary": "Redis readiness probe",
-        "operationId": "health_redis_health_redis_get",
+        "operationId": "health_redis",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -74,8 +74,7 @@
           "health"
         ],
         "summary": "Readiness probe (aggregate)",
-        "description": "Aggregate readiness across dependencies.\n\nOverall status:\n  - \"ready\"       : all OK\n  - \"degraded\"    : some OK, some down (e.g. Redis down but DB up)\n  - \"not_ready\"   : critical dep down (DB)\nHTTP status:\n  - 200 when ready or degraded (Redis down shouldn't block startup)\n  - 503 when DB is down (hard dependency)",
-        "operationId": "readiness_health_ready_get",
+        "operationId": "readiness",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -86,6 +85,35 @@
             }
           }
         }
+      }
+    },
+    "/health/circuit-breakers": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Circuit-breaker snapshot (admin-only)",
+        "description": "In-memory snapshot of all circuit breakers. Admin-only.\n\nNever touches Redis/DB — this endpoint must work precisely when\nRedis is down, which is when you most need to see breaker state.",
+        "operationId": "health_circuit_breakers",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Circuit Breakers"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/register": {

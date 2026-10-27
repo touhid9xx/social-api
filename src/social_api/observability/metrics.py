@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 
 from fastapi import FastAPI
-from prometheus_client import REGISTRY, Counter, Histogram
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
 
 # ---------------------------------------------------------------------------
@@ -45,6 +45,12 @@ trending_score_histogram = Histogram(
     "trending_score_value",
     "Distribution of computed trending scores",
     buckets=(0.01, 0.1, 1.0, 5.0, 20.0, 100.0, 500.0, 2000.0),
+)
+
+circuit_breaker_state = Gauge(
+    "circuit_breaker_state",
+    "Circuit breaker state (0=closed, 1=half_open, 2=open)",
+    labelnames=["name"],
 )
 # ---------------------------------------------------------------------------
 # Auto-instrumentation (idempotent — safe to call setup_metrics() many times)

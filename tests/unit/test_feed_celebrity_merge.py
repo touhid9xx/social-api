@@ -67,9 +67,26 @@ class _Repo:
         return [by_id[i] for i in post_ids if i in by_id]
 
     async def celebrity_following_posts(
-        self, *, user_id: int, celebrity_ids: list[int], limit: int
+        self,
+        *,
+        user_id: int,
+        celebrity_ids: list[int],
+        limit: int,
+        before_ts: datetime | None = None,
     ) -> list[Post]:
-        return [p for p in self._celeb if p.author_id in celebrity_ids][:limit]
+        """Fake: mirror FeedRepository.celebrity_following_posts signature.
+
+        Filter order:
+          - only posts by celebrity_ids
+          - only posts with created_at < before_ts (page 2+)
+          - newest first
+          - limit applied last
+        """
+        rows = [p for p in self._celeb if p.author_id in celebrity_ids]
+        if before_ts is not None:
+            rows = [p for p in rows if p.created_at < before_ts]
+        rows.sort(key=lambda p: (p.created_at, p.id), reverse=True)
+        return rows[:limit]
 
     async def blocked_with_author_ids(self, *, viewer_id: int, author_ids: list[int]) -> set[int]:
         return set()

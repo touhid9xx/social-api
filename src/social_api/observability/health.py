@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from social_api.cache.redis import ping_redis
 from social_api.config import get_settings
 from social_api.db.session import ping_db
+from social_api.deps import CurrentUser, require_roles
 from social_api.logging_config import get_logger
+from social_api.modules.auth.models import UserRole
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["health"])
@@ -33,7 +35,7 @@ def _check_payload(
     return payload
 
 
-@router.get("/health", summary="Liveness probe")
+@router.get("/health", summary="Liveness probe", operation_id="liveness")
 async def health() -> dict[str, Any]:
     """Returns 200 if the process is up. No dependency checks."""
     settings = get_settings()
@@ -45,33 +47,34 @@ async def health() -> dict[str, Any]:
     }
 
 
-@router.get("/health/db", summary="Database readiness probe")
+@router.get(
+    "/health/db",
+    summary="Database readiness probe",
+    operation_id="health_db",
+)
 async def health_db() -> JSONResponse:
     ok, latency_ms, error = await ping_db()
     body = _check_payload(ok=ok, latency_ms=latency_ms, error=error)
     return JSONResponse(status_code=200 if ok else 503, content=body)
 
 
-@router.get("/health/redis", summary="Redis readiness probe")
+@router.get(
+    "/health/redis",
+    summary="Redis readiness probe",
+    operation_id="health_redis",
+)
 async def health_redis() -> JSONResponse:
     ok, latency_ms, error = await ping_redis()
     body = _check_payload(ok=ok, latency_ms=latency_ms, error=error)
     return JSONResponse(status_code=200 if ok else 503, content=body)
 
 
-@router.get("/health/ready", summary="Readiness probe (aggregate)")
+@router.get(
+    "/health/ready",
+    summary="Readiness probe (aggregate)",
+    operation_id="readiness",
+)
 async def readiness() -> JSONResponse:
-    """
-    Aggregate readiness across dependencies.
-
-    Overall status:
-      - "ready"       : all OK
-      - "degraded"    : some OK, some down (e.g. Redis down but DB up)
-      - "not_ready"   : critical dep down (DB)
-    HTTP status:
-      - 200 when ready or degraded (Redis down shouldn't block startup)
-      - 503 when DB is down (hard dependency)
-    """
     db_ok, db_latency, db_err = await ping_db()
     redis_ok, redis_latency, redis_err = await ping_redis()
 
@@ -97,3 +100,21 @@ async def readiness() -> JSONResponse:
         status_code=http_status,
         content={"status": label, "overall": overall, "checks": checks},
     )
+
+
+@router.get(
+    "/health/circuit-breakers",
+    summary="Circuit-breaker snapshot (admin-only)",
+    operation_id="health_circuit_breakers",
+)
+async def circuit_breakers(
+    _user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> dict[str, object]:
+    """In-memory snapshot of all circuit breakers. Admin-only.
+
+    Never touches Redis/DB — this endpoint must work precisely when
+    Redis is down, which is when you most need to see breaker state.
+    """
+    from social_api.core.circuit_breakers import all_breakers
+
+    return {"breakers": [b.snapshot() for b in all_breakers()]}

@@ -151,34 +151,23 @@ class FeedRepository:
         user_id: int,
         celebrity_ids: list[int],
         limit: int,
+        before_ts: datetime | None = None,
     ) -> list[Post]:
-        """
-        Newest non-private posts from celebrity authors that user follows.
-        Used by FeedService.home read-merge path.
-        """
-        if not celebrity_ids:
-            return []
         stmt = (
             select(Post)
             .where(
-                Post.deleted_at.is_(None),
-                Post.visibility != Visibility.PRIVATE,  # never leak
                 Post.author_id.in_(celebrity_ids),
+                Post.deleted_at.is_(None),
             )
             .order_by(Post.created_at.desc(), Post.id.desc())
             .limit(limit)
         )
-        res = await self._s.execute(stmt)
-        return list(res.scalars().all())
+        if before_ts is not None:
+            stmt = stmt.where(Post.created_at < before_ts)
+        result = await self._s.execute(stmt)
+        return list(result.scalars().all())
 
     async def follower_counts_batch(self, *, user_ids: list[int]) -> dict[int, int]:
-        """
-        Batch follower counts (via grouped COUNT).
-
-        TODO(M10): for large following lists this is O(following) per home
-        feed call. Cache celebrity set per user in Redis, or read the
-        denormalized User.follower_count column instead of GROUP BY.
-        """
         if not user_ids:
             return {}
         stmt = (

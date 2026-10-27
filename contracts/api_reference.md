@@ -1697,7 +1697,24 @@ Base URL: `/`
 
 **Tags:** health
 
-**operationId:** `health_health_get`
+**operationId:** `liveness`
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `GET` /health/circuit-breakers
+
+**Summary:** Circuit-breaker snapshot (admin-only)
+
+**Tags:** health
+
+**operationId:** `health_circuit_breakers`
+
+**Auth:** [{"HTTPBearer": []}]
 
 
 **Responses:**
@@ -1712,7 +1729,7 @@ Base URL: `/`
 
 **Tags:** health
 
-**operationId:** `health_db_health_db_get`
+**operationId:** `health_db`
 
 
 **Responses:**
@@ -1727,7 +1744,7 @@ Base URL: `/`
 
 **Tags:** health
 
-**operationId:** `readiness_health_ready_get`
+**operationId:** `readiness`
 
 
 **Responses:**
@@ -1742,7 +1759,7 @@ Base URL: `/`
 
 **Tags:** health
 
-**operationId:** `health_redis_health_redis_get`
+**operationId:** `health_redis`
 
 
 **Responses:**

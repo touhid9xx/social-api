@@ -140,8 +140,15 @@ async def blacklist_jti(jti: str, ttl_seconds: int) -> None:
 
 
 async def is_blacklisted(jti: str) -> bool:
+    from social_api.cache.keys import RedisKeys
+    from social_api.cache.redis import get_redis, guarded
+
     client = get_redis()
-    return bool(await client.exists(RedisKeys.jwt_blacklist(jti)))
+
+    async def _check() -> bool:
+        return bool(await client.exists(RedisKeys.jwt_blacklist(jti)))
+
+    return await guarded(_check, default=False, op="jwt_blacklist_check")
 
 
 async def revoke_token(token: str, *, expected_type: TokenType) -> None:

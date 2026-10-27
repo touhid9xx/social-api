@@ -430,7 +430,7 @@ class ChatService:
         if not get_flags().is_enabled("ws_enabled"):
             return
 
-        from social_api.cache.redis import get_redis
+        from social_api.cache.redis import get_redis, guarded
         from social_api.realtime.channels import publish_to_user
         from social_api.realtime.events import build_event
 
@@ -445,10 +445,20 @@ class ChatService:
             },
         )
         redis = get_redis()
-        for m in members:
-            if m.user_id == sender_id:
-                continue
-            await publish_to_user(redis=redis, user_id=m.user_id, payload=payload)
+
+        async def _publish_all() -> int:
+            delivered = 0
+            for m in members:
+                if m.user_id == sender_id:
+                    continue
+                delivered += await publish_to_user(redis=redis, user_id=m.user_id, payload=payload)
+            return delivered
+
+        await guarded(
+            _publish_all,
+            default=0,
+            op="chat_publish_message",
+        )
 
     async def list_messages(
         self,
@@ -574,26 +584,29 @@ class ChatService:
 
     # ---- Typing (best-effort, no DB) ----
     async def publish_typing(self, *, user_id: int, room_id: int) -> None:
+        """Broadcast a typing indicator to a room's WebSocket subscribers.
+
+        Best-effort: no DB, no WS required. Trips redis_breaker on Redis
+        failure so subsequent publishes fail fast during an outage.
+        """
         # Verify membership (don't let non-members spam rooms).
         await self.get_room_for_member(user_id=user_id, room_id=room_id)
 
-        from social_api.cache.redis import get_redis
+        from social_api.cache.redis import get_redis, guarded
         from social_api.realtime.events import build_event
 
-        try:
-            redis = get_redis()
-            payload = build_event(
-                type_="presence",
-                data={
-                    "kind": "typing",
-                    "room_id": room_id,
-                    "user_id": user_id,
-                },
-            )
-            await redis.publish(f"ws:room:{room_id}", payload)
-        except Exception as exc:  # pragma: no cover
-            logger.debug(
-                "typing_publish_failed",
-                room_id=room_id,
-                error=type(exc).__name__,
-            )
+        redis = get_redis()
+        payload = build_event(
+            type_="presence",
+            data={
+                "kind": "typing",
+                "room_id": room_id,
+                "user_id": user_id,
+            },
+        )
+
+        await guarded(
+            lambda: redis.publish(f"ws:room:{room_id}", payload),
+            default=0,
+            op="chat_publish_typing",
+        )

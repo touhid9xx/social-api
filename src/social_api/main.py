@@ -104,6 +104,7 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     app.include_router(ws_router, prefix=settings.api_v1_prefix)
 
+
     @app.get("/_i18n_demo", include_in_schema=False)
     async def i18n_demo(request: Request) -> JSONResponse:
         locale = request.headers.get("Accept-Language")
