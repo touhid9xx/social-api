@@ -75,7 +75,10 @@ class _FakeRedis:
     def __init__(self) -> None:
         self.zsets: dict[str, dict[str, float]] = {}
 
-    def pipeline(self) -> _FakePipeline:
+    def pipeline(self, *, transaction: bool = True) -> _FakePipeline:
+        # The prod code passes transaction=True to document the
+        # MULTI/EXEC ordering requirement (zadd → trim → expire). The
+        # fake executes commands in order regardless — accept & ignore.
         return _FakePipeline(self)
 
     async def zadd(self, key: str, mapping: dict[str, float]) -> int:

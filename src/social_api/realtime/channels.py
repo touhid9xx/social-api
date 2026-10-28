@@ -21,6 +21,7 @@ from redis.asyncio import Redis
 from redis.asyncio.client import PubSub
 
 from social_api.cache.keys import RedisKeys
+from social_api.core.tracing_helpers import span
 from social_api.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -34,6 +35,13 @@ def channel_for(user_id: int) -> str:
 
 
 async def publish_to_user(*, redis: Redis, user_id: int, payload: str) -> int:
+    """Publish to `ws:user:{id}` under the Redis circuit breaker.
+
+    Returns the number of workers that had a live subscriber (0 = no
+    socket held by any worker). Fast-fails during a Redis outage — the
+    breaker trips after a few socket timeouts, subsequent calls return
+    0 in ~0 ms, and the notification row remains authoritative.
+    """
     from social_api.cache.redis import guarded
 
     return await guarded(
@@ -44,8 +52,17 @@ async def publish_to_user(*, redis: Redis, user_id: int, payload: str) -> int:
 
 
 async def _do_publish(redis: Redis, user_id: int, payload: str) -> int:
-    """Inner call executed inside guarded()'s breaker."""
-    return int(await redis.publish(channel_for(user_id), payload))
+    """Inner call executed inside guarded()'s breaker.
+
+    Span wraps the actual Redis publish so Jaeger shows the delivery
+    window (channel resolution + PUBLISH round-trip). Attribute values
+    are OTel-safe (int/str) by construction.
+
+    TODO(M21): add `subscribers` attribute after publish — requires
+    tracing_helper.span() to yield the OTel span instead of None.
+    """
+    with span("ws.publish", {"user_id": user_id, "size": len(payload)}):
+        return int(await redis.publish(channel_for(user_id), payload))
 
 
 async def subscribe_user(*, redis: Redis, user_id: int) -> AsyncIterator[str]:
@@ -67,8 +84,8 @@ async def subscribe_user(*, redis: Redis, user_id: int) -> AsyncIterator[str]:
             elif isinstance(data, bytes):
                 yield data.decode("utf-8")
     finally:
-        # Best-effort cleanup on cancellation / disconnect — failures here
-        # are noise (channel already gone, connection torn down, etc.).
+        # Best-effort cleanup on cancellation / disconnect — failures
+        # here are noise (channel already gone, connection torn down).
         with contextlib.suppress(Exception):
             await pubsub.unsubscribe(channel_for(user_id))
         # redis-py's PubSub.aclose() is not fully typed in current stubs —

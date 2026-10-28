@@ -1,5 +1,6 @@
 groups:
-  - name: social-api-alerts
+  - name: social-api-availability
+    interval: 30s
     rules:
       - alert: HighErrorRate
         expr: |
@@ -11,14 +12,86 @@ groups:
           severity: critical
         annotations:
           summary: "5xx error rate > 1% for 5 minutes"
+          description: "Current rate: {{ $value | humanizePercentage }}"
+
+      - alert: HighLatencyGlobal
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Global p95 latency > 1s for 5 minutes"
+          description: "Current p95: {{ $value }}s"
 
       - alert: HighLatencyFeed
         expr: |
           histogram_quantile(0.95,
-            sum by (le) (rate(http_request_duration_seconds_bucket{path="/api/v1/feed"}[5m]))
+            sum by (le) (rate(feed_generation_duration_seconds_bucket{type="home"}[5m]))
           ) > 0.5
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Feed p95 latency > 500ms"
+          summary: "Home feed p95 latency > 500ms for 5 minutes"
+          description: "Current p95: {{ $value }}s"
+
+  - name: social-api-dependencies
+    interval: 30s
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state{name="redis"} > 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis circuit breaker OPEN for 1 minute"
+          description: "Redis cache is degraded. DB fallback active."
+
+      - alert: DBPoolExhausted
+        expr: db_pool_checkedout >= 20
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB connection pool exhausted"
+          description: "Checked out: {{ $value }}. Timeouts likely."
+
+  - name: social-api-workers
+    interval: 30s
+    rules:
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_depth > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue depth > 1000 for 10 minutes"
+          description: "Current depth: {{ $value }}. Check worker health."
+
+      - alert: WebSocketDropSpike
+        expr: |
+          sum(rate(websocket_disconnect_total{reason="error"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket error-driven disconnect rate > 10/s"
+          description: "Current rate: {{ $value }}/s"
+
+  - name: social-api-infrastructure
+    interval: 30s
+    rules:
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/data"}
+           /
+           node_filesystem_size_bytes{mountpoint="/data"}) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space < 15% on /data (media volume)"
+          description: "Available: {{ $value | humanizePercentage }}"

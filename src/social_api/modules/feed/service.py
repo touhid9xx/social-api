@@ -102,13 +102,13 @@ def _observe_cache_miss_explore() -> None:
 
 def _observe_explore_generation(seconds: float) -> None:
     try:
-        from social_api.observability.metrics import explore_generation_seconds
+        from social_api.observability.metrics import feed_generation_seconds
 
-        explore_generation_seconds.labels(type="explore").observe(seconds)
+        feed_generation_seconds.labels(type="explore").observe(seconds)
     except Exception as exc:  # pragma: no cover
         logger.debug(
             "metric_observe_failed",
-            metric="explore_generation_seconds",
+            metric="feed_generation",
             type="explore",
             error=type(exc).__name__,
         )

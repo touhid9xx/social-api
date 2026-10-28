@@ -8,10 +8,14 @@ Windows: always run worker with `-P solo` (no fork support).
 
 from __future__ import annotations
 
+from typing import Any
+
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import task_failure, task_retry, task_success
 
 from social_api.config import get_settings
+from social_api.logging_config import get_logger
 
 settings = get_settings()
 
@@ -23,6 +27,7 @@ celery_app = Celery(
         "social_api.workers.tasks.feed_fanout",
         "social_api.workers.tasks.trending",
         "social_api.workers.tasks.retention",
+        "social_api.workers.tasks.heartbeat",
     ],
 )
 
@@ -69,4 +74,43 @@ celery_app.conf.beat_schedule = {
         "task": "retention.purge_read_messages",
         "schedule": crontab(hour=6, minute=0, day_of_week=0),  # Sun 06:00
     },
+    "emit-queue-depth": {
+        "task": "metrics.emit_queue_depth",
+        "schedule": 30.0,  # every 30s
+    },
 }
+
+
+logger = get_logger(__name__)
+
+
+def _task_metric(task_name: str, status: str) -> None:
+    try:
+        from social_api.observability.metrics import celery_tasks_total
+
+        celery_tasks_total.labels(task=task_name, status=status).inc()
+    except Exception as exc:  # pragma: no cover — metrics optional
+        logger.debug(
+            "celery_task_metric_failed",
+            task_name=task_name,
+            status=status,
+            error=type(exc).__name__,
+        )
+
+
+@task_success.connect
+def _on_task_success(sender: Any = None, **_kw: object) -> None:
+    if sender is not None:
+        _task_metric(getattr(sender, "name", "unknown"), "success")
+
+
+@task_failure.connect
+def _on_task_failure(sender: Any = None, **_kw: object) -> None:
+    if sender is not None:
+        _task_metric(getattr(sender, "name", "unknown"), "failure")
+
+
+@task_retry.connect
+def _on_task_retry(sender: Any = None, **_kw: object) -> None:
+    if sender is not None:
+        _task_metric(getattr(sender, "name", "unknown"), "retry")

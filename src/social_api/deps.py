@@ -85,6 +85,9 @@ async def get_current_user(
     cu = CurrentUser(user=user, raw_token=token)
     if request is not None:
         request.state.user = user
+        import structlog
+
+        structlog.contextvars.bind_contextvars(user_id=user.id)
     return cu
 
 

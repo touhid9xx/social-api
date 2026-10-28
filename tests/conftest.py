@@ -11,6 +11,8 @@ Strategy:
 
 from __future__ import annotations
 
+import asyncio as _asyncio
+import contextlib
 import os
 import socket
 import time
@@ -120,8 +122,6 @@ def _clean_test_db(request: pytest.FixtureRequest, integration_db_url: str) -> N
         return
 
     try:
-        import asyncio as _asyncio
-
         from sqlalchemy import text
         from sqlalchemy.ext.asyncio import create_async_engine
     except ImportError:  # pragma: no cover
@@ -192,20 +192,7 @@ def fake_redis(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def _disable_rate_limit() -> Iterator[None]:
-    """Make slowapi's hit() always return True so no rate limit can fire.
 
-    @limiter.limit decorators consult limiter.limiter.hit() on every
-    request. Patching that method to return True unconditionally
-    effectively makes the decorators no-ops — regardless of how many
-    requests a single test fires from the same IP (e.g. test_pagination
-    creates 6 users back-to-back from 127.0.0.1, well over the 5/min
-    register limit).
-
-    Env var and storage reset alone are insufficient:
-      - RATE_LIMIT_ENABLED=false: Limiter is constructed at import time.
-      - _storage.reset(): counters accumulate *within* a single test.
-    Patching hit() at the call site is the only bulletproof approach.
-    """
     try:
         from social_api.core.rate_limit import limiter
     except ImportError:  # pragma: no cover
@@ -255,3 +242,40 @@ class InMemoryStorage:
 @pytest.fixture
 def mem_storage() -> InMemoryStorage:
     return InMemoryStorage()
+
+
+# ---------------------------------------------------------------------------
+# Prometheus registry isolation
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _reset_prometheus_registry() -> None:
+
+    from prometheus_client import REGISTRY
+
+    try:
+        from social_api.observability import metrics as _m
+    except Exception:  # pragma: no cover — metrics optional
+        _m = None
+
+    saved: list[Any] = []
+    if _m is not None:
+        for name in dir(_m):
+            obj = getattr(_m, name)
+            # Metric family instances expose _name and _labelnames.
+            if hasattr(obj, "_name") and hasattr(obj, "_labelnames"):
+                saved.append(obj)
+
+    # Wipe the registry's private maps — public API doesn't expose this.
+    with REGISTRY._lock:  # type: ignore[attr-defined]
+        REGISTRY._names_to_collectors.clear()  # type: ignore[attr-defined]
+        with contextlib.suppress(AttributeError):
+            REGISTRY._collector_to_names.clear()  # type: ignore[attr-defined]
+
+    # Re-register our project metrics (their label sets persist on the
+    # objects themselves). Suppress any error — a duplicate there would
+    # mean the metric was somehow already in REGISTRY, which is a no-op.
+    for collector in saved:
+        with contextlib.suppress(Exception):
+            REGISTRY.register(collector)
+
+    return

@@ -19,11 +19,15 @@ from redis.asyncio import Redis
 
 from social_api.cache.redis import get_redis
 from social_api.config import get_settings
+from social_api.core.tracing_helpers import span
 from social_api.logging_config import get_logger
 from social_api.modules.feed.cache import FEED_CACHE_CAP, FeedCache
 from social_api.workers.celery_app import celery_app
 
 logger = get_logger(__name__)
+
+_FEED_TTL_SECONDS = 60 * 60 * 6
+_CHUNK = 500
 
 
 # ---------------------------------------------------------------------------
@@ -37,24 +41,32 @@ async def _do_fanout(
     follower_ids: list[int],
     redis: Redis,
 ) -> int:
-    """Push post_id into each follower's ZSET. Returns count written."""
+    """Push post_id into each follower's ZSET. Returns count written.
+
+    Idempotent: ZADD with same (member, score) is a no-op, and the trim
+    below removes anything beyond FEED_CACHE_CAP. Safe to retry.
+    """
     created_at = datetime.fromisoformat(created_at_iso)
+    score = created_at.timestamp()
     cache = FeedCache(redis)
 
     written = 0
-    pipe = redis.pipeline()
-    chunk = 500
-    for i in range(0, len(follower_ids), chunk):
-        batch = follower_ids[i : i + chunk]
+    # transaction=True (default) uses MULTI/EXEC, preserving the
+    # zadd → zremrangebyrank → expire ordering per key. Do NOT set
+    # transaction=False — reordering would trim the wrong entry.
+    pipe = redis.pipeline(transaction=True)
+    for i in range(0, len(follower_ids), _CHUNK):
+        batch = follower_ids[i : i + _CHUNK]
         for fid in batch:
             key = f"feed:home:{fid}"
-            pipe.zadd(key, {str(post_id): created_at.timestamp()})
+            pipe.zadd(key, {str(post_id): score})
             pipe.zremrangebyrank(key, 0, -(FEED_CACHE_CAP + 1))
-            pipe.expire(key, 60 * 60 * 6)
+            pipe.expire(key, _FEED_TTL_SECONDS)
+        # execute() raises on any Redis error — written only advances on success.
         await pipe.execute()
         written += len(batch)
 
-    # Also push to the author's own feed
+    # Also push to the author's own feed.
     await cache.append(user_id=author_id, post_id=post_id, created_at=created_at)
     return written
 
@@ -71,10 +83,10 @@ async def _do_backfill(
         return 0
     key = f"feed:home:{follower_id}"
     mapping = {str(pid): dt.timestamp() for pid, dt in zip(post_ids, created_ats, strict=True)}
-    pipe = redis.pipeline()
+    pipe = redis.pipeline(transaction=True)
     pipe.zadd(key, mapping)
     pipe.zremrangebyrank(key, 0, -(FEED_CACHE_CAP + 1))
-    pipe.expire(key, 60 * 60 * 6)
+    pipe.expire(key, _FEED_TTL_SECONDS)
     await pipe.execute()
     return len(post_ids)
 
@@ -97,8 +109,7 @@ def fanout_new_post(
     created_at_iso: str,
     follower_ids: list[int],
 ) -> dict[str, int]:
-    """
-    Push a new post into every follower's ZSET.
+    """Push a new post into every follower's ZSET.
 
     Called from PostsService.create when author is below the celebrity
     threshold. `follower_ids` is resolved by the caller (main process) to
@@ -107,13 +118,17 @@ def fanout_new_post(
 
     async def _run() -> int:
         redis = get_redis()
-        return await _do_fanout(
-            post_id=post_id,
-            author_id=author_id,
-            created_at_iso=created_at_iso,
-            follower_ids=follower_ids,
-            redis=redis,
-        )
+        with span(
+            "fanout.new_post",
+            {"post_id": post_id, "follower_count": len(follower_ids)},
+        ):
+            return await _do_fanout(
+                post_id=post_id,
+                author_id=author_id,
+                created_at_iso=created_at_iso,
+                follower_ids=follower_ids,
+                redis=redis,
+            )
 
     written = asyncio.run(_run())
     logger.info(
@@ -144,13 +159,21 @@ def backfill_follow_on_follow(
 
     async def _run() -> int:
         redis = get_redis()
-        return await _do_backfill(
-            follower_id=follower_id,
-            followee_id=followee_id,
-            post_ids=post_ids,
-            created_ats=[datetime.fromisoformat(s) for s in created_at_isos],
-            redis=redis,
-        )
+        with span(
+            "fanout.backfill",
+            {
+                "follower_id": follower_id,
+                "followee_id": followee_id,
+                "post_count": len(post_ids),
+            },
+        ):
+            return await _do_backfill(
+                follower_id=follower_id,
+                followee_id=followee_id,
+                post_ids=post_ids,
+                created_ats=[datetime.fromisoformat(s) for s in created_at_isos],
+                redis=redis,
+            )
 
     written = asyncio.run(_run())
     logger.info(
@@ -180,16 +203,12 @@ def enqueue_fanout(
     created_at_iso: str,
     follower_ids: list[int],
 ) -> None:
-    """
-    Type-safe enqueue for fanout_new_post.
+    """Type-safe enqueue for fanout_new_post.
 
     Wraps `.delay()` so mypy/pylance see a concrete function, not a Celery
     `FunctionType`. If we ever swap Celery for another queue, only this
     wrapper changes.
     """
-    # Celery's @task decorator returns a Task at runtime but its static type
-    # is Any in mypy / FunctionType in Pylance. Cast once here so business
-    # code never has to.
     cast(Any, fanout_new_post).delay(
         post_id=post_id,
         author_id=author_id,
