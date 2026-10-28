@@ -19,6 +19,7 @@ from social_api.exceptions import register_exception_handlers
 from social_api.i18n import t
 from social_api.logging_config import configure_logging, get_logger
 from social_api.middleware import register_middleware
+from social_api.modules.idempotency.middleware import IdempotencyMiddleware
 from social_api.observability.health import router as health_router
 from social_api.observability.metrics import setup_metrics
 from social_api.observability.tracing import setup_tracing
@@ -64,7 +65,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
-
+    app.add_middleware(IdempotencyMiddleware)
     register_middleware(app)
 
     # ---- Rate limiting ----

@@ -105,6 +105,28 @@ export interface ExploreFeedPage {
   cache_hit?: boolean;
 }
 
+export interface FlagList {
+  flags: unknown[];
+}
+
+export interface FlagOverride {
+  user_id: number;
+  enabled: unknown;
+}
+
+export interface FlagOverrideResponse {
+  flag: string;
+  user_id: number;
+  action: string;
+}
+
+export interface FlagView {
+  name: string;
+  env_value: boolean;
+  builtin_value: boolean;
+  overridden_user_count: number;
+}
+
 export interface FollowCounts {
   followers: number;
   following: number;

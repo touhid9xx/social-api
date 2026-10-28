@@ -3633,6 +3633,89 @@
           }
         ]
       }
+    },
+    "/api/v1/flags": {
+      "get": {
+        "tags": [
+          "flags"
+        ],
+        "summary": "List Flags",
+        "operationId": "list_flags_api_v1_flags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagList"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/flags/{flag_name}/override": {
+      "post": {
+        "tags": [
+          "flags"
+        ],
+        "summary": "Override Flag",
+        "operationId": "override_flag_api_v1_flags__flag_name__override_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "flag_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Flag Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagOverride"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagOverrideResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4189,6 +4272,102 @@
           "items"
         ],
         "title": "ExploreFeedPage"
+      },
+      "FlagList": {
+        "properties": {
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/FlagView"
+            },
+            "type": "array",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flags"
+        ],
+        "title": "FlagList"
+      },
+      "FlagOverride": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "enabled"
+        ],
+        "title": "FlagOverride"
+      },
+      "FlagOverrideResponse": {
+        "properties": {
+          "flag": {
+            "type": "string",
+            "title": "Flag"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "set",
+              "cleared"
+            ],
+            "title": "Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flag",
+          "user_id",
+          "action"
+        ],
+        "title": "FlagOverrideResponse"
+      },
+      "FlagView": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "env_value": {
+            "type": "boolean",
+            "title": "Env Value"
+          },
+          "builtin_value": {
+            "type": "boolean",
+            "title": "Builtin Value"
+          },
+          "overridden_user_count": {
+            "type": "integer",
+            "title": "Overridden User Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "env_value",
+          "builtin_value",
+          "overridden_user_count"
+        ],
+        "title": "FlagView"
       },
       "FollowCounts": {
         "properties": {

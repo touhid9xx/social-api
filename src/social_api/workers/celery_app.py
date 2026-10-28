@@ -28,6 +28,7 @@ celery_app = Celery(
         "social_api.workers.tasks.trending",
         "social_api.workers.tasks.retention",
         "social_api.workers.tasks.heartbeat",
+        "social_api.workers.tasks.idempotency_cleanup",
     ],
 )
 
@@ -77,6 +78,10 @@ celery_app.conf.beat_schedule = {
     "emit-queue-depth": {
         "task": "metrics.emit_queue_depth",
         "schedule": 30.0,  # every 30s
+    },
+    "cleanup-idempotency": {
+        "task": "idempotency.cleanup",
+        "schedule": crontab(hour=4, minute=30),  # daily 04:30 UTC
     },
 }
 

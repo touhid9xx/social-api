@@ -707,6 +707,53 @@ Base URL: `/`
 
 ---
 
+### `GET` /api/v1/flags
+
+**Summary:** List Flags
+
+**Tags:** flags
+
+**operationId:** `list_flags_api_v1_flags_get`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+---
+
+### `POST` /api/v1/flags/{flag_name}/override
+
+**Summary:** Override Flag
+
+**Tags:** flags
+
+**operationId:** `override_flag_api_v1_flags__flag_name__override_post`
+
+**Auth:** [{"HTTPBearer": []}]
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| flag_name | path | True | `{"type": "string", "title": "Flag Name"}` |
+
+
+**Request Body:**
+
+- `application/json` -> `#/components/schemas/FlagOverride`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+---
+
 ### `DELETE` /api/v1/follows/{user_id}
 
 **Summary:** Unfollow a user (idempotent)

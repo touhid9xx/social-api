@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     retention_orphan_media_days: int = 30
     retention_soft_deleted_days: int = 30
 
+    idempotency_ttl_seconds: int = 86_400  # 24h
+
     # --- Derived helpers (properties) ---
     @property
     def supported_locales_list(self) -> list[str]:
