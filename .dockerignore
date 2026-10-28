@@ -1,0 +1,107 @@
+# ============================================================================
+# .dockerignore — keep the build context small, secrets OUT of the image.
+#
+# Docker reads this file BEFORE applying the build context to the daemon,
+# so the actual .dockerignore contents travel with the image automatically.
+# Do not add `.dockerignore` itself.
+#
+# Rule: exclude everything not needed at RUNTIME. `COPY .` in a
+# multi-stage Dockerfile runs against this filtered context — reducing
+# it also reduces the final layer that ships.
+# ============================================================================
+
+# ---- Version control --------------------------------------------------------
+.git/
+.gitignore
+.gitattributes
+
+# ---- Python ----------------------------------------------------------------
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+pip-wheel-metadata/
+build/
+dist/
+
+# ---- Project dirs not needed at runtime -------------------------------------
+# tests/: pytest runs on the host / in CI, never in the container.
+# data/:  runtime data — mounted via volume in compose, must NOT be
+#         copied into the image (would shadow the mount).
+# docs/, ops/: static — not read by the running app.
+# contracts/: generated on the host by scripts/export_api_contract.py
+#             and committed to git; FastAPI auto-serves /openapi.json
+#             from the in-memory app.openapi(), not from this dir.
+#             If any endpoint ever reads contracts/ at runtime, remove
+#             this line and copy the dir in the Dockerfile.
+tests/
+data/
+docs/
+ops/
+contracts/
+
+# ---- Secrets ----------------------------------------------------------------
+# Never bake secrets into an image. They arrive via:
+#   - env vars (SECRETS_BACKEND=env),
+#   - AWS Secrets Manager (SECRETS_BACKEND=aws-secrets-manager),
+#   - a read-only bind mount at /app/secrets (compose only).
+secrets/
+.env
+.env.*
+!.env.example
+# Belt-and-braces: catch a stray key at the repo root.
+*.pem
+*.key
+*.p12
+
+# ---- IDE / OS ---------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Docker / orchestration -------------------------------------------------
+# Dockerfile is consumed by the daemon before .dockerignore applies, so
+# listing it here is a no-op. Left out intentionally (was in the old
+# version and confused reviewers).
+docker-compose*.yml
+compose*.yaml
+
+# ---- CI / pre-commit (host tools) -------------------------------------------
+.github/
+.pre-commit-config.yaml
+.editorconfig
+.pre-commit-hooks.yaml
+
+# ---- Docs / metadata (bloat the image) -------------------------------------
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+LICENSE.md
+NOTICE
+CODE_OF_CONDUCT.md
+
+# ---- Logs / scratch ---------------------------------------------------------
+logs/
+*.log
+node_modules/
+.node_modules/
+.pnpm-store/
+.yarn/
+
+# ---- Transient editor/test artifacts --------------------------------------
+*.orig
+*.rej
+*.bak
+*~

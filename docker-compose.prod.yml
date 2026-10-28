@@ -1,0 +1,370 @@
+name: social-api-prod
+
+# ---------------------------------------------------------------------------
+# Production compose file.
+#
+# Design notes:
+#   - backend network: internal=true. Only api + worker can reach mysql/
+#     redis; those services have NO outbound internet access.
+#   - frontend network: internal=false. Only nginx + api. nginx terminates
+#     TLS (if used) and proxies /api/* to api.
+#   - api and worker attach to BOTH networks: backend for DB/Redis, and
+#     (api only) frontend so nginx can reach it. Worker needs outbound
+#     internet for SMTP/S3, so we add an "egress" network for those.
+#   - No env_file on infra services (mysql, redis, nginx, prometheus,
+#     grafana, jaeger) — secrets must not leak into observability
+#     containers.
+#   - All app services run as non-root (appuser, uid 1000) — the
+#     Dockerfile must have USER 1000:1000 as the last instruction.
+#   - Resource limits are soft (mem_limit/cpus) — tune per deployment.
+# ---------------------------------------------------------------------------
+
+services:
+  # ---- One-shot migrations ------------------------------------------
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: social-api:prod
+    command: ["migrate"]
+    env_file: .env.prod
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-social}:${MYSQL_PASSWORD:?}@mysql:3306/${MYSQL_DB:-social}?charset=utf8mb4
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+  # ---- API ----------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: social-api:prod
+    command: ["api"]
+    env_file: .env.prod
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-social}:${MYSQL_PASSWORD:?}@mysql:3306/${MYSQL_DB:-social}?charset=utf8mb4
+      MEDIA_ROOT: /app/data/media
+      APP_PORT: "8000"
+      GUNICORN_WORKERS: "4"
+    expose:
+      - "8000"
+    volumes:
+      - media_data:/app/data/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # Avoid curl/wget — Python is guaranteed in the image.
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              r = urllib.request.urlopen("http://localhost:8000/health/ready", timeout=3)
+              sys.exit(0 if r.status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    mem_limit: 1g
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend, frontend]
+
+  # ---- Celery worker -------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: social-api:prod
+    command: ["worker"]
+    env_file: .env.prod
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-social}:${MYSQL_PASSWORD:?}@mysql:3306/${MYSQL_DB:-social}?charset=utf8mb4
+      MEDIA_ROOT: /app/data/media
+      CELERY_POOL: prefork
+      CELERY_CONCURRENCY: "4"
+    volumes:
+      - media_data:/app/data/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend, egress]
+
+  # ---- Celery beat ---------------------------------------------------
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: social-api:prod
+    command: ["beat"]
+    env_file: .env.prod
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-social}:${MYSQL_PASSWORD:?}@mysql:3306/${MYSQL_DB:-social}?charset=utf8mb4
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: "0.25"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+  # ---- Reverse proxy -------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - media_data:/var/www/media:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [frontend]
+
+  # ---- Data plane (backend-only, no host ports) ----------------------
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?}
+      MYSQL_DATABASE: ${MYSQL_DB:-social}
+      MYSQL_USER: ${MYSQL_USER:-social}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD
+        - sh
+        - -c
+        - >-
+          mysqladmin ping -h 127.0.0.1
+          -u"$${MYSQL_USER}"
+          -p"$${MYSQL_PASSWORD}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - "512mb"
+      - --maxmemory-policy
+      - "allkeys-lru"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+  # ---- Observability (backend-only, no env_file) ---------------------
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lib/grafana/plugins
+      - /var/lib/grafana/data
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: memory
+      MEMORY_MAX_TRACES: "10000"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks: [backend]
+
+volumes:
+  mysql_data:
+  redis_data:
+  media_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  # DB / Redis / observability — internal only. Containers on this network
+  # cannot reach the internet; a compromised mysql can't exfiltrate.
+  backend:
+    internal: true
+
+  # Exposed to clients — nginx ← internet; nginx → api.
+  frontend:
+    internal: false
+
+  # Outbound-only for worker/api to reach SMTP/S3/AWS.
+  # Container attaches to backend (for DB/Redis) AND egress (for internet).
+  egress:
+    internal: false

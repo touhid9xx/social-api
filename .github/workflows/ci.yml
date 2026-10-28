@@ -132,7 +132,7 @@ jobs:
 
       - name: Alembic round-trip (upgrade -> downgrade -> upgrade)
         env:
-          DATABASE_URL: mysql+asyncmy://social:socialpass@127.0.0.1:3307/social?charset=utf8mb4
+          DATABASE_URL: mysql+asyncmy://social:socialpass@127.0.0.1:3306/social?charset=utf8mb4
         run: |
           alembic upgrade head
           alembic downgrade base
@@ -169,3 +169,112 @@ jobs:
 
       - name: Run pre-commit on all files
         run: pre-commit run --all-files --show-diff-on-failure
+
+  docker-build:
+    name: Docker build (production image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Runs after quality succeeds so we don't waste CI time building an
+    # image whose tests would fail.
+    needs: [quality]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Cache layers between CI runs via GHA cache. Without this, a
+      # `--no-cache` rebuild burns ~5-8 minutes per run because
+      # `pip install -e .` re-resolves the whole dependency tree.
+      - name: Build image (with layer caching)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          tags: social-api:test
+          load: true
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Verify image — app imports cleanly
+        env:
+          # Minimal env so get_settings() doesn't crash during import.
+          # NO real secrets — this only proves the module loads.
+          ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+          JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+          JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+          SECRETS_BACKEND: skip
+          DATABASE_URL: mysql+asyncmy://x:x@127.0.0.1:3306/x
+        run: |
+          docker run --rm \
+            -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+            -e JWT_PRIVATE_KEY_PATH="$JWT_PRIVATE_KEY_PATH" \
+            -e JWT_PUBLIC_KEY_PATH="$JWT_PUBLIC_KEY_PATH" \
+            -e SECRETS_BACKEND="$SECRETS_BACKEND" \
+            -e DATABASE_URL="$DATABASE_URL" \
+            social-api:test \
+            python -c "import social_api.main; print('import ok')"
+
+      - name: Verify image — CLIs are on PATH
+        run: |
+          docker run --rm social-api:test sh -c "
+            set -e
+            for bin in gunicorn celery alembic; do
+              command -v \$bin >/dev/null || (echo \"missing \$bin\" && exit 1)
+              echo \"\$bin: \$(command -v \$bin)\"
+            done
+          "
+
+      - name: Verify image — entrypoint supports all roles
+        run: |
+          docker run --rm social-api:test sh -c 'echo "shell role test"; true'
+          # Any unknown role should fall through to `exec $@`, so a
+          # harmless command works:
+          docker run --rm social-api:test echo "fallthrough ok"
+
+      - name: Verify image — non-root user
+        run: |
+          USER_ID=$(docker run --rm social-api:test id -u)
+          echo "Container runs as uid: $USER_ID"
+          # Root (0) is a hard fail. Any non-zero uid is acceptable;
+          # specific uid (1000 or 10001) is asserted elsewhere by the
+          # Dockerfile review, not CI — this catches "someone forgot
+          # to add USER to Dockerfile".
+          if [ "$USER_ID" = "0" ]; then
+            echo "::error::container runs as root — add USER directive to Dockerfile"
+            exit 1
+          fi
+
+      - name: Verify image — /health/ready responds (runtime smoke)
+        run: |
+          docker run -d --name social-api-smoke \
+            -e ENCRYPTION_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" \
+            -e JWT_PRIVATE_KEY_PATH=/app/secrets/jwt_private.pem \
+            -e JWT_PUBLIC_KEY_PATH=/app/secrets/jwt_public.pem \
+            -e SECRETS_BACKEND=skip \
+            -e DATABASE_URL=mysql+asyncmy://x:x@127.0.0.1:3306/x \
+            -e REDIS_URL=redis://127.0.0.1:6379/0 \
+            -e APP_ENV=development \
+            -p 8000:8000 \
+            social-api:test api || true
+
+          # api will fail to bind DB and stay unhealthy — that's OK,
+          # we're proving the process *starts*, not that it serves.
+          # Give it 5s, then check the process is alive and log for
+          # the "starting gunicorn" line.
+          sleep 5
+          docker logs social-api-smoke 2>&1 | tee /tmp/api.log
+          docker stop social-api-smoke || true
+          docker rm social-api-smoke || true
+
+          # The process should have reached "starting gunicorn" before
+          # dying on DB connect. This catches a Dockerfile that forgot
+          # to copy social_api/, entrypoint.sh, or uvicorn deps.
+          if ! grep -q "starting gunicorn" /tmp/api.log; then
+            echo "::error::api failed before logging 'starting gunicorn' — check entrypoint + CMD"
+            exit 1
+          fi

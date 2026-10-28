@@ -44,11 +44,11 @@ htmlcov/
 # Environment & secrets (NEVER commit these)
 # ──────────────────────────────────────────────────────────────
 .env
+.env.prod
 .env.local
 .env.*.local
-*.pem
-*.key
 secrets/
+data/media/
 
 # ──────────────────────────────────────────────────────────────
 # Runtime data (media, uploads, etc.)
