@@ -56,9 +56,17 @@ async def test_transitions_to_half_open_after_timeout() -> None:
     b = AsyncCircuitBreaker(name="t", fail_threshold=1, recovery_timeout=0.1)
     with pytest.raises(RuntimeError):
         await b.call(_boom)
-    assert b.state == BreakerState.OPEN
+    # Read into a local — mypy narrows `b.state` to Literal[OPEN] after
+    # the first assert; the sleep makes it a different value at runtime,
+    # but mypy can't model that. A fresh read via a local keeps both
+    # assertions independently type-checkable.
+    state_after_fail = b.state
+    assert state_after_fail == BreakerState.OPEN
+
     await asyncio.sleep(0.15)
-    assert b.state == BreakerState.HALF_OPEN
+
+    state_after_sleep = b.state
+    assert state_after_sleep == BreakerState.HALF_OPEN
 
 
 @pytest.mark.asyncio
@@ -66,11 +74,13 @@ async def test_half_open_success_closes() -> None:
     b = AsyncCircuitBreaker(name="t", fail_threshold=1, recovery_timeout=0.1, success_threshold=1)
     with pytest.raises(RuntimeError):
         await b.call(_boom)
+
     await asyncio.sleep(0.15)
 
-    # One success -> closed
+    # One success -> closed.
     assert await b.call(_ok) == "ok"
-    assert b.state == BreakerState.CLOSED
+    state_after_probe = b.state
+    assert state_after_probe == BreakerState.CLOSED
 
 
 @pytest.mark.asyncio
@@ -78,12 +88,14 @@ async def test_half_open_fail_reopens() -> None:
     b = AsyncCircuitBreaker(name="t", fail_threshold=1, recovery_timeout=0.1)
     with pytest.raises(RuntimeError):
         await b.call(_boom)
+
     await asyncio.sleep(0.15)
 
-    # Probe fails -> open again
+    # Probe fails -> open again.
     with pytest.raises(RuntimeError):
         await b.call(_boom)
-    assert b.state == BreakerState.OPEN
+    state_after_probe = b.state
+    assert state_after_probe == BreakerState.OPEN
 
 
 @pytest.mark.asyncio
@@ -91,6 +103,7 @@ async def test_half_open_probe_in_flight_blocks_concurrent() -> None:
     b = AsyncCircuitBreaker(name="t", fail_threshold=1, recovery_timeout=0.1)
     with pytest.raises(RuntimeError):
         await b.call(_boom)
+
     await asyncio.sleep(0.15)
 
     started = asyncio.Event()
@@ -104,13 +117,14 @@ async def test_half_open_probe_in_flight_blocks_concurrent() -> None:
     task = asyncio.create_task(b.call(slow_ok))
     await started.wait()
 
-    # Second call while probe in flight -> fast-fail
+    # Second call while probe in flight -> fast-fail.
     with pytest.raises(BreakerOpenError):
         await b.call(_ok)
 
     proceed.set()
     await task
-    assert b.state == BreakerState.CLOSED
+    state_after_task = b.state
+    assert state_after_task == BreakerState.CLOSED
 
 
 @pytest.mark.asyncio
@@ -130,7 +144,7 @@ async def test_guarded_redis_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     from social_api.core import circuit_breakers
 
     b = circuit_breakers.redis_breaker
-    # Force open
+    # Force open.
     b._state = BreakerState.OPEN
     b._opened_at = 9_999_999_999.0  # far future -> not eligible for half-open
 
@@ -144,6 +158,6 @@ async def test_guarded_redis_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result == "fallback"
     assert called == []  # fast-fail
 
-    # Restore
+    # Restore.
     b._state = BreakerState.CLOSED
     b._fail_count = 0

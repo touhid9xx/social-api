@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from types import MethodType
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 import pytest
 
@@ -143,8 +143,6 @@ async def test_schedule_deletion(monkeypatch: MonkeyPatch) -> None:
     u = _user()
     svc = _svc(repo, monkeypatch, user=u)
 
-    # schedule_deletion now takes the loaded User (not user_id) so the
-    # caller's already-loaded row is reused. See users/router.delete_me.
     row = await svc.schedule_deletion(user=u)
 
     assert row.status == DeletionStatus.SCHEDULED
@@ -174,10 +172,10 @@ async def test_cancel_deletion(monkeypatch: MonkeyPatch) -> None:
     u.deleted_at = datetime(2026, 1, 5, tzinfo=UTC).replace(tzinfo=None)
 
     await svc.cancel_deletion(user_id=u.id)
-
-    assert u.deleted_at is None
+    assert cast("datetime | None", u.deleted_at) is None
     assert u.is_active is True
-    assert svc._profiles.was_called is True  # type: ignore[attr-defined]
+    profile_repo = cast(_FakeProfileRepo, svc._profiles)
+    assert profile_repo.was_called is True
     assert profile.deleted_at is None
 
 
@@ -195,9 +193,6 @@ async def test_cancel_no_active(monkeypatch: MonkeyPatch) -> None:
 async def test_deletion_status_none(monkeypatch: MonkeyPatch) -> None:
     repo = _FakeDelRepo()
     u = _user()
-    # deletion_status loads the user first (_get_user_or_404) — needs a
-    # real User in the stub. The "no active request" path is what we're
-    # actually asserting; the user exists, just has no pending deletion.
     svc = _svc(repo, monkeypatch, user=u)
 
     out = await svc.deletion_status(user_id=u.id)

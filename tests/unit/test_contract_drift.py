@@ -1,8 +1,8 @@
 """Verify the committed contract matches the current app schema.
 
 This is the *unit-level* twin of scripts/check_api_contract_drift.py.
-It runs in-process so CI catches drift even if the script step is skipped
-or the working directory differs.
+It runs in-process so CI catches drift even if the script step is
+skipped or the working directory differs.
 
 If this fails, run: python scripts/export_api_contract.py
 """
@@ -10,6 +10,9 @@ If this fails, run: python scripts/export_api_contract.py
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -54,3 +57,28 @@ def test_contract_is_valid_json_schema() -> None:
     assert spec["openapi"].startswith("3.")
     assert "info" in spec
     assert "paths" in spec
+
+
+def test_all_contracts_in_sync() -> None:
+    """Verify all artifacts match current code.
+
+    Runs the drift script as a subprocess so it's the same gate CI
+    uses. PYTHONIOENCODING=utf-8 forces UTF-8 stdout — on Windows,
+    Python's default cp1252 cannot encode the checkmark glyphs the
+    script prints, which crashed an earlier run with UnicodeEncodeError
+    rather than a real drift signal.
+    """
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    result = subprocess.run(
+        [sys.executable, "scripts/check_api_contract_drift.py"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"Contract drift detected:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )

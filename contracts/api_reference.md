@@ -1,22 +1,23 @@
 # Social API — API Reference
 
-Version: `0.1.0`
+**Version:** `0.1.0`
 
-Base URL: `/`
+**Generated from commit:** `8522af2f43a3`
 
 ---
 
-## Endpoints
+
+## audit
 
 ### `GET` /api/v1/audit
 
 **Summary:** List All Audit
 
-**Tags:** audit
+**Auth:** authenticated
 
-**operationId:** `list_all_audit_api_v1_audit_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -36,17 +37,25 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/audit
+```
+
 ---
 
 ### `GET` /api/v1/audit/me
 
 **Summary:** My Audit
 
-**Tags:** audit
+**Auth:** authenticated
 
-**operationId:** `my_audit_api_v1_audit_me_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -65,26 +74,47 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/audit/me
+```
+
 ---
+
+
+## auth
 
 ### `POST` /api/v1/auth/login
 
 **Summary:** Login
 
-**Tags:** auth
+**Auth:** public
 
-**operationId:** `login_api_v1_auth_login_post`
+**Rate limit:** —
+
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/LoginRequest`
+- `application/json` -> `LoginRequest`
 
 
 **Responses:**
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "LoginRequest"}' \
+     http://localhost:8000/api/v1/auth/login
+```
 
 ---
 
@@ -92,16 +122,24 @@ Base URL: `/`
 
 **Summary:** Logout
 
-**Tags:** auth
+**Auth:** authenticated
 
-**operationId:** `logout_api_v1_auth_logout_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `204` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/auth/logout
+```
 
 ---
 
@@ -109,16 +147,24 @@ Base URL: `/`
 
 **Summary:** Me
 
-**Tags:** auth
+**Auth:** authenticated
 
-**operationId:** `me_api_v1_auth_me_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/auth/me
+```
 
 ---
 
@@ -126,14 +172,16 @@ Base URL: `/`
 
 **Summary:** Refresh
 
-**Tags:** auth
+**Auth:** public
 
-**operationId:** `refresh_api_v1_auth_refresh_post`
+**Rate limit:** —
+
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/RefreshRequest`
+- `application/json` -> `RefreshRequest`
 
 
 **Responses:**
@@ -141,20 +189,30 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "RefreshRequest"}' \
+     http://localhost:8000/api/v1/auth/refresh
+```
+
 ---
 
 ### `POST` /api/v1/auth/register
 
 **Summary:** Register
 
-**Tags:** auth
+**Auth:** public
 
-**operationId:** `register_api_v1_auth_register_post`
+**Rate limit:** —
+
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/RegisterRequest`
+- `application/json` -> `RegisterRequest`
 
 
 **Responses:**
@@ -162,67 +220,28 @@ Base URL: `/`
 - `201` — Successful Response
 - `422` — Validation Error
 
----
 
-### `DELETE` /api/v1/blocks/{user_id}
+**Example:**
 
-**Summary:** Unblock
-
-**Tags:** follows
-
-**operationId:** `unblock_api_v1_blocks__user_id__delete`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-
-
-**Responses:**
-
-- `204` — Successful Response
-- `422` — Validation Error
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "RegisterRequest"}' \
+     http://localhost:8000/api/v1/auth/register
+```
 
 ---
 
-### `POST` /api/v1/blocks/{user_id}
 
-**Summary:** Block
-
-**Tags:** follows
-
-**operationId:** `block_api_v1_blocks__user_id__post`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-
-
-**Responses:**
-
-- `204` — Successful Response
-- `422` — Validation Error
-
----
+## chat
 
 ### `DELETE` /api/v1/chat/messages/{message_id}
 
 **Summary:** Delete Message
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `delete_message_api_v1_chat_messages__message_id__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -237,22 +256,38 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/messages/{message_id}
+```
+
 ---
 
 ### `GET` /api/v1/chat/rooms
 
 **Summary:** List My Rooms
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `list_my_rooms_api_v1_chat_rooms_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms
+```
 
 ---
 
@@ -260,22 +295,30 @@ Base URL: `/`
 
 **Summary:** Create Direct Room
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `create_direct_room_api_v1_chat_rooms_direct_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/DirectRoomCreate`
+- `application/json` -> `DirectRoomCreate`
 
 
 **Responses:**
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "DirectRoomCreate"}' \
+     http://localhost:8000/api/v1/chat/rooms/direct
+```
 
 ---
 
@@ -283,22 +326,30 @@ Base URL: `/`
 
 **Summary:** Create Group
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `create_group_api_v1_chat_rooms_group_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/GroupRoomCreate`
+- `application/json` -> `GroupRoomCreate`
 
 
 **Responses:**
 
 - `201` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "GroupRoomCreate"}' \
+     http://localhost:8000/api/v1/chat/rooms/group
+```
 
 ---
 
@@ -306,11 +357,11 @@ Base URL: `/`
 
 **Summary:** Get Room
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `get_room_api_v1_chat_rooms__room_id__get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -324,6 +375,14 @@ Base URL: `/`
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}
+```
 
 ---
 
@@ -331,11 +390,11 @@ Base URL: `/`
 
 **Summary:** Update Room
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `update_room_api_v1_chat_rooms__room_id__patch`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -345,15 +404,23 @@ Base URL: `/`
 | room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/RoomUpdate`
+- `application/json` -> `RoomUpdate`
 
 
 **Responses:**
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "RoomUpdate"}' \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}
+```
 
 ---
 
@@ -361,11 +428,11 @@ Base URL: `/`
 
 **Summary:** List Members
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `list_members_api_v1_chat_rooms__room_id__members_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -380,17 +447,25 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/members
+```
+
 ---
 
 ### `POST` /api/v1/chat/rooms/{room_id}/members
 
 **Summary:** Add Member
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `add_member_api_v1_chat_rooms__room_id__members_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -400,9 +475,9 @@ Base URL: `/`
 | room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/AddMemberRequest`
+- `application/json` -> `AddMemberRequest`
 
 
 **Responses:**
@@ -410,17 +485,25 @@ Base URL: `/`
 - `201` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "AddMemberRequest"}' \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/members
+```
+
 ---
 
 ### `DELETE` /api/v1/chat/rooms/{room_id}/members/{target_id}
 
 **Summary:** Remove Member
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `remove_member_api_v1_chat_rooms__room_id__members__target_id__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -436,17 +519,63 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/members/{target_id}
+```
+
+---
+
+### `POST` /api/v1/chat/rooms/{room_id}/messages
+
+**Summary:** Send Message
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
+
+
+**Request body:**
+
+- `application/json` -> `MessageCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "MessageCreate"}' \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/messages
+```
+
 ---
 
 ### `GET` /api/v1/chat/rooms/{room_id}/messages
 
 **Summary:** List Messages
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `list_messages_api_v1_chat_rooms__room_id__messages_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -463,35 +592,13 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
----
 
-### `POST` /api/v1/chat/rooms/{room_id}/messages
+**Example:**
 
-**Summary:** Send Message
-
-**Tags:** chat
-
-**operationId:** `send_message_api_v1_chat_rooms__room_id__messages_post`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
-
-
-**Request Body:**
-
-- `application/json` -> `#/components/schemas/MessageCreate`
-
-
-**Responses:**
-
-- `201` — Successful Response
-- `422` — Validation Error
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/messages
+```
 
 ---
 
@@ -499,11 +606,11 @@ Base URL: `/`
 
 **Summary:** Mark Read
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `mark_read_api_v1_chat_rooms__room_id__read_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -513,15 +620,23 @@ Base URL: `/`
 | room_id | path | True | `{"type": "integer", "title": "Room Id"}` |
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/ReadRequest`
+- `application/json` -> `ReadRequest`
 
 
 **Responses:**
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "ReadRequest"}' \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/read
+```
 
 ---
 
@@ -529,11 +644,11 @@ Base URL: `/`
 
 **Summary:** List Read Receipts
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `list_read_receipts_api_v1_chat_rooms__room_id__read_receipts_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -547,6 +662,14 @@ Base URL: `/`
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/read-receipts
+```
 
 ---
 
@@ -554,11 +677,11 @@ Base URL: `/`
 
 **Summary:** Typing
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `typing_api_v1_chat_rooms__room_id__typing_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -572,6 +695,14 @@ Base URL: `/`
 
 - `204` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/typing
+```
 
 ---
 
@@ -579,11 +710,11 @@ Base URL: `/`
 
 **Summary:** Unread Count
 
-**Tags:** chat
+**Auth:** authenticated
 
-**operationId:** `unread_count_api_v1_chat_rooms__room_id__unread_count_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -598,17 +729,66 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/chat/rooms/{room_id}/unread-count
+```
+
+---
+
+
+## comments
+
+### `PATCH` /api/v1/comments/{comment_id}
+
+**Summary:** Update Comment
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| comment_id | path | True | `{"type": "integer", "title": "Comment Id"}` |
+
+
+**Request body:**
+
+- `application/json` -> `CommentUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "CommentUpdate"}' \
+     http://localhost:8000/api/v1/comments/{comment_id}
+```
+
 ---
 
 ### `DELETE` /api/v1/comments/{comment_id}
 
 **Summary:** Delete Comment
 
-**Tags:** comments
+**Auth:** authenticated
 
-**operationId:** `delete_comment_api_v1_comments__comment_id__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -623,29 +803,72 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/comments/{comment_id}
+```
+
 ---
 
-### `PATCH` /api/v1/comments/{comment_id}
+### `POST` /api/v1/posts/{post_id}/comments
 
-**Summary:** Update Comment
+**Summary:** Create Comment
 
-**Tags:** comments
+**Auth:** authenticated
 
-**operationId:** `update_comment_api_v1_comments__comment_id__patch`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
 
 | Name | In | Required | Schema |
 |---|---|---|---|
-| comment_id | path | True | `{"type": "integer", "title": "Comment Id"}` |
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/CommentUpdate`
+- `application/json` -> `CommentCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "CommentCreate"}' \
+     http://localhost:8000/api/v1/posts/{post_id}/comments
+```
+
+---
+
+### `GET` /api/v1/posts/{post_id}/comments
+
+**Summary:** List Comments
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
 
 
 **Responses:**
@@ -653,17 +876,28 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/posts/{post_id}/comments
+```
+
 ---
+
+
+## feed
 
 ### `GET` /api/v1/feed/explore
 
 **Summary:** Explore Feed
 
-**Tags:** feed
+**Auth:** authenticated
 
-**operationId:** `explore_feed_api_v1_feed_explore_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -678,6 +912,14 @@ Base URL: `/`
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/feed/explore
+```
 
 ---
 
@@ -685,11 +927,11 @@ Base URL: `/`
 
 **Summary:** Home Feed
 
-**Tags:** feed
+**Auth:** authenticated
 
-**operationId:** `home_feed_api_v1_feed_home_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -705,22 +947,41 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/feed/home
+```
+
 ---
+
+
+## flags
 
 ### `GET` /api/v1/flags
 
 **Summary:** List Flags
 
-**Tags:** flags
+**Auth:** authenticated
 
-**operationId:** `list_flags_api_v1_flags_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/flags
+```
 
 ---
 
@@ -728,11 +989,11 @@ Base URL: `/`
 
 **Summary:** Override Flag
 
-**Tags:** flags
+**Auth:** authenticated
 
-**operationId:** `override_flag_api_v1_flags__flag_name__override_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -742,9 +1003,9 @@ Base URL: `/`
 | flag_name | path | True | `{"type": "string", "title": "Flag Name"}` |
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/FlagOverride`
+- `application/json` -> `FlagOverride`
 
 
 **Responses:**
@@ -752,17 +1013,28 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "FlagOverride"}' \
+     http://localhost:8000/api/v1/flags/{flag_name}/override
+```
+
 ---
 
-### `DELETE` /api/v1/follows/{user_id}
 
-**Summary:** Unfollow a user (idempotent)
+## follows
 
-**Tags:** follows
+### `POST` /api/v1/blocks/{user_id}
 
-**operationId:** `unfollow_api_v1_follows__user_id__delete`
+**Summary:** Block
 
-**Auth:** [{"HTTPBearer": []}]
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
 
 
 **Parameters:**
@@ -776,6 +1048,47 @@ Base URL: `/`
 
 - `204` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/blocks/{user_id}
+```
+
+---
+
+### `DELETE` /api/v1/blocks/{user_id}
+
+**Summary:** Unblock
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/blocks/{user_id}
+```
 
 ---
 
@@ -783,11 +1096,11 @@ Base URL: `/`
 
 **Summary:** Follow a user (idempotent)
 
-**Tags:** follows
+**Auth:** authenticated
 
-**operationId:** `follow_api_v1_follows__user_id__post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -802,22 +1115,276 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/follows/{user_id}
+```
+
 ---
 
-### `POST` /api/v1/gdpr/cancel-delete
+### `DELETE` /api/v1/follows/{user_id}
 
-**Summary:** Cancel Deletion
+**Summary:** Unfollow a user (idempotent)
 
-**Tags:** gdpr
+**Auth:** authenticated
 
-**operationId:** `cancel_deletion_api_v1_gdpr_cancel_delete_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/follows/{user_id}
+```
+
+---
+
+### `POST` /api/v1/mutes/{user_id}
+
+**Summary:** Mute
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/mutes/{user_id}
+```
+
+---
+
+### `DELETE` /api/v1/mutes/{user_id}
+
+**Summary:** Unmute
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/mutes/{user_id}
+```
+
+---
+
+### `GET` /api/v1/users/{user_id}/follow-counts
+
+**Summary:** Counts
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
 
 
 **Responses:**
 
 - `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}/follow-counts
+```
+
+---
+
+### `GET` /api/v1/users/{user_id}/follow-status
+
+**Summary:** Status Endpoint
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}/follow-status
+```
+
+---
+
+### `GET` /api/v1/users/{user_id}/followers
+
+**Summary:** Followers
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}/followers
+```
+
+---
+
+### `GET` /api/v1/users/{user_id}/following
+
+**Summary:** Following
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
+| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}/following
+```
+
+---
+
+
+## gdpr
+
+### `POST` /api/v1/gdpr/cancel-delete
+
+**Summary:** Cancel Deletion
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/gdpr/cancel-delete
+```
 
 ---
 
@@ -825,16 +1392,24 @@ Base URL: `/`
 
 **Summary:** Deletion Status
 
-**Tags:** gdpr
+**Auth:** authenticated
 
-**operationId:** `deletion_status_api_v1_gdpr_deletion_status_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/gdpr/deletion-status
+```
 
 ---
 
@@ -842,16 +1417,189 @@ Base URL: `/`
 
 **Summary:** Export Data
 
-**Tags:** gdpr
+**Auth:** authenticated
 
-**operationId:** `export_data_api_v1_gdpr_export_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Full user data export. Served as a JSON download (Content-Disposition: attachment).
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/gdpr/export
+```
+
+---
+
+
+## health
+
+### `GET` /health
+
+**Summary:** Liveness probe
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" \
+     http://localhost:8000/health
+```
+
+---
+
+### `GET` /health/circuit-breakers
+
+**Summary:** Circuit-breaker snapshot (admin-only)
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/health/circuit-breakers
+```
+
+---
+
+### `GET` /health/db
+
+**Summary:** Database readiness probe
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" \
+     http://localhost:8000/health/db
+```
+
+---
+
+### `GET` /health/ready
+
+**Summary:** Readiness probe (aggregate)
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" \
+     http://localhost:8000/health/ready
+```
+
+---
+
+### `GET` /health/redis
+
+**Summary:** Redis readiness probe
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" \
+     http://localhost:8000/health/redis
+```
+
+---
+
+
+## likes
+
+### `POST` /api/v1/likes/{target_type}/{target_id}
+
+**Summary:** Like
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| target_type | path | True | `{"type": "string", "title": "Target Type"}` |
+| target_id | path | True | `{"type": "integer", "title": "Target Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/likes/{target_type}/{target_id}
+```
 
 ---
 
@@ -859,37 +1607,11 @@ Base URL: `/`
 
 **Summary:** Unlike
 
-**Tags:** likes
+**Auth:** authenticated
 
-**operationId:** `unlike_api_v1_likes__target_type___target_id__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| target_type | path | True | `{"type": "string", "title": "Target Type"}` |
-| target_id | path | True | `{"type": "integer", "title": "Target Id"}` |
-
-
-**Responses:**
-
-- `204` — Successful Response
-- `422` — Validation Error
-
----
-
-### `POST` /api/v1/likes/{target_type}/{target_id}
-
-**Summary:** Like
-
-**Tags:** likes
-
-**operationId:** `like_api_v1_likes__target_type___target_id__post`
-
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -904,6 +1626,14 @@ Base URL: `/`
 
 - `204` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/likes/{target_type}/{target_id}
+```
 
 ---
 
@@ -911,11 +1641,11 @@ Base URL: `/`
 
 **Summary:** List Likers
 
-**Tags:** likes
+**Auth:** authenticated
 
-**operationId:** `list_likers_api_v1_likes__target_type___target_id__users_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -933,22 +1663,33 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/likes/{target_type}/{target_id}/users
+```
+
 ---
+
+
+## media
 
 ### `POST` /api/v1/media
 
 **Summary:** Upload Media
 
-**Tags:** media
+**Auth:** authenticated
 
-**operationId:** `upload_media_api_v1_media_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `multipart/form-data` -> `#/components/schemas/Body_upload_media_api_v1_media_post`
+- `multipart/form-data` -> `Body_upload_media_api_v1_media_post`
 
 
 **Responses:**
@@ -956,30 +1697,13 @@ Base URL: `/`
 - `201` — Successful Response
 - `422` — Validation Error
 
----
 
-### `DELETE` /api/v1/media/{media_id}
+**Example:**
 
-**Summary:** Delete Media
-
-**Tags:** media
-
-**operationId:** `delete_media_api_v1_media__media_id__delete`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| media_id | path | True | `{"type": "integer", "title": "Media Id"}` |
-
-
-**Responses:**
-
-- `204` — Successful Response
-- `422` — Validation Error
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/media
+```
 
 ---
 
@@ -987,11 +1711,11 @@ Base URL: `/`
 
 **Summary:** Get Media
 
-**Tags:** media
+**Auth:** authenticated
 
-**operationId:** `get_media_api_v1_media__media_id__get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1006,17 +1730,58 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/media/{media_id}
+```
+
+---
+
+### `DELETE` /api/v1/media/{media_id}
+
+**Summary:** Delete Media
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| media_id | path | True | `{"type": "integer", "title": "Media Id"}` |
+
+
+**Responses:**
+
+- `204` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/media/{media_id}
+```
+
 ---
 
 ### `POST` /api/v1/media/{media_id}/attach/{post_id}
 
 **Summary:** Attach To Post
 
-**Tags:** media
+**Auth:** authenticated
 
-**operationId:** `attach_to_post_api_v1_media__media_id__attach__post_id__post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1032,17 +1797,59 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/media/{media_id}/attach/{post_id}
+```
+
+---
+
+
+## moderation
+
+### `POST` /api/v1/moderation/reports
+
+**Summary:** Create Report
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Request body:**
+
+- `application/json` -> `ReportCreate`
+
+
+**Responses:**
+
+- `201` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "ReportCreate"}' \
+     http://localhost:8000/api/v1/moderation/reports
+```
+
 ---
 
 ### `GET` /api/v1/moderation/reports
 
 **Summary:** List Reports
 
-**Tags:** moderation
+**Auth:** authenticated
 
-**operationId:** `list_reports_api_v1_moderation_reports_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1059,28 +1866,13 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
----
 
-### `POST` /api/v1/moderation/reports
+**Example:**
 
-**Summary:** Create Report
-
-**Tags:** moderation
-
-**operationId:** `create_report_api_v1_moderation_reports_post`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Request Body:**
-
-- `application/json` -> `#/components/schemas/ReportCreate`
-
-
-**Responses:**
-
-- `201` — Successful Response
-- `422` — Validation Error
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/moderation/reports
+```
 
 ---
 
@@ -1088,11 +1880,11 @@ Base URL: `/`
 
 **Summary:** Update Report
 
-**Tags:** moderation
+**Auth:** authenticated
 
-**operationId:** `update_report_api_v1_moderation_reports__report_id__patch`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1102,9 +1894,9 @@ Base URL: `/`
 | report_id | path | True | `{"type": "integer", "title": "Report Id"}` |
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/ReportUpdate`
+- `application/json` -> `ReportUpdate`
 
 
 **Responses:**
@@ -1112,67 +1904,28 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
----
 
-### `DELETE` /api/v1/mutes/{user_id}
+**Example:**
 
-**Summary:** Unmute
-
-**Tags:** follows
-
-**operationId:** `unmute_api_v1_mutes__user_id__delete`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-
-
-**Responses:**
-
-- `204` — Successful Response
-- `422` — Validation Error
+```bash
+curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "ReportUpdate"}' \
+     http://localhost:8000/api/v1/moderation/reports/{report_id}
+```
 
 ---
 
-### `POST` /api/v1/mutes/{user_id}
 
-**Summary:** Mute
-
-**Tags:** follows
-
-**operationId:** `mute_api_v1_mutes__user_id__post`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-
-
-**Responses:**
-
-- `204` — Successful Response
-- `422` — Validation Error
-
----
+## notifications
 
 ### `GET` /api/v1/notifications
 
 **Summary:** List Notifications
 
-**Tags:** notifications
+**Auth:** authenticated
 
-**operationId:** `list_notifications_api_v1_notifications_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1189,22 +1942,38 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/notifications
+```
+
 ---
 
 ### `POST` /api/v1/notifications/read-all
 
 **Summary:** Mark All Read
 
-**Tags:** notifications
+**Auth:** authenticated
 
-**operationId:** `mark_all_read_api_v1_notifications_read_all_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/notifications/read-all
+```
 
 ---
 
@@ -1212,16 +1981,24 @@ Base URL: `/`
 
 **Summary:** Unread Count
 
-**Tags:** notifications
+**Auth:** authenticated
 
-**operationId:** `unread_count_api_v1_notifications_unread_count_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/notifications/unread-count
+```
 
 ---
 
@@ -1229,11 +2006,11 @@ Base URL: `/`
 
 **Summary:** Delete Notification
 
-**Tags:** notifications
+**Auth:** authenticated
 
-**operationId:** `delete_notification_api_v1_notifications__notif_id__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1248,17 +2025,25 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/notifications/{notif_id}
+```
+
 ---
 
 ### `POST` /api/v1/notifications/{notif_id}/read
 
 **Summary:** Mark Read
 
-**Tags:** notifications
+**Auth:** authenticated
 
-**operationId:** `mark_read_api_v1_notifications__notif_id__read_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1273,22 +2058,33 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/notifications/{notif_id}/read
+```
+
 ---
+
+
+## posts
 
 ### `POST` /api/v1/posts
 
 **Summary:** Create Post
 
-**Tags:** posts
+**Auth:** authenticated
 
-**operationId:** `create_post_api_v1_posts_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/PostCreate`
+- `application/json` -> `PostCreate`
 
 
 **Responses:**
@@ -1296,17 +2092,25 @@ Base URL: `/`
 - `201` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "PostCreate"}' \
+     http://localhost:8000/api/v1/posts
+```
+
 ---
 
 ### `GET` /api/v1/posts/by-author/{author_id}
 
 **Summary:** List By Author
 
-**Tags:** posts
+**Auth:** authenticated
 
-**operationId:** `list_by_author_api_v1_posts_by_author__author_id__get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1323,17 +2127,96 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/posts/by-author/{author_id}
+```
+
+---
+
+### `GET` /api/v1/posts/{post_id}
+
+**Summary:** Get Post
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/posts/{post_id}
+```
+
+---
+
+### `PATCH` /api/v1/posts/{post_id}
+
+**Summary:** Update Post
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
+
+
+**Request body:**
+
+- `application/json` -> `PostUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "PostUpdate"}' \
+     http://localhost:8000/api/v1/posts/{post_id}
+```
+
 ---
 
 ### `DELETE` /api/v1/posts/{post_id}
 
 **Summary:** Delete Post
 
-**Tags:** posts
+**Auth:** authenticated
 
-**operationId:** `delete_post_api_v1_posts__post_id__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1348,129 +2231,28 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
----
 
-### `GET` /api/v1/posts/{post_id}
+**Example:**
 
-**Summary:** Get Post
-
-**Tags:** posts
-
-**operationId:** `get_post_api_v1_posts__post_id__get`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/posts/{post_id}
+```
 
 ---
 
-### `PATCH` /api/v1/posts/{post_id}
 
-**Summary:** Update Post
-
-**Tags:** posts
-
-**operationId:** `update_post_api_v1_posts__post_id__patch`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
-
-
-**Request Body:**
-
-- `application/json` -> `#/components/schemas/PostUpdate`
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
-
----
-
-### `GET` /api/v1/posts/{post_id}/comments
-
-**Summary:** List Comments
-
-**Tags:** comments
-
-**operationId:** `list_comments_api_v1_posts__post_id__comments_get`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
-| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
-| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
-
----
-
-### `POST` /api/v1/posts/{post_id}/comments
-
-**Summary:** Create Comment
-
-**Tags:** comments
-
-**operationId:** `create_comment_api_v1_posts__post_id__comments_post`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| post_id | path | True | `{"type": "integer", "title": "Post Id"}` |
-
-
-**Request Body:**
-
-- `application/json` -> `#/components/schemas/CommentCreate`
-
-
-**Responses:**
-
-- `201` — Successful Response
-- `422` — Validation Error
-
----
+## presence
 
 ### `GET` /api/v1/presence/{user_id}
 
 **Summary:** Get Presence
 
-**Tags:** presence
+**Auth:** authenticated
 
-**operationId:** `get_presence_api_v1_presence__user_id__get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1485,39 +2267,66 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/presence/{user_id}
+```
+
+---
+
+
+## users
+
+### `GET` /api/v1/users/me
+
+**Summary:** Get Me
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** —
+
+
+**Responses:**
+
+- `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/me
+```
+
 ---
 
 ### `DELETE` /api/v1/users/me
 
 **Summary:** Delete Me
 
-**Tags:** users
+**Auth:** authenticated
 
-**operationId:** `delete_me_api_v1_users_me_delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Responses:**
-
-- `200` — Successful Response
-
----
-
-### `GET` /api/v1/users/me
-
-**Summary:** Get Me
-
-**Tags:** users
-
-**operationId:** `get_me_api_v1_users_me_get`
-
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/me
+```
 
 ---
 
@@ -1525,22 +2334,30 @@ Base URL: `/`
 
 **Summary:** Update Me
 
-**Tags:** users
+**Auth:** authenticated
 
-**operationId:** `update_me_api_v1_users_me_patch`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/ProfileUpdate`
+- `application/json` -> `ProfileUpdate`
 
 
 **Responses:**
 
 - `200` — Successful Response
 - `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "ProfileUpdate"}' \
+     http://localhost:8000/api/v1/users/me
+```
 
 ---
 
@@ -1548,16 +2365,24 @@ Base URL: `/`
 
 **Summary:** List Consents
 
-**Tags:** users
+**Auth:** authenticated
 
-**operationId:** `list_consents_api_v1_users_me_consent_get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** —
 
 
 **Responses:**
 
 - `200` — Successful Response
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/me/consent
+```
 
 ---
 
@@ -1565,16 +2390,16 @@ Base URL: `/`
 
 **Summary:** Grant Consent
 
-**Tags:** users
+**Auth:** authenticated
 
-**operationId:** `grant_consent_api_v1_users_me_consent_post`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
-**Request Body:**
+**Request body:**
 
-- `application/json` -> `#/components/schemas/ConsentGrantRequest`
+- `application/json` -> `ConsentGrantRequest`
 
 
 **Responses:**
@@ -1582,17 +2407,25 @@ Base URL: `/`
 - `201` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "ConsentGrantRequest"}' \
+     http://localhost:8000/api/v1/users/me/consent
+```
+
 ---
 
 ### `DELETE` /api/v1/users/me/consent/{channel}
 
 **Summary:** Revoke Consent
 
-**Tags:** users
+**Auth:** authenticated
 
-**operationId:** `revoke_consent_api_v1_users_me_consent__channel__delete`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1607,42 +2440,25 @@ Base URL: `/`
 - `204` — Successful Response
 - `422` — Validation Error
 
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/me/consent/{channel}
+```
+
 ---
 
 ### `GET` /api/v1/users/{user_id}
 
 **Summary:** Get Profile
 
-**Tags:** users
+**Auth:** authenticated
 
-**operationId:** `get_profile_api_v1_users__user_id__get`
+**Rate limit:** —
 
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
-
----
-
-### `GET` /api/v1/users/{user_id}/follow-counts
-
-**Summary:** Counts
-
-**Tags:** follows
-
-**operationId:** `counts_api_v1_users__user_id__follow_counts_get`
-
-**Auth:** [{"HTTPBearer": []}]
+**Errors:** 422
 
 
 **Parameters:**
@@ -1657,160 +2473,12 @@ Base URL: `/`
 - `200` — Successful Response
 - `422` — Validation Error
 
----
 
-### `GET` /api/v1/users/{user_id}/follow-status
+**Example:**
 
-**Summary:** Status Endpoint
-
-**Tags:** follows
-
-**operationId:** `status_endpoint_api_v1_users__user_id__follow_status_get`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
-
----
-
-### `GET` /api/v1/users/{user_id}/followers
-
-**Summary:** Followers
-
-**Tags:** follows
-
-**operationId:** `followers_api_v1_users__user_id__followers_get`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
-| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
-
----
-
-### `GET` /api/v1/users/{user_id}/following
-
-**Summary:** Following
-
-**Tags:** follows
-
-**operationId:** `following_api_v1_users__user_id__following_get`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Parameters:**
-
-| Name | In | Required | Schema |
-|---|---|---|---|
-| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
-| cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
-| limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 100, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
-
-
-**Responses:**
-
-- `200` — Successful Response
-- `422` — Validation Error
-
----
-
-### `GET` /health
-
-**Summary:** Liveness probe
-
-**Tags:** health
-
-**operationId:** `liveness`
-
-
-**Responses:**
-
-- `200` — Successful Response
-
----
-
-### `GET` /health/circuit-breakers
-
-**Summary:** Circuit-breaker snapshot (admin-only)
-
-**Tags:** health
-
-**operationId:** `health_circuit_breakers`
-
-**Auth:** [{"HTTPBearer": []}]
-
-
-**Responses:**
-
-- `200` — Successful Response
-
----
-
-### `GET` /health/db
-
-**Summary:** Database readiness probe
-
-**Tags:** health
-
-**operationId:** `health_db`
-
-
-**Responses:**
-
-- `200` — Successful Response
-
----
-
-### `GET` /health/ready
-
-**Summary:** Readiness probe (aggregate)
-
-**Tags:** health
-
-**operationId:** `readiness`
-
-
-**Responses:**
-
-- `200` — Successful Response
-
----
-
-### `GET` /health/redis
-
-**Summary:** Redis readiness probe
-
-**Tags:** health
-
-**operationId:** `health_redis`
-
-
-**Responses:**
-
-- `200` — Successful Response
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}
+```
 
 ---

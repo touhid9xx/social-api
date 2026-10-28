@@ -192,7 +192,6 @@ def fake_redis(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def _disable_rate_limit() -> Iterator[None]:
-
     try:
         from social_api.core.rate_limit import limiter
     except ImportError:  # pragma: no cover
@@ -247,35 +246,29 @@ def mem_storage() -> InMemoryStorage:
 # ---------------------------------------------------------------------------
 # Prometheus registry isolation
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Prometheus registry isolation
+# ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def _reset_prometheus_registry() -> None:
-
     from prometheus_client import REGISTRY
 
-    try:
+    _m: Any = None
+    with contextlib.suppress(ImportError):
         from social_api.observability import metrics as _m
-    except Exception:  # pragma: no cover — metrics optional
-        _m = None
 
     saved: list[Any] = []
     if _m is not None:
         for name in dir(_m):
             obj = getattr(_m, name)
-            # Metric family instances expose _name and _labelnames.
             if hasattr(obj, "_name") and hasattr(obj, "_labelnames"):
                 saved.append(obj)
 
-    # Wipe the registry's private maps — public API doesn't expose this.
-    with REGISTRY._lock:  # type: ignore[attr-defined]
-        REGISTRY._names_to_collectors.clear()  # type: ignore[attr-defined]
+    with REGISTRY._lock:
+        REGISTRY._names_to_collectors.clear()
         with contextlib.suppress(AttributeError):
-            REGISTRY._collector_to_names.clear()  # type: ignore[attr-defined]
+            REGISTRY._collector_to_names.clear()
 
-    # Re-register our project metrics (their label sets persist on the
-    # objects themselves). Suppress any error — a duplicate there would
-    # mean the metric was somehow already in REGISTRY, which is a no-op.
     for collector in saved:
         with contextlib.suppress(Exception):
             REGISTRY.register(collector)
-
-    return
