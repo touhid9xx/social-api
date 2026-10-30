@@ -10,6 +10,8 @@ import type { FeedPost } from '@/lib/api/feed';
 import { ROUTES } from '@/lib/constants';
 import { formatCount, formatRelativeTime } from '@/lib/format';
 
+import { LikeButton } from './like-button';
+
 /**
  * One post in the feed.
  *
@@ -94,13 +96,10 @@ export function PostCard({ post }: { post: FeedPost }) {
           <span className="sr-only">{t('commentCount', { count: post.comment_count })}</span>
         </span>
 
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" className="text-[0.8rem]">
-            ♥
-          </span>
-          <span>{formatCount(post.like_count, locale)}</span>
-          <span className="sr-only">{t('likeCount', { count: post.like_count })}</span>
-        </span>
+        {/* The like button owns its own count and `aria-pressed` state; the card
+            merely supplies the values so the optimistic cache remains the one
+            source of truth for both. */}
+        <LikeButton postId={post.id} isLiked={post.is_liked_by_me} count={post.like_count} />
 
         <Link
           href={`${ROUTES.posts}/${String(post.id)}`}

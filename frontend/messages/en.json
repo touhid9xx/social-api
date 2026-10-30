@@ -282,7 +282,23 @@
     "openPost": "Open post",
     "authorFallback": "User {id}",
     "commentCount": "{count, plural, one {# comment} other {# comments}}",
-    "likeCount": "{count, plural, one {# like} other {# likes}}",
+    "likeAction": "Like",
+    "unlikeAction": "Unlike",
+    "composer": {
+      "title": "Write a post",
+      "bodyLabel": "Post body",
+      "placeholder": "What's on your mind?",
+      "submit": "Post",
+      "submitting": "Posting…",
+      "success": "Post published",
+      "visibility": "Who can see this",
+      "counter": "{count, plural, one {# character left} other {# characters left}}",
+      "validation": {
+        "bodyRequired": "Write something before posting.",
+        "bodyTooLong": "Keep it under {max} characters.",
+        "visibilityInvalid": "Choose who can see this post."
+      }
+    },
     "visibilityLabel": "Visibility: {visibility}",
     "visibility": {
       "public": "Public",

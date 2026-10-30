@@ -6,6 +6,8 @@ import type {
   HomeFeedPage,
   LoginRequest,
   LoginResponse,
+  PostCreate,
+  PostView,
   RegisterRequest,
   RegisterResponse,
   UnreadCount,
@@ -18,6 +20,7 @@ import {
   authorProfiles,
   DEMO_ADMIN_EMAIL,
   DEMO_PASSWORD,
+  FIXTURE_NOW,
   homeFeedPosts,
   refreshedAccess,
   refreshedTokens,
@@ -33,6 +36,12 @@ import {
  */
 
 const TEST_REQUEST_ID = 'test-request-id';
+
+/**
+ * Ids for posts created through the mock, starting well above the fixture range
+ * (101–103) so a test can tell a created post from a seeded one.
+ */
+let nextCreatedPostId = 900;
 
 function errorBody(error: string, status: number, path: string, detail: unknown): ApiErrorBody {
   return { error, status, detail, path, request_id: TEST_REQUEST_ID };
@@ -137,4 +146,55 @@ export const handlers = [
     const payload: UnreadCount = unreadNotificationCount;
     return HttpResponse.json(payload);
   }),
+
+  // ---------------------------------------------------------------------------
+  // Writes (F8).
+  //
+  // The create handler deliberately does NOT push into `homeFeedPosts`: that
+  // array is a shared fixture, and mutating it would leak one test's post into
+  // the next. It answers with a contract-shaped `PostView` instead, which is all
+  // a composer test needs — "the feed shows it" is a refetch, not an insert.
+  // ---------------------------------------------------------------------------
+  http.post('*/api/v1/posts', async ({ request }) => {
+    const body = (await request.json()) as PostCreate;
+    const text = body.body.trim();
+
+    // `PostCreate` is `min_length=1` on the server, so a blank body is a real
+    // 422 — the client validates first, and this keeps the mock honest when a
+    // test bypasses the form.
+    if (text.length === 0) {
+      return HttpResponse.json(
+        errorBody('VALIDATION_ERROR', 422, '/api/v1/posts', 'body: must not be empty'),
+        { status: 422 },
+      );
+    }
+
+    const created: PostView = {
+      id: nextCreatedPostId++,
+      author_id: adminUser.id,
+      body: text,
+      visibility: body.visibility ?? 'public',
+      like_count: 0,
+      comment_count: 0,
+      media_count: 0,
+      version: 1,
+      created_at: FIXTURE_NOW,
+      updated_at: FIXTURE_NOW,
+      is_liked_by_me: false,
+      is_edited: false,
+    };
+
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
+  // Both answer 204 with no body: the UI updates optimistically.
+  http.post(
+    '*/api/v1/likes/:target_type/:target_id',
+    () => new HttpResponse(null, { status: 204 }),
+  ),
+
+  http.delete(
+    '*/api/v1/likes/:target_type/:target_id',
+    () => new HttpResponse(null, { status: 204 }),
+  ),
 ];

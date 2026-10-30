@@ -9,6 +9,7 @@ import { useInView } from '@/hooks/use-in-view';
 import type { FeedPost } from '@/lib/api/feed';
 
 import { PostCard } from './post-card';
+import { PostComposer } from './post-composer';
 
 /**
  * The loaded feed: pages in, one flat list out.
@@ -66,7 +67,7 @@ function FeedSkeleton() {
  * The button is also what the tests drive: jsdom has no observer, so the
  * assertions exercise the same code path a keyboard user takes.
  */
-export function HomeFeed() {
+function FeedList() {
   const t = useTranslations('feed');
   const {
     data,
@@ -154,6 +155,25 @@ export function HomeFeed() {
       ) : (
         <p className="py-4 text-center text-xs text-muted-foreground">{t('endOfFeed')}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * The signed-in feed page body: composer on top, endless list below.
+ *
+ * The composer sits OUTSIDE `FeedList` on purpose. On every early return —
+ * first load, feed error, empty feed — the list is replaced by a state, and the
+ * writer must still be able to post. Nesting it inside would hide the composer
+ * exactly when the feed has nothing in it and a new post is most useful.
+ *
+ * (খালি ফিডেও composer দেখা যায় — লেখার সুযোগ কখনও আটকায় না।)
+ */
+export function HomeFeed() {
+  return (
+    <div className="space-y-6">
+      <PostComposer />
+      <FeedList />
     </div>
   );
 }

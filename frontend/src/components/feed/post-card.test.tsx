@@ -46,6 +46,24 @@ describe('PostCard', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
+  it('exposes the like state through the card', () => {
+    renderWithProviders(<PostCard post={post(101)} />);
+
+    // Post 101 is unliked with 12 likes: the button owns both the count and
+    // `aria-pressed`, the card only supplies them.
+    const like = screen.getByRole('button', { name: '12 Like' });
+    expect(like).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows an already-liked post as pressed', () => {
+    renderWithProviders(<PostCard post={post(102)} />);
+
+    expect(screen.getByRole('button', { name: '4 Unlike' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('carries the raw ISO timestamp on the <time> element', () => {
     renderWithProviders(<PostCard post={post(101)} />);
 

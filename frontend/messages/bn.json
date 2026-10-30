@@ -282,7 +282,23 @@
     "openPost": "পোস্ট খুলুন",
     "authorFallback": "ব্যবহারকারী {id}",
     "commentCount": "{count, plural, one {#টি কমেন্ট} other {#টি কমেন্ট}}",
-    "likeCount": "{count, plural, one {#টি লাইক} other {#টি লাইক}}",
+    "likeAction": "লাইক করুন",
+    "unlikeAction": "লাইক প্রত্যাহার করুন",
+    "composer": {
+      "title": "একটি পোস্ট লিখুন",
+      "bodyLabel": "পোস্টের বিষয়বস্তু",
+      "placeholder": "আপনার মনে কী আছে?",
+      "submit": "পোস্ট করুন",
+      "submitting": "পোস্ট হচ্ছে…",
+      "success": "পোস্ট প্রকাশিত হয়েছে",
+      "visibility": "কে এটি দেখতে পাবে",
+      "counter": "{count, plural, one {#টি অক্ষর বাকি} other {#টি অক্ষর বাকি}}",
+      "validation": {
+        "bodyRequired": "পোস্ট করার আগে কিছু লিখুন।",
+        "bodyTooLong": "{max} অক্ষরের মধ্যে রাখুন।",
+        "visibilityInvalid": "কে দেখতে পাবে তা বেছে নিন।"
+      }
+    },
     "visibilityLabel": "দৃশ্যমানতা: {visibility}",
     "visibility": {
       "public": "পাবলিক",
