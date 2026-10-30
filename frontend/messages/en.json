@@ -96,6 +96,58 @@
       "restoring": "Restoring your session…"
     }
   },
+  "chat": {
+    "page": {
+      "title": "Messages",
+      "subtitle": "Your conversations. Pick one up where you left off.",
+      "threadTitle": "Conversation"
+    },
+    "rooms": {
+      "loading": "Loading your conversations…",
+      "directFallback": "Direct message",
+      "groupFallback": "Group chat",
+      "directKind": "Direct message",
+      "groupKind": "{count, plural, one {# member} other {# members}}",
+      "errorTitle": "Couldn't load your conversations",
+      "errorBody": "The list didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "emptyTitle": "No conversations yet",
+      "emptyBody": "Messages you start or receive will show up here.",
+      "emptyHint": "Open someone's profile to start a chat."
+    },
+    "thread": {
+      "title": "Conversation",
+      "loading": "Loading this conversation…",
+      "errorTitle": "Couldn't open this conversation",
+      "errorBody": "The room didn't come back. Check your connection and try again.",
+      "unavailableTitle": "This conversation isn't available",
+      "unavailableBody": "The room may have been deleted, or you may not be a member of it.",
+      "messagesErrorTitle": "Couldn't load these messages",
+      "messagesErrorBody": "The thread didn't come back. Check your connection and try again.",
+      "loadOlder": "Load older messages",
+      "loadingOlder": "Loading older…",
+      "loadOlderFailed": "Couldn't load older messages. Try again.",
+      "emptyTitle": "No messages yet",
+      "emptyBody": "Say hello — this conversation is waiting for its first message.",
+      "deleteAction": "Delete message",
+      "edited": "edited",
+      "senderFallback": "User {id}",
+      "backToRooms": "All conversations"
+    },
+    "composer": {
+      "formLabel": "Write a message",
+      "label": "Message",
+      "placeholder": "Write a message… (Enter sends, Shift+Enter adds a line)",
+      "counter": "{count, plural, one {# character left} other {# characters left}}",
+      "submit": "Send",
+      "sending": "Sending…",
+      "sent": "Message sent"
+    },
+    "validation": {
+      "bodyRequired": "Write something before sending.",
+      "bodyTooLong": "Keep it under {max} characters."
+    }
+  },
   "common": {
     "skipToContent": "Skip to content",
     "milestoneBadge": "Placeholder · arrives in a later milestone",
@@ -505,10 +557,6 @@
     }
   },
   "pages": {
-    "messages": {
-      "title": "Messages",
-      "description": "One-to-one and group chat with receipts and typing indicators arrives in F17 and F18."
-    },
     "search": {
       "title": "Search",
       "description": "Debounced search across users, posts and hashtags arrives in F13."

@@ -14,11 +14,18 @@ import { getProfile } from '@/lib/api/users';
  *
  * `staleTime` is longer than the feed's 30s: a display name changing under a
  * scrolling user is not a refresh anyone asked for.
+ *
+ * `authorId` is `number | undefined` because callers sometimes learn the id
+ * asynchronously — the peer of a direct chat room is only known once the member
+ * list resolves — and a hook cannot be called conditionally. With no id the
+ * query is DISABLED, so the placeholder key below is never fetched. `0` cannot
+ * collide with a real user (`ge=1` on every profile route).
  */
-export function useAuthor(authorId: number) {
+export function useAuthor(authorId: number | undefined) {
   return useQuery({
-    queryKey: queryKeys.users.profile(authorId),
-    queryFn: () => getProfile(authorId),
+    queryKey: queryKeys.users.profile(authorId ?? 0),
+    queryFn: () => getProfile(authorId ?? 0),
+    enabled: authorId !== undefined,
     staleTime: 5 * 60_000,
   });
 }
