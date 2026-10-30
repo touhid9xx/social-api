@@ -3,9 +3,13 @@ import { HttpResponse, http } from 'msw';
 import type { ApiErrorBody } from '@/types';
 
 import type {
+  CancelResponse,
   CommentCreate,
   CommentPage,
   CommentView,
+  ConsentList,
+  DeleteMeResponse,
+  DeletionStatusView,
   ExploreFeedPage,
   FollowCounts,
   FollowListPage,
@@ -15,15 +19,23 @@ import type {
   LoginRequest,
   LoginResponse,
   MarkReadResponse,
+  MemberReadState,
+  MessagePage,
   MessageResponse,
+  MessageView,
   NotificationPage,
   NotificationView,
   PostCreate,
   PostPage,
   PostView,
+  ProfileSelf,
+  ProfileUpdate,
+  ReadReceiptsList,
   RegisterRequest,
   RegisterResponse,
   ResetPasswordRequest,
+  RoomMembersList,
+  RoomView,
   UnreadCount,
   VerifyEmailRequest,
 } from '../../contracts/types';
@@ -34,9 +46,16 @@ import {
   adminUser,
   authorPosts,
   authorProfiles,
+  cancelDeletionResponse,
+  chatRooms,
+  consents,
+  deleteMeResponse,
+  deletionStatusNone,
+  directRoom,
   DEMO_ADMIN_EMAIL,
   DEMO_PASSWORD,
   exploreFeedPosts,
+  exportedData,
   FIXTURE_NOW,
   followCounts,
   followersOf22,
@@ -48,6 +67,10 @@ import {
   refreshedAccess,
   refreshedTokens,
   RESET_PASSWORD_TOKEN,
+  roomMembers,
+  roomMessages,
+  roomReadState,
+  roomUnreadCounts,
   unreadNotificationCount,
   VERIFY_EMAIL_TOKEN,
 } from './fixtures';
@@ -71,8 +94,51 @@ let nextCreatedPostId = 900;
 /** Comment ids start above the fixture range (501–503) for the same reason. */
 let nextCreatedCommentId = 950;
 
+/** Chat message ids start above the fixture range (701–705, 801–803). */
+let nextCreatedMessageId = 970;
+
 function errorBody(error: string, status: number, path: string, detail: unknown): ApiErrorBody {
   return { error, status, detail, path, request_id: TEST_REQUEST_ID };
+}
+
+/**
+ * Apply a `PATCH /users/me` body to a profile, the way the backend's
+ * `model_dump(exclude_unset=True)` does: an omitted key keeps its old value and an
+ * explicit `null` clears it.
+ *
+ * `visibility` / `pii_visibility` are the exception. They are nullable in
+ * `ProfileUpdate` (where `null` just means "don't touch") but plain `string` on
+ * `ProfileSelf`, so spreading the patch through blindly would emit a profile the
+ * contract says cannot exist. Everything else is copied when present.
+ */
+function applyProfileUpdate(base: ProfileSelf, patch: ProfileUpdate): ProfileSelf {
+  const next: ProfileSelf = { ...base, version: base.version + 1, updated_at: FIXTURE_NOW };
+
+  const nullable = [
+    'display_name',
+    'bio',
+    'avatar_url',
+    'location',
+    'website',
+    'dob',
+    'phone',
+    'address',
+  ] as const;
+
+  for (const field of nullable) {
+    const value = patch[field];
+    if (value !== undefined) next[field] = value;
+  }
+
+  // `null` means "don't touch" for these two, so both null and undefined are skipped.
+  if (patch.visibility !== undefined && patch.visibility !== null) {
+    next.visibility = patch.visibility;
+  }
+  if (patch.pii_visibility !== undefined && patch.pii_visibility !== null) {
+    next.pii_visibility = patch.pii_visibility;
+  }
+
+  return next;
 }
 
 export const handlers = [
@@ -620,4 +686,239 @@ export const handlers = [
     '*/api/v1/likes/:target_type/:target_id',
     () => new HttpResponse(null, { status: 204 }),
   ),
+
+  // ---------------------------------------------------------------------------
+  // Settings (F20) — profile PATCH, consent, and the GDPR pair.
+  //
+  // These stay STATELESS, like every other write handler here: a fixture that
+  // grows as tests run would leak one test's consent row into the next. Two
+  // consequences a test author needs to know up front:
+  //
+  //  1. `PATCH /users/me` always accepts and answers `version + 1`. Because the
+  //     mock does not remember that answer, a *second* save in the same test would
+  //     send the bumped version and be accepted again — so the mock can never
+  //     reproduce the optimistic-lock failure by itself. The `VERSION_CONFLICT`
+  //     branch is produced with a `server.use()` override instead, exactly the way
+  //     `follow-button.test.tsx` manufactures the rarer `is_blocked_by_me` state
+  //     rather than seeding a fifth user for it.
+  //  2. `GET /users/me/consent` answers only the channels present in the fixture,
+  //     mirroring a server that omits channels never acted on. That omission is
+  //     the case the UI has to survive, so it is mocked and not papered over: the
+  //     switch list comes from `CONSENT_CHANNELS`, never from this response.
+  // ---------------------------------------------------------------------------
+
+  http.patch('*/api/v1/users/me', async ({ request }) => {
+    const body = (await request.json()) as ProfileUpdate;
+    return HttpResponse.json(applyProfileUpdate(adminProfile, body));
+  }),
+
+  // Declared before `GET /users/:user_id` is irrelevant — `:user_id` matches one
+  // segment, so `/users/me/consent` can never be mistaken for a profile read.
+  http.get('*/api/v1/users/me/consent', () => {
+    const payload: ConsentList = { consents };
+    return HttpResponse.json(payload);
+  }),
+
+  // 201 with a message and no row. The caller invalidates the list instead of
+  // patching it, because the server stamps IP + user-agent onto the record.
+  http.post('*/api/v1/users/me/consent', () => {
+    const payload: MessageResponse = { message: 'Consent granted' };
+    return HttpResponse.json(payload, { status: 201 });
+  }),
+
+  // 204 — revoking DELETES the row, so there is deliberately nothing to return.
+  http.delete('*/api/v1/users/me/consent/:channel', () => new HttpResponse(null, { status: 204 })),
+
+  // Soft-delete and schedule the hard delete. `hard_delete_after` is what the
+  // panel shows, and the client seeds its status cache from this instead of
+  // spending a second request right after the mutation.
+  http.delete('*/api/v1/users/me', () => {
+    const payload: DeleteMeResponse = deleteMeResponse;
+    return HttpResponse.json(payload);
+  }),
+
+  http.get('*/api/v1/gdpr/deletion-status', () => {
+    const payload: DeletionStatusView = deletionStatusNone;
+    return HttpResponse.json(payload);
+  }),
+
+  http.post('*/api/v1/gdpr/cancel-delete', () => {
+    const payload: CancelResponse = cancelDeletionResponse;
+    return HttpResponse.json(payload);
+  }),
+
+  // A `Content-Disposition` download in production; the client turns the value
+  // straight into a file, so all that matters here is that it is valid JSON.
+  http.get('*/api/v1/gdpr/export', () => HttpResponse.json(exportedData)),
+
+  // ---------------------------------------------------------------------------
+  // Chat (F21).
+  //
+  // Same stateless rule as every other write handler here, and it costs two
+  // behaviours a test author must know about:
+  //
+  //  1. `DELETE /chat/messages/{id}` always answers 204, even for a message that
+  //     was never there. The real server filters soft-deleted rows out and answers
+  //     404 `MESSAGE_NOT_FOUND` on a second delete, but this mock remembers no
+  //     deletions, so that branch is produced with a `server.use()` override —
+  //     exactly how `VERSION_CONFLICT` is manufactured in `profile-form.test.tsx`.
+  //  2. `POST /rooms/{id}/messages` answers with a message id from 970 upward and
+  //     does not store it, so a later `GET` still returns only the fixtures. That
+  //     is why the send path is asserted through the cache patch the hook performs
+  //     (`useSendMessage` prepends the 201 body), not through a refetch.
+  // ---------------------------------------------------------------------------
+
+  http.get('*/api/v1/chat/rooms', () => {
+    // A BARE ARRAY — no `{items, next_cursor}` envelope (see `lib/api/chat.ts`).
+    const payload: RoomView[] = chatRooms;
+    return HttpResponse.json(payload);
+  }),
+
+  // Literal before `:room_id`: `:room_id` also matches "direct", and this route
+  // is a POST while the reads below are GETs, so the ordering only matters if a
+  // future sibling ever shares the method. Declared first to keep that true.
+  http.post('*/api/v1/chat/rooms/direct', async ({ request }) => {
+    const body = (await request.json()) as { other_user_id: number };
+
+    if (body.other_user_id === adminUser.id) {
+      return HttpResponse.json(
+        errorBody(
+          'CANNOT_CHAT_WITH_SELF',
+          400,
+          '/api/v1/chat/rooms/direct',
+          'You cannot start a conversation with yourself',
+        ),
+        { status: 400 },
+      );
+    }
+
+    // Find-or-create, so an existing pair returns the SAME room and 200 — not 201.
+    return HttpResponse.json(directRoom);
+  }),
+
+  http.get('*/api/v1/chat/rooms/:room_id', ({ params }) => {
+    const roomId = Number(params.room_id);
+    const room = chatRooms.find((candidate) => candidate.id === roomId);
+
+    if (!room) {
+      return HttpResponse.json(
+        errorBody('ROOM_NOT_FOUND', 404, `/api/v1/chat/rooms/${String(roomId)}`, 'Room not found'),
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json(room);
+  }),
+
+  http.get('*/api/v1/chat/rooms/:room_id/members', ({ params }) => {
+    const roomId = Number(params.room_id);
+    const payload: RoomMembersList | undefined = roomMembers[roomId];
+
+    if (!payload) {
+      return HttpResponse.json(
+        errorBody(
+          'ROOM_NOT_FOUND',
+          404,
+          `/api/v1/chat/rooms/${String(roomId)}/members`,
+          'Room not found',
+        ),
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json(payload);
+  }),
+
+  // Newest-first, paged BACKWARDS in time: `next_cursor` is the offset of the next
+  // (older) slice, so page 1 holds the *older* messages. The offset is opaque to
+  // the client — it echoes back whatever this returns.
+  http.get('*/api/v1/chat/rooms/:room_id/messages', ({ request, params }) => {
+    const roomId = Number(params.room_id);
+    const rows = roomMessages[roomId];
+
+    if (!rows) {
+      return HttpResponse.json(
+        errorBody(
+          'ROOM_NOT_FOUND',
+          404,
+          `/api/v1/chat/rooms/${String(roomId)}/messages`,
+          'Room not found',
+        ),
+        { status: 404 },
+      );
+    }
+
+    const url = new URL(request.url);
+    const rawCursor = url.searchParams.get('cursor');
+    const rawLimit = Number(url.searchParams.get('limit'));
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : rows.length;
+    const start = rawCursor === null ? 0 : Number(rawCursor);
+
+    const items = rows.slice(start, start + limit);
+    const end = start + items.length;
+    const payload: MessagePage = {
+      items,
+      next_cursor: end < rows.length ? String(end) : null,
+    };
+
+    return HttpResponse.json(payload);
+  }),
+
+  http.post('*/api/v1/chat/rooms/:room_id/messages', async ({ request, params }) => {
+    const roomId = Number(params.room_id);
+    const body = (await request.json()) as { body: string };
+    const text = body.body.trim();
+
+    if (text.length === 0) {
+      return HttpResponse.json(
+        errorBody(
+          'VALIDATION_ERROR',
+          422,
+          `/api/v1/chat/rooms/${String(roomId)}/messages`,
+          'body must not be empty',
+        ),
+        { status: 422 },
+      );
+    }
+
+    const created: MessageView = {
+      id: nextCreatedMessageId++,
+      room_id: roomId,
+      sender_id: adminUser.id,
+      body: text,
+      media_id: null,
+      created_at: FIXTURE_NOW,
+    };
+
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
+  // 204 — nothing to return. See note 1 above for why a second delete also passes.
+  http.delete('*/api/v1/chat/messages/:message_id', () => new HttpResponse(null, { status: 204 })),
+
+  // Echoes the watermark back. The real server rejects an id it has not seen in
+  // this room (`READ_RECEIPT_INVALID`, 400); the mock accepts any positive id so a
+  // freshly sent message (id 970+) can be marked read without extra plumbing. The
+  // rejection branch is a `server.use()` override when a test needs it.
+  http.post('*/api/v1/chat/rooms/:room_id/read', async ({ request }) => {
+    const body = (await request.json()) as { message_id: number };
+    const payload: MemberReadState = {
+      user_id: adminUser.id,
+      last_read_message_id: body.message_id,
+    };
+
+    return HttpResponse.json(payload);
+  }),
+
+  http.get('*/api/v1/chat/rooms/:room_id/read-receipts', ({ params }) => {
+    const roomId = Number(params.room_id);
+    const payload: ReadReceiptsList = { members: roomReadState[roomId] ?? [] };
+    return HttpResponse.json(payload);
+  }),
+
+  http.get('*/api/v1/chat/rooms/:room_id/unread-count', ({ params }) => {
+    const roomId = Number(params.room_id);
+    const payload: UnreadCount = roomUnreadCounts[roomId] ?? { unread: 0 };
+    return HttpResponse.json(payload);
+  }),
 ];

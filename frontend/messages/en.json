@@ -513,10 +513,6 @@
       "title": "Search",
       "description": "Debounced search across users, posts and hashtags arrives in F13."
     },
-    "settings": {
-      "title": "Settings",
-      "description": "Account, privacy, notification and GDPR controls arrive in F20."
-    },
     "admin": {
       "title": "Admin dashboard",
       "description": "RBAC-protected stat cards and charts arrive in F21."
@@ -532,6 +528,108 @@
     "adminAudit": {
       "title": "Admin · audit log",
       "description": "The audit log explorer arrives in F21."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your profile, your consent choices, and your data.",
+    "tabs": {
+      "profile": "Profile",
+      "consent": "Consent",
+      "privacy": "Data & privacy"
+    },
+    "profile": {
+      "title": "Your profile",
+      "loading": "Loading your profile…",
+      "errorTitle": "Couldn't load your profile",
+      "retry": "Try again",
+      "reload": "Reload",
+      "saved": "Profile saved",
+      "displayName": "Display name",
+      "displayNameHelp": "The name shown on your posts and profile.",
+      "bio": "Bio",
+      "bioHelp": "A short introduction shown at the top of your profile.",
+      "location": "Location",
+      "website": "Website",
+      "websiteHelp": "Must start with http:// or https://.",
+      "phone": "Phone",
+      "dob": "Date of birth",
+      "dobHelp": "Used only to pick age-appropriate defaults. Never shown publicly.",
+      "address": "Address",
+      "addressHelp": "Kept private unless you change the setting below.",
+      "visibility": "Profile visibility",
+      "visibilityHelp": "Who can see your posts and profile details.",
+      "piiVisibility": "Personal details visibility",
+      "piiVisibilityHelp": "Who can see your phone, address and date of birth.",
+      "visibilityOptions": {
+        "public": "Anyone",
+        "followers": "Followers only",
+        "private": "Only me"
+      },
+      "saving": "Saving…",
+      "save": "Save changes"
+    },
+    "consent": {
+      "title": "Consent",
+      "loading": "Loading your consent choices…",
+      "errorTitle": "Couldn't load your consent choices",
+      "retry": "Try again",
+      "intro": "Choose what we may contact you about. You can change these at any time, and turning one off takes effect immediately.",
+      "footer": "These choices cover marketing and analytics only. Messages about your account and security are always sent.",
+      "channels": {
+        "email_marketing": {
+          "title": "Marketing email",
+          "description": "Product news and offers sent to your email address."
+        },
+        "sms_marketing": {
+          "title": "Marketing SMS",
+          "description": "Occasional offers sent to your phone number by text message."
+        },
+        "analytics": {
+          "title": "Usage analytics",
+          "description": "Helps us understand how the app is used so we can improve it."
+        },
+        "product_updates": {
+          "title": "Product updates",
+          "description": "Announcements when a notable new feature ships."
+        }
+      }
+    },
+    "privacy": {
+      "title": "Data & privacy",
+      "exportTitle": "Download your data",
+      "exportBody": "Get a copy of everything we hold about your account as a JSON file.",
+      "exportAction": "Download my data",
+      "exporting": "Preparing…",
+      "exportReady": "Your data is ready",
+      "exportRateLimit": "Limited to one download a minute.",
+      "deleteTitle": "Delete your account",
+      "deleteBody": "Your account is scheduled for deletion straight away and stays recoverable during the grace period. After that it cannot be undone.",
+      "deleteAction": "Delete my account",
+      "confirmTitle": "Delete your account?",
+      "confirmBody": "You can cancel during the grace period, but after that your posts, profile and messages are permanently removed.",
+      "confirmCancel": "Cancel",
+      "confirmAction": "Delete account",
+      "scheduling": "Scheduling…",
+      "scheduledToast": "Your account is scheduled for deletion",
+      "loading": "Checking your account status…",
+      "statusErrorTitle": "Couldn't check your account status",
+      "retry": "Try again",
+      "scheduledBody": "Your account is scheduled for permanent deletion on {date}.",
+      "scheduledBodyNoDate": "Your account is scheduled for permanent deletion.",
+      "cancelAction": "Cancel deletion",
+      "cancelling": "Cancelling…",
+      "cancelledToast": "Deletion cancelled"
+    },
+    "validation": {
+      "displayNameTooLong": "That name is too long.",
+      "bioTooLong": "Your bio is too long.",
+      "locationTooLong": "That location is too long.",
+      "phoneTooLong": "That phone number is too long.",
+      "addressTooLong": "That address is too long.",
+      "websiteInvalid": "Enter a full URL starting with http:// or https://.",
+      "dobInvalid": "Enter a real date.",
+      "visibilityInvalid": "Choose one of the listed options."
     }
   }
 }

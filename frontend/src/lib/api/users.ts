@@ -40,3 +40,91 @@ export async function getProfile(userId: number): Promise<PublicProfile> {
 export async function getMe(): Promise<SelfProfile> {
   return apiRequest(() => apiClient.GET('/api/v1/users/me'));
 }
+
+/** PATCH body. `version` is required — the backend locks optimistically. */
+export type ProfileUpdate = components['schemas']['ProfileUpdate'];
+
+export type ConsentChannel = components['schemas']['ConsentRecord']['channel'];
+
+/**
+ * Every channel the backend can record, in the order the settings screen lists
+ * them (`ConsentChannel` in `src/social_api/modules/users/models.py`).
+ *
+ * Derived from the contract rather than the response: `GET /users/me/consent`
+ * omits channels the user has never acted on, so the switch list cannot be built
+ * from what came back — only from what the enum allows.
+ */
+export const CONSENT_CHANNELS = [
+  'email_marketing',
+  'sms_marketing',
+  'analytics',
+  'product_updates',
+] as const satisfies readonly ConsentChannel[];
+
+export type ConsentRecord = components['schemas']['ConsentRecord'];
+
+export type DeleteMeResponse = components['schemas']['DeleteMeResponse'];
+
+/**
+ * `PATCH /api/v1/users/me` — [contracts/api_reference.md:2397].
+ *
+ * Two contract details drive the call shape:
+ *
+ *  1. `version` is part of the BODY and is mandatory, even though every other
+ *     field is optional. Sending the version we last read is what makes a lost
+ *     update fail loudly (`VERSION_CONFLICT`, already mapped to
+ *     `errors.versionConflict`) instead of silently overwriting a change made on
+ *     another device.
+ *  2. The model forbids unknown keys (`extra="forbid"`), so the caller must send
+ *     only fields it actually means to change — see `toProfileUpdate`.
+ *
+ * The response is the FULL new `ProfileSelf`, including the bumped `version`, so
+ * the caller writes it straight into the cache rather than refetching.
+ */
+export async function updateMe(payload: ProfileUpdate): Promise<SelfProfile> {
+  return apiRequest(() => apiClient.PATCH('/api/v1/users/me', { body: payload }));
+}
+
+/**
+ * `GET /api/v1/users/me/consent` — [contracts/api_reference.md:2452].
+ *
+ * Only channels the user has ever acted on come back, so a channel missing from
+ * the list has never been granted. The UI treats absent as "off" rather than
+ * assuming the backend materialises all four.
+ */
+export async function getConsents(): Promise<ConsentRecord[]> {
+  const data = await apiRequest(() => apiClient.GET('/api/v1/users/me/consent'));
+  return data.consents;
+}
+
+/**
+ * `POST /api/v1/users/me/consent` — answers 201 with an informational message.
+ *
+ * The backend records the client IP and user-agent alongside the grant (that is
+ * the audit trail GDPR wants), which is exactly why the caller must not fake the
+ * consent locally: the row is evidence, so it has to come from the server.
+ */
+export async function grantConsent(channel: ConsentChannel): Promise<void> {
+  await apiRequest(() => apiClient.POST('/api/v1/users/me/consent', { body: { channel } }));
+}
+
+/** `DELETE /api/v1/users/me/consent/{channel}` — 204, no body. */
+export async function revokeConsent(channel: ConsentChannel): Promise<void> {
+  await apiRequest(() =>
+    apiClient.DELETE('/api/v1/users/me/consent/{channel}', {
+      params: { path: { channel } },
+    }),
+  );
+}
+
+/**
+ * `DELETE /api/v1/users/me` — soft-delete + schedule the hard delete.
+ *
+ * The handler does both in one transaction: it soft-deletes the account and
+ * schedules the GDPR hard delete, suppressing `ALREADY_SCHEDULED_FOR_DELETION`
+ * on a repeat call. The response carries `hard_delete_after`, which is the only
+ * piece of information the UI cannot derive — the exact end of the grace window.
+ */
+export async function deleteMe(): Promise<DeleteMeResponse> {
+  return apiRequest(() => apiClient.DELETE('/api/v1/users/me'));
+}

@@ -1,13 +1,22 @@
 import type {
   AuthTokens,
+  CancelResponse,
   CommentView,
+  ConsentRecord,
+  DeleteMeResponse,
+  DeletionStatusView,
   FollowCounts,
   FollowStatus,
   FollowUserView,
+  MemberReadState,
+  MessageView,
   NotificationView,
   PostView,
   ProfilePublic,
   ProfileSelf,
+  RoomMembersList,
+  RoomView,
+  UnreadCount,
   UserPublic,
 } from '../../contracts/types';
 
@@ -449,6 +458,83 @@ export const followingOf22: FollowUserView[] = [
 ];
 
 /**
+ * The consent screen's read (F20), covering all three states the UI must render.
+ *
+ * `GET /users/me/consent` returns ONLY channels the user has ever acted on, so
+ * this list is deliberately incomplete — and that is the point:
+ *
+ *  - `email_marketing` — granted and never revoked → switch ON;
+ *  - `analytics`       — granted once, then revoked → switch OFF, but the row
+ *                        EXISTS, so the UI must read `granted` and not "row present";
+ *  - `sms_marketing` / `product_updates` — absent entirely, which is a real "never
+ *                        acted on" and must also read OFF.
+ *
+ * A UI built from the response alone would hide the last two channels, which is
+ * why `CONSENT_CHANNELS` (the contract enum) drives the switch list instead.
+ */
+export const consents: ConsentRecord[] = [
+  {
+    channel: 'email_marketing',
+    granted: true,
+    granted_at: '2026-01-02T09:00:00.000Z',
+    revoked_at: null,
+  },
+  {
+    channel: 'analytics',
+    granted: false,
+    granted_at: '2026-01-02T09:00:00.000Z',
+    revoked_at: '2026-01-10T09:00:00.000Z',
+  },
+];
+
+/** What `GET /gdpr/deletion-status` answers for a live account: nothing scheduled. */
+export const deletionStatusNone: DeletionStatusView = {
+  scheduled: false,
+  scheduled_hard_delete_at: null,
+  status: 'none',
+};
+
+/**
+ * The scheduled state, for tests that need the "cancel my deletion" branch.
+ *
+ * Not the default answer: a scheduled deletion is the exceptional case, and a
+ * mock that opened in it would make the ordinary "delete my account" button
+ * unreachable without an override in every test.
+ */
+export const deletionStatusScheduled: DeletionStatusView = {
+  scheduled: true,
+  scheduled_hard_delete_at: '2026-02-14T10:00:00.000Z',
+  status: 'scheduled',
+};
+
+/**
+ * `DELETE /users/me` — soft-delete now, hard-delete at the end of the grace
+ * period. `hard_delete_after` is the only field the client cannot derive: it is
+ * what the panel shows as the exact deadline.
+ */
+export const deleteMeResponse: DeleteMeResponse = {
+  message: 'Account scheduled for deletion',
+  hard_delete_after: '2026-02-14T10:00:00.000Z',
+};
+
+export const cancelDeletionResponse: CancelResponse = {
+  message: 'Deletion cancelled',
+};
+
+/**
+ * `GET /gdpr/export` — a `Content-Disposition` JSON download in production, typed
+ * `unknown` in the contract. Small enough to assert on, shaped like a real export
+ * (a top-level object, not an array), so a test can prove the bytes came back
+ * rather than a 204.
+ */
+export const exportedData = {
+  user: { id: 21, email: DEMO_ADMIN_EMAIL },
+  posts: [],
+  comments: [],
+  exported_at: FIXTURE_NOW,
+};
+
+/**
  * Posts per author — the profile's feed.
  *
  * Ids start at 401, disjoint from the home feed (101–103) and explore (201–203)
@@ -507,4 +593,173 @@ export const authorPosts: Record<number, PostView[]> = {
       is_edited: false,
     },
   ],
+};
+
+// ---------------------------------------------------------------------------
+// Chat (F21).
+//
+// Ids start at 601 for rooms and 701/801 for messages, clear of posts
+// (101–103, 201–203, 401–403) and comments (501–503), so a test can always tell
+// which endpoint a rendered row came from.
+//
+// The two rooms exist because `RoomView` names them in two different ways, and
+// the UI has to handle both: a direct room has `title: null` and the peer is
+// DERIVED from the member list (`peerIdOf`), while a group room is labelled by
+// its title. The members are drawn from `authorProfiles` on purpose — user 22
+// ("Alice Rahman") resolves, and user 24 has a null display name so the sender
+// fallback ("User 24") is reachable without inventing a new account.
+// ---------------------------------------------------------------------------
+
+/** Newest activity first in `chatRooms` — that is the server's ordering. */
+export const directRoom: RoomView = {
+  id: 601,
+  type: 'direct',
+  title: null,
+  created_at: '2026-01-10T09:00:00.000Z',
+  updated_at: '2026-01-15T10:00:00.000Z',
+};
+
+export const groupRoom: RoomView = {
+  id: 602,
+  type: 'group',
+  title: 'Design crew',
+  created_at: '2026-01-08T09:00:00.000Z',
+  updated_at: '2026-01-15T09:57:00.000Z',
+};
+
+/**
+ * `GET /chat/rooms` — a BARE ARRAY, capped at 100 by the server, already ordered
+ * by latest activity. There is no `next_cursor` here, which is why the room list
+ * is a plain query and not an infinite one.
+ */
+export const chatRooms: RoomView[] = [directRoom, groupRoom];
+
+/**
+ * `GET /chat/rooms/{id}/members`, keyed by room id.
+ *
+ * This is not decoration: it is the ONLY place a direct room's peer can be found
+ * (`RoomView` carries no participants). Room 601 lists admin (21) and Alice (22),
+ * so the peer is unambiguous; room 602 carries three members, which is also the
+ * "many peers, use the title" case `peerIdOf` refuses to guess at.
+ */
+export const roomMembers: Record<number, RoomMembersList> = {
+  601: {
+    members: [
+      { user_id: 21, role: 'member', joined_at: '2026-01-10T09:00:00.000Z' },
+      { user_id: 22, role: 'member', joined_at: '2026-01-10T09:00:00.000Z' },
+    ],
+  },
+  602: {
+    members: [
+      { user_id: 21, role: 'admin', joined_at: '2026-01-08T09:00:00.000Z' },
+      { user_id: 23, role: 'member', joined_at: '2026-01-08T09:05:00.000Z' },
+      { user_id: 24, role: 'member', joined_at: '2026-01-08T09:10:00.000Z' },
+    ],
+  },
+};
+
+/**
+ * `GET /chat/rooms/{id}/messages`, NEWEST FIRST — the direction "load older"
+ * pages in. Five messages in room 601 means a `limit=3` read produces two pages
+ * (3 + 2), which is what the "load older" test needs; the display order is the
+ * client's reversal, never the query's.
+ *
+ * Two details carried on purpose: message 702 is `is_edited: true` so the
+ * "edited" marker is reachable, and message 801 is sent by user 24 — whose
+ * display name is null — so the sender fallback is reachable too.
+ */
+export const roomMessages: Record<number, MessageView[]> = {
+  601: [
+    {
+      id: 705,
+      room_id: 601,
+      sender_id: 22,
+      body: "Sounds good — I'll push it tonight.",
+      media_id: null,
+      created_at: '2026-01-15T10:00:00.000Z',
+    },
+    {
+      id: 704,
+      room_id: 601,
+      sender_id: 21,
+      body: 'Then it is a plan.',
+      media_id: null,
+      created_at: '2026-01-15T09:58:00.000Z',
+    },
+    {
+      id: 703,
+      room_id: 601,
+      sender_id: 22,
+      body: "Let's ship the cursor fix first.",
+      media_id: null,
+      created_at: '2026-01-15T09:55:00.000Z',
+    },
+    {
+      id: 702,
+      room_id: 601,
+      sender_id: 21,
+      body: 'The thread reverses at render time.',
+      media_id: null,
+      created_at: '2026-01-15T09:50:00.000Z',
+      is_edited: true,
+    },
+    {
+      id: 701,
+      room_id: 601,
+      sender_id: 22,
+      body: 'Hey! Did the pagination land?',
+      media_id: null,
+      created_at: '2026-01-15T09:40:00.000Z',
+    },
+  ],
+  602: [
+    {
+      id: 803,
+      room_id: 602,
+      sender_id: 23,
+      body: 'Anyone up for a review of the chat screens?',
+      media_id: null,
+      created_at: '2026-01-15T09:57:00.000Z',
+    },
+    {
+      id: 802,
+      room_id: 602,
+      sender_id: 21,
+      body: 'A group room needs a title — this one has it.',
+      media_id: null,
+      created_at: '2026-01-15T09:55:00.000Z',
+    },
+    {
+      id: 801,
+      room_id: 602,
+      sender_id: 24,
+      body: 'No display name, so this row has to fall back.',
+      media_id: null,
+      created_at: '2026-01-15T09:50:00.000Z',
+    },
+  ],
+};
+
+/** `GET /chat/rooms/{id}/read-receipts` — my watermark and the peer's, per room. */
+export const roomReadState: Record<number, MemberReadState[]> = {
+  601: [
+    { user_id: 21, last_read_message_id: 705 },
+    { user_id: 22, last_read_message_id: 704 },
+  ],
+  602: [
+    { user_id: 21, last_read_message_id: 803 },
+    { user_id: 23, last_read_message_id: 802 },
+    { user_id: 24, last_read_message_id: 801 },
+  ],
+};
+
+/**
+ * `GET /chat/rooms/{id}/unread-count`, per room.
+ *
+ * Deliberately per-room and NOT in `RoomView`: that is exactly why the room list
+ * has no unread badge — a badge there would cost one request per row.
+ */
+export const roomUnreadCounts: Record<number, UnreadCount> = {
+  601: { unread: 0 },
+  602: { unread: 2 },
 };
