@@ -40,6 +40,38 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=10)
 
 
+class VerifyEmailRequest(BaseModel):
+    """Consumes the one-time token from the verification email."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=10)
+
+
+class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Consumes the one-time reset token + the new password."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=10)
+    new_password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def _validate_password(cls, v: str) -> str:
+        try:
+            validate_password_policy(v)
+        except WeakPasswordError as exc:
+            raise ValueError(str(exc)) from exc
+        return v
+
+
 # ---- Responses ----
 class UserPublic(BaseModel):
     """Response-safe user view. NO PII beyond id/role/is_active/is_verified/created_at."""
@@ -68,3 +100,9 @@ class RegisterResponse(BaseModel):
 class LoginResponse(BaseModel):
     user: UserPublic
     tokens: AuthTokens
+
+
+class MessageResponse(BaseModel):
+    """Generic, locale-aware success message for one-shot flows."""
+
+    message: str

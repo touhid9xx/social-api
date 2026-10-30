@@ -41,6 +41,14 @@ audit_rows_written_total = Counter(
     labelnames=["action"],
 )
 
+# ---- Outbound messaging (email / SMS) ----
+outbound_message_total = Counter(
+    "outbound_message_total",
+    "Outbound transactional messages",
+    # `result` values: sent, failed, skipped, enqueue_failed.
+    labelnames=["channel", "result"],
+)
+
 # ---- Circuit breakers (M20) ----
 circuit_breaker_state = Gauge(
     "circuit_breaker_state",

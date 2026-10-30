@@ -48,12 +48,15 @@ htmlcov/
 .env.local
 .env.*.local
 secrets/
-data/media/
 
 # ──────────────────────────────────────────────────────────────
-# Runtime data (media, uploads, etc.)
+# Runtime data (uploads, media, etc.)
+# NOTE: the directory itself must NOT be excluded outright - git can
+# never re-include a file whose parent directory is excluded, so
+# `data/` + `!data/.gitkeep` silently kept .gitkeep out. Exclude the
+# *contents* (`data/*`) and negate the paths that must survive.
 # ──────────────────────────────────────────────────────────────
-data/
+data/*
 !data/.gitkeep
 !data/media/
 data/media/*
@@ -82,10 +85,24 @@ desktop.ini
 logs/
 
 # ──────────────────────────────────────────────────────────────
+# Runtime / generated artifacts (never commit)
+# ──────────────────────────────────────────────────────────────
+celerybeat-schedule*
+gdpr-export*.json
+er.name
+
+# ──────────────────────────────────────────────────────────────
+# Keys / certificates
+# ──────────────────────────────────────────────────────────────
+*.pem
+*.key
+
+# ──────────────────────────────────────────────────────────────
+# Editor / agent scratch files
+# ──────────────────────────────────────────────────────────────
+bitnitenPmd
+
+# ──────────────────────────────────────────────────────────────
 # Contracts — auto-generated but COMMITTED intentionally
 # (do NOT ignore contracts/)
 # ──────────────────────────────────────────────────────────────
-secrets/*.pem
-secrets/
-secrets/
-*.pem

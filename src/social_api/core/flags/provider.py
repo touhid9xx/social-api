@@ -14,6 +14,8 @@ BUILTIN_FLAGS: dict[str, bool] = {
     "chat_enabled": True,
     "gdpr_enabled": True,
     "feed_fanout_enabled": False,
+    "email_enabled": True,
+    "sms_enabled": False,
 }
 
 
@@ -33,6 +35,8 @@ class EnvFeatureFlags:
             "chat_enabled": s.ff_chat_enabled,
             "gdpr_enabled": s.ff_gdpr_enabled,
             "feed_fanout_enabled": s.ff_feed_fanout_enabled,
+            "email_enabled": s.ff_email_enabled,
+            "sms_enabled": s.ff_sms_enabled,
         }
         if name in mapping:
             return mapping[name]

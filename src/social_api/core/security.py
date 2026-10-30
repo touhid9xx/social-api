@@ -23,11 +23,18 @@ from social_api.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "verify", "reset"]
 
 # Final + explicit Literal -> mypy narrows these to the literal type.
 ACCESS: Final[Literal["access"]] = "access"
 REFRESH: Final[Literal["refresh"]] = "refresh"
+# One-time, self-contained email tokens. They share the RS256 key with
+# access/refresh tokens but their `type` claim differs, so decode_token()
+# can never accept one in place of an access token (and vice versa).
+VERIFY: Final[Literal["verify"]] = "verify"
+RESET: Final[Literal["reset"]] = "reset"
+
+OneTimeTokenType = Literal["verify", "reset"]
 
 
 @lru_cache(maxsize=1)
@@ -64,6 +71,7 @@ def _encode(
     token_type: TokenType,
     role: str,
     ttl_seconds: int,
+    extra: dict[str, Any] | None = None,
 ) -> tuple[str, str, datetime]:
     """Returns (token, jti, expires_at)."""
     settings = get_settings()
@@ -80,6 +88,11 @@ def _encode(
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
     }
+    if extra:
+        # Caller-supplied claims (e.g. `pwh` on reset tokens). Reserved
+        # claims can never be overwritten — a caller must not be able to
+        # mint a token with a forged `type`/`sub`/`exp`.
+        payload.update({k: v for k, v in extra.items() if k not in payload})
     token = jwt.encode(payload, _load_private_key(), algorithm=settings.jwt_algorithm)
     return token, jti, expires
 
@@ -128,6 +141,47 @@ def issue_refresh_token(*, user_id: int, role: str) -> tuple[str, str, datetime]
         token_type=REFRESH,
         role=role,
         ttl_seconds=settings.jwt_refresh_ttl_seconds,
+    )
+
+
+def password_fingerprint(password_hash: str) -> str:
+    """
+    Short, non-reversible digest of the stored password hash.
+
+    Embedded in a reset token as the `pwh` claim. This makes reset tokens
+    single-use *without* any server-side state: consuming a token rewrites
+    `users.password_hash`, so every other outstanding reset token for that
+    user stops matching. No DB table, no Redis round trip on the hot path.
+    """
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+def issue_verification_token(*, user_id: int, role: str) -> tuple[str, str, datetime]:
+    """Signed, self-contained email-verification token (purpose='verify')."""
+    settings = get_settings()
+    return _encode(
+        sub=str(user_id),
+        token_type=VERIFY,
+        role=role,
+        ttl_seconds=settings.email_verify_ttl_seconds,
+    )
+
+
+def issue_password_reset_token(
+    *, user_id: int, role: str, password_hash: str
+) -> tuple[str, str, datetime]:
+    """Signed, self-contained password-reset token (purpose='reset').
+
+    Carries `pwh`, a fingerprint of the *current* password hash, so the
+    token dies as soon as the password actually changes (single-use).
+    """
+    settings = get_settings()
+    return _encode(
+        sub=str(user_id),
+        token_type=RESET,
+        role=role,
+        ttl_seconds=settings.email_reset_ttl_seconds,
+        extra={"pwh": password_fingerprint(password_hash)},
     )
 
 

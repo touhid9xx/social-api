@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"  # noqa: S104  # nosec B104
     app_port: int = 8000
     app_base_url: str = "http://localhost:8000"
+    # Public web client origin — used to build clickable links inside
+    # transactional email (verification / password reset).
+    web_app_url: str = "http://localhost:3000"
     api_v1_prefix: str = "/api/v1"
     default_locale: str = "en"
     supported_locales: str = "en,bn"
@@ -76,6 +79,17 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_tls: bool = False
+    smtp_timeout_seconds: float = 10.0
+
+    # --- Email/SMS one-time tokens (self-contained JWTs — no DB table) ---
+    email_verify_ttl_seconds: int = 86_400  # 24h
+    email_reset_ttl_seconds: int = 3_600  # 1h
+
+    # --- Optional SMS (textbee.dev gateway). Off unless FF_SMS_ENABLED ---
+    textbee_base_url: str = "https://api.textbee.dev/api/v1"
+    textbee_api_key: str = ""
+    textbee_device_id: str = ""
+    sms_timeout_seconds: float = 10.0
 
     # --- Observability ---
     log_level: str = "DEBUG"
@@ -92,6 +106,8 @@ class Settings(BaseSettings):
     ff_chat_enabled: bool = True
     ff_gdpr_enabled: bool = True
     ff_feed_fanout_enabled: bool = False
+    ff_email_enabled: bool = True
+    ff_sms_enabled: bool = False
 
     # --- CORS ---
     cors_origins: str = "http://localhost:3000,http://localhost:5173"

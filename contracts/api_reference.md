@@ -2,7 +2,7 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `9cea165cc249`
+**Generated from commit:** `b7220199e113`
 
 ---
 
@@ -86,6 +86,37 @@ curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN
 
 
 ## auth
+
+### `POST` /api/v1/auth/forgot-password
+
+**Summary:** Forgot Password
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Request body:**
+
+- `application/json` -> `ForgotPasswordRequest`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "ForgotPasswordRequest"}' \
+     http://localhost:8000/api/v1/auth/forgot-password
+```
+
+---
 
 ### `POST` /api/v1/auth/login
 
@@ -226,6 +257,68 @@ curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "RefreshRe
 ```bash
 curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "RegisterRequest"}' \
      http://localhost:8000/api/v1/auth/register
+```
+
+---
+
+### `POST` /api/v1/auth/reset-password
+
+**Summary:** Reset Password
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Request body:**
+
+- `application/json` -> `ResetPasswordRequest`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "ResetPasswordRequest"}' \
+     http://localhost:8000/api/v1/auth/reset-password
+```
+
+---
+
+### `POST` /api/v1/auth/verify-email
+
+**Summary:** Verify Email
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Request body:**
+
+- `application/json` -> `VerifyEmailRequest`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "VerifyEmailRequest"}' \
+     http://localhost:8000/api/v1/auth/verify-email
 ```
 
 ---

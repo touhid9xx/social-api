@@ -225,7 +225,10 @@ class AsyncCircuitBreaker:
 redis_breaker = AsyncCircuitBreaker(name="redis", fail_threshold=5, recovery_timeout=30.0)
 smtp_breaker = AsyncCircuitBreaker(name="smtp", fail_threshold=3, recovery_timeout=60.0)
 s3_breaker = AsyncCircuitBreaker(name="s3", fail_threshold=5, recovery_timeout=60.0)
+# Optional SMS gateway (textbee.dev). Same shape as SMTP: a flaky third
+# party must not turn into request latency for the whole app.
+sms_breaker = AsyncCircuitBreaker(name="sms", fail_threshold=3, recovery_timeout=60.0)
 
 
 def all_breakers() -> list[AsyncCircuitBreaker]:
-    return [redis_breaker, smtp_breaker, s3_breaker]
+    return [redis_breaker, smtp_breaker, s3_breaker, sms_breaker]

@@ -153,6 +153,10 @@ export interface FollowUserView {
   followed_at: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
 export interface GroupRoomCreate {
   title: string;
   member_ids?: number[];
@@ -217,6 +221,10 @@ export interface MessageCreate {
 export interface MessagePage {
   items: MessageView[];
   next_cursor?: string | null;
+}
+
+export interface MessageResponse {
+  message: string;
 }
 
 export interface MessageView {
@@ -381,6 +389,11 @@ export interface ReportView {
   updated_at: string;
 }
 
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
 export interface RoomMemberView {
   user_id: number;
   role: string;
@@ -422,4 +435,8 @@ export interface ValidationError {
   type: string;
   input?: unknown;
   ctx?: Record<string, unknown>;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
 }

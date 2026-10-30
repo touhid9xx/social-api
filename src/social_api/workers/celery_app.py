@@ -29,6 +29,7 @@ celery_app = Celery(
         "social_api.workers.tasks.retention",
         "social_api.workers.tasks.heartbeat",
         "social_api.workers.tasks.idempotency_cleanup",
+        "social_api.workers.tasks.email",
     ],
 )
 

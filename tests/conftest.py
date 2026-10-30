@@ -113,13 +113,19 @@ def integration_db_url(_mysql_container: Any) -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _clean_test_db(request: pytest.FixtureRequest, integration_db_url: str) -> None:
-    """Truncate every user-data table once per session (except alembic_version)."""
+def _clean_test_db(request: pytest.FixtureRequest) -> None:
+    """Truncate every user-data table once per session (except alembic_version).
+
+    The ``integration_db_url`` fixture is resolved lazily (not as a declared
+    dependency) so that unit-only test sessions never start a MySQL container.
+    """
     has_integration = any(
         item.get_closest_marker("integration") is not None for item in request.session.items
     )
     if not has_integration:
         return
+
+    integration_db_url = request.getfixturevalue("integration_db_url")
 
     try:
         from sqlalchemy import text

@@ -15,6 +15,7 @@ from social_api.core.secrets import (
 
 # ----------------------------- env backend -----------------------------
 
+
 def test_get_provider_default_is_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SECRETS_BACKEND", raising=False)
     provider = get_secrets_provider()
@@ -38,6 +39,7 @@ def test_get_provider_aws_requires_secret_id(monkeypatch: pytest.MonkeyPatch) ->
 #   2. boto3 importable → the provider constructs a real boto3 client, which
 #      requires a region to be resolvable. We set AWS_DEFAULT_REGION so the
 #      test never depends on the developer's AWS config.
+
 
 def _hide_boto3(monkeypatch: pytest.MonkeyPatch) -> None:
     """Force the next `import boto3` to fail, as if boto3 were not installed."""

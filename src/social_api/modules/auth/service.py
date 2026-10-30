@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 from datetime import UTC, datetime
 
 import jwt
@@ -14,11 +15,19 @@ from social_api.core.password import hash_password, verify_password
 from social_api.core.security import (
     ACCESS,
     REFRESH,
+    RESET,
+    VERIFY,
     decode_token,
     issue_access_token,
+    issue_password_reset_token,
     issue_refresh_token,
+    issue_verification_token,
+    password_fingerprint,
     revoke_token,
 )
+from social_api.email import dispatch_email
+from social_api.email.templates import render_password_reset, render_verification
+from social_api.i18n import t
 from social_api.logging_config import get_logger
 from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.exceptions import (
@@ -33,6 +42,7 @@ from social_api.modules.auth.repository import UserRepository
 from social_api.modules.auth.schemas import (
     AuthTokens,
     LoginResponse,
+    MessageResponse,
     RegisterResponse,
     UserPublic,
 )
@@ -66,7 +76,13 @@ class AuthService:
         self._s = session
         self._repo = UserRepository(session)
 
-    async def register(self, *, email: str, password: str) -> RegisterResponse:
+    async def register(
+        self,
+        *,
+        email: str,
+        password: str,
+        locale: str | None = None,
+    ) -> RegisterResponse:
         if await self._repo.email_exists(email):
             raise EmailAlreadyRegisteredError()
 
@@ -91,9 +107,11 @@ class AuthService:
             entity_id=user.id,
         )
 
+        await self._send_verification_email(user=user, locale=locale)
+
         return RegisterResponse(
             user=_to_public(user),
-            message="Registration successful, please verify your email",
+            message=t("auth.register.success", locale=locale),
         )
 
     async def login(self, *, email: str, password: str) -> LoginResponse:
@@ -164,3 +182,135 @@ class AuthService:
             entity_id=user_id,
         )
         logger.info("user_logged_out", user_id=user_id)
+
+    # ------------------------------------------------------------------
+    # Email verification + password reset (self-contained JWT tokens)
+    # ------------------------------------------------------------------
+    async def _send_verification_email(self, *, user: User, locale: str | None) -> None:
+        """Best-effort: a mail outage must never fail a registration."""
+        settings = get_settings()
+        token, _jti, _exp = issue_verification_token(user_id=user.id, role=user.role.value)
+        content = render_verification(token=token, locale=locale)
+        await dispatch_email(to=user.email, subject=content.subject, body=content.body)
+        logger.info(
+            "verification_email_dispatched",
+            user_id=user.id,
+            ttl_seconds=settings.email_verify_ttl_seconds,
+        )
+
+    async def verify_email(self, *, token: str) -> User:
+        """Consume a purpose='verify' token and flip `is_verified`.
+
+        Idempotent: re-verifying an already-verified account succeeds, so
+        a user who double-clicks the emailed link is not punished.
+        """
+        try:
+            payload = decode_token(token, expected_type=VERIFY)
+        except jwt.PyJWTError:
+            raise InvalidTokenError() from None
+
+        try:
+            user_id = int(payload["sub"])
+        except (KeyError, ValueError):
+            raise InvalidTokenError() from None
+
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise InvalidTokenError()
+        if not user.is_active:
+            raise InactiveUserError()
+
+        if user.is_verified:
+            return user
+
+        user.is_verified = True
+        await self._repo.save(user)
+
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="VERIFY_EMAIL",
+            entity="user",
+            entity_id=user.id,
+        )
+        logger.info("email_verified", user_id=user.id)
+        return user
+
+    async def forgot_password(self, *, email: str, locale: str | None = None) -> MessageResponse:
+        """Email a reset link — without ever revealing whether the account exists.
+
+        Unknown / inactive / soft-deleted addresses take exactly the same
+        path and return exactly the same response as a real one.
+        """
+        settings = get_settings()
+        user = await self._repo.get_by_email(email)
+        if user is None or not user.is_active:
+            logger.info("password_reset_requested_for_unknown_email")
+            return MessageResponse(message=t("auth.reset.sent", locale=locale))
+
+        token, _jti, _exp = issue_password_reset_token(
+            user_id=user.id,
+            role=user.role.value,
+            password_hash=user.password_hash,
+        )
+        content = render_password_reset(token=token, locale=locale)
+        await dispatch_email(to=user.email, subject=content.subject, body=content.body)
+
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="PASSWORD_RESET_REQUESTED",
+            entity="user",
+            entity_id=user.id,
+        )
+        logger.info(
+            "password_reset_email_dispatched",
+            user_id=user.id,
+            ttl_seconds=settings.email_reset_ttl_seconds,
+        )
+        return MessageResponse(message=t("auth.reset.sent", locale=locale))
+
+    async def reset_password(
+        self,
+        *,
+        token: str,
+        new_password: str,
+        locale: str | None = None,
+    ) -> MessageResponse:
+        """Consume a purpose='reset' token and set the new password.
+
+        The token's `pwh` claim fingerprints the *current* password hash,
+        so a token is single-use with zero server-side state: once the
+        password changes, every older reset token stops matching.
+        """
+        try:
+            payload = decode_token(token, expected_type=RESET)
+        except jwt.PyJWTError:
+            raise InvalidTokenError() from None
+
+        try:
+            user_id = int(payload["sub"])
+        except (KeyError, ValueError):
+            raise InvalidTokenError() from None
+
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise InvalidTokenError()
+        if not user.is_active:
+            raise InactiveUserError()
+
+        claim = payload.get("pwh")
+        expected = password_fingerprint(user.password_hash)
+        if not isinstance(claim, str) or not hmac.compare_digest(claim, expected):
+            # Either forged or already used (password changed since issue).
+            raise InvalidTokenError()
+
+        user.password_hash = hash_password(new_password)
+        await self._repo.save(user)
+
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="PASSWORD_RESET_COMPLETED",
+            entity="user",
+            entity_id=user.id,
+        )
+        logger.info("password_reset_completed", user_id=user.id)
+        return MessageResponse(message=t("auth.reset.success", locale=locale))

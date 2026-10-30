@@ -5,17 +5,22 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from social_api.core.rate_limit import _key_by_ip, limiter
+from social_api.core.rate_limit import _key_by_ip, _key_by_user_or_ip, limiter
 from social_api.db.session import get_db
 from social_api.deps import CurrentUser, get_current_user
+from social_api.i18n import t
 from social_api.modules.auth.schemas import (
     AuthTokens,
+    ForgotPasswordRequest,
     LoginRequest,
     LoginResponse,
+    MessageResponse,
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
+    ResetPasswordRequest,
     UserPublic,
+    VerifyEmailRequest,
 )
 from social_api.modules.auth.service import AuthService
 
@@ -39,7 +44,11 @@ async def register(
     payload: RegisterRequest,
     session: AsyncSession = Depends(get_db),
 ) -> RegisterResponse:
-    result = await _service(session).register(email=payload.email, password=payload.password)
+    result = await _service(session).register(
+        email=payload.email,
+        password=payload.password,
+        locale=request.headers.get("accept-language"),
+    )
     # Commit BEFORE response is sent — ensures subsequent requests see the
     # row. With BaseHTTPMiddleware in the stack (SlowAPI, Prometheus),
     # yield-dependency teardown runs AFTER the response is sent, so a
@@ -103,3 +112,60 @@ async def me(user: CurrentUser = Depends(get_current_user)) -> UserPublic:
         is_verified=u.is_verified,
         created_at=u.created_at,
     )
+
+
+# ---------------------------------------------------------------------------
+# Email verification + password reset
+#
+# All three endpoints are capped at 3 requests/hour (per authenticated
+# user, else per IP) — they either mint or consume one-time tokens, which
+# are the classic brute-force / mail-bomb targets. Tokens are self-
+# contained JWTs (`type` claim = "verify" | "reset"); no DB table.
+# ---------------------------------------------------------------------------
+@router.post("/verify-email", response_model=MessageResponse)
+@limiter.limit("3/hour", key_func=_key_by_user_or_ip)
+async def verify_email(
+    request: Request,
+    response: Response,
+    payload: VerifyEmailRequest,
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    locale = request.headers.get("accept-language")
+    await _service(session).verify_email(token=payload.token)
+    await session.commit()
+    return MessageResponse(message=t("auth.verify.success", locale=locale))
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit("3/hour", key_func=_key_by_user_or_ip)
+async def forgot_password(
+    request: Request,
+    response: Response,
+    payload: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    # Always 200 with the same body, whether or not the address exists —
+    # the response must not be an account-enumeration oracle.
+    result = await _service(session).forgot_password(
+        email=payload.email,
+        locale=request.headers.get("accept-language"),
+    )
+    await session.commit()
+    return result
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit("3/hour", key_func=_key_by_user_or_ip)
+async def reset_password(
+    request: Request,
+    response: Response,
+    payload: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    result = await _service(session).reset_password(
+        token=payload.token,
+        new_password=payload.new_password,
+        locale=request.headers.get("accept-language"),
+    )
+    await session.commit()
+    return result
