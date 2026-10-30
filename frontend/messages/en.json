@@ -3,6 +3,57 @@
     "name": "Social",
     "tagline": "Where your people are."
   },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in with your email and password.",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "Your password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "forgot": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create one"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Pick an email and a strong password to get started.",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "At least {min} characters",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Create account",
+      "submitting": "Creating account…",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "sentTitle": "Check your inbox",
+      "sentBody": "We sent a verification link to {email}. Follow it to activate your account, then sign in.",
+      "goToSignIn": "Go to sign in"
+    },
+    "validation": {
+      "emailRequired": "Enter your email address.",
+      "emailInvalid": "That does not look like an email address.",
+      "passwordRequired": "Enter your password.",
+      "passwordTooLong": "That password is too long.",
+      "passwordTooShort": "Use at least {min} characters.",
+      "passwordTooWeak": "Add an uppercase letter, a lowercase letter, a number and a symbol.",
+      "ruleMet": "met",
+      "ruleUnmet": "not met",
+      "rules": {
+        "length": "At least {min} characters",
+        "lower": "A lowercase letter",
+        "upper": "An uppercase letter",
+        "digit": "A number",
+        "symbol": "A symbol"
+      }
+    }
+  },
   "common": {
     "skipToContent": "Skip to content",
     "milestoneBadge": "Placeholder · arrives in a later milestone",
@@ -142,6 +193,73 @@
       "note": "Sonner is mounted once in the root layout."
     }
   },
+  "errors": {
+    "appError": "Something went wrong. Please try again.",
+    "badRequest": "That request was not valid.",
+    "unauthorized": "Please sign in to continue.",
+    "forbidden": "You do not have permission to do that.",
+    "notFound": "We could not find what you were looking for.",
+    "conflict": "That conflicts with something that already exists.",
+    "rateLimited": "Too many requests. Please wait a moment and try again.",
+    "internalError": "Something went wrong on our side. Please try again.",
+    "serviceUnavailable": "The service is temporarily unavailable. Please try again shortly.",
+    "validationError": "Please check the highlighted fields and try again.",
+    "invalidIdempotencyKey": "That request could not be processed. Please try again.",
+    "invalidCredentials": "Incorrect email or password.",
+    "emailAlreadyRegistered": "An account with this email already exists.",
+    "inactiveUser": "This account is not active.",
+    "invalidToken": "This link is invalid or has expired.",
+    "tokenRevoked": "Your session is no longer valid. Please sign in again.",
+    "profileNotFound": "This profile does not exist.",
+    "profileNotVisible": "This profile is private.",
+    "versionConflict": "This was changed somewhere else. Reload and try again.",
+    "consentNotFound": "This consent setting does not exist.",
+    "postNotFound": "This post has been removed or does not exist.",
+    "commentNotFound": "This comment has been removed or does not exist.",
+    "postForbidden": "You cannot change this post.",
+    "commentForbidden": "You cannot change this comment.",
+    "commentDepthExceeded": "This reply thread is too deep for another reply.",
+    "likeTargetNotFound": "You cannot like something that no longer exists.",
+    "chatRoomNotFound": "This conversation does not exist.",
+    "chatRoomForbidden": "You are not part of this conversation.",
+    "cannotChatWithSelf": "You cannot start a conversation with yourself.",
+    "chatBlocked": "You cannot message this person.",
+    "messageNotFound": "This message has been removed or does not exist.",
+    "messageForbidden": "You cannot change this message.",
+    "readReceiptInvalid": "That read receipt could not be recorded.",
+    "groupChatNotAllowed": "Group conversations are not available.",
+    "directChatNotAllowed": "Direct conversations are not available.",
+    "adminRequired": "Only a conversation admin can do that.",
+    "lastAdminCannotLeave": "The last admin cannot leave the conversation.",
+    "alreadyMember": "This person is already in the conversation.",
+    "mediaNotOwned": "You can only use files you uploaded.",
+    "mediaAlreadyUsed": "This file is already attached elsewhere.",
+    "auditForbidden": "You cannot view this activity log.",
+    "alreadyScheduledForDeletion": "This account is already scheduled for deletion.",
+    "noActiveDeletion": "There is no pending deletion to cancel.",
+    "cannotFollowSelf": "You cannot follow yourself.",
+    "userBlocked": "You cannot do that because one of you has blocked the other.",
+    "followTargetNotFound": "This person does not exist.",
+    "feedUnavailable": "Your feed is temporarily unavailable. Please try again.",
+    "notificationNotFound": "This notification does not exist.",
+    "notificationForbidden": "You cannot change this notification.",
+    "idempotencyKeyConflict": "This action was already sent with different details. Reload.",
+    "idempotencyKeyInProgress": "This action is already in progress. Please wait.",
+    "reportNotFound": "This report does not exist.",
+    "reportTargetNotFound": "The content you are reporting no longer exists.",
+    "cannotReportSelf": "You cannot report yourself.",
+    "reportAlreadyExists": "You have already reported this.",
+    "reportStatusTransition": "This report cannot be moved to that status.",
+    "reportLocked": "This report is locked and cannot be changed.",
+    "mediaNotFound": "This file does not exist.",
+    "mediaForbidden": "You cannot access this file.",
+    "unsupportedMediaType": "This file type is not supported.",
+    "mediaTooLarge": "This file is too large.",
+    "mediaAlreadyAttached": "This file is already attached.",
+    "mediaVirusScanFailed": "This file did not pass the security scan.",
+    "networkError": "Could not reach the server. Check your connection and try again.",
+    "unexpectedError": "Something went wrong. Please try again."
+  },
   "landing": {
     "brand": "Social",
     "nav": {
@@ -187,14 +305,6 @@
     }
   },
   "pages": {
-    "login": {
-      "title": "Sign in",
-      "description": "Email and password sign-in lands in F4, real backend integration in F5."
-    },
-    "register": {
-      "title": "Create account",
-      "description": "Registration with password policy validation lands in F4."
-    },
     "verifyEmail": {
       "title": "Verify email",
       "description": "The emailed verification token is consumed against the backend in F5."

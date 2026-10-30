@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 
+import { Field } from '@/components/shared/field';
 import { ThemeToggle } from '@/components/shared/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -457,34 +457,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
         {label}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">{children}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  invalid = false,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  invalid?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={htmlFor} className={cn(invalid && 'text-destructive')}>
-        {label}
-      </Label>
-      {children}
-      {help ? (
-        <p className={cn('text-micro', invalid ? 'text-destructive' : 'text-muted-foreground')}>
-          {help}
-        </p>
-      ) : null}
     </div>
   );
 }

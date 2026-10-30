@@ -37,6 +37,17 @@ export const refreshedTokens: AuthTokens = {
   expires_in: 900,
 };
 
+/**
+ * What the same-origin `POST /api/auth/refresh` route returns to the browser:
+ * the access token ONLY. The rotated refresh token goes into the httpOnly
+ * cookie, never into the response body.
+ */
+export const refreshedAccess: Omit<AuthTokens, 'refresh_token'> = {
+  access_token: refreshedTokens.access_token,
+  token_type: 'Bearer',
+  expires_in: refreshedTokens.expires_in,
+};
+
 export const adminProfile: ProfileSelf = {
   user_id: 21,
   display_name: 'Admin',

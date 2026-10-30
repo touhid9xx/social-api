@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ApiErrorBody } from '@/types';
 
 import type { AuthTokens, HomeFeedPage, LoginResponse } from '../../contracts/types';
-import { DEMO_ADMIN_EMAIL, DEMO_PASSWORD } from './fixtures';
+import { DEMO_ADMIN_EMAIL, DEMO_PASSWORD, refreshedAccess } from './fixtures';
 
 /**
  * Proves the MSW layer is actually wired into the suite and that the responses
@@ -33,13 +33,24 @@ describe('MSW contract handlers', () => {
     expect(body.tokens.expires_in).toBe(900);
   });
 
-  it('returns the FLAT token envelope on refresh, never nested under tokens', async () => {
+  it('returns the FLAT token envelope on a backend refresh, never nested under tokens', async () => {
     const response = await fetch('/api/v1/auth/refresh', { method: 'POST' });
     expect(response.status).toBe(200);
 
     const body = (await response.json()) as AuthTokens;
     expect(body.access_token).not.toBe('');
     expect(body).not.toHaveProperty('tokens');
+  });
+
+  it('hands the browser an access token only — never a refresh token', async () => {
+    // The same-origin route handler keeps the rotated refresh token in the
+    // httpOnly cookie, so the body the client can read must not carry one.
+    const response = await fetch('/api/auth/refresh', { method: 'POST' });
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as Omit<AuthTokens, 'refresh_token'>;
+    expect(body.access_token).toBe(refreshedAccess.access_token);
+    expect(body).not.toHaveProperty('refresh_token');
   });
 
   it('rejects bad credentials with the shared backend error envelope', async () => {

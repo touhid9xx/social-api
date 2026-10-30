@@ -2,7 +2,14 @@ import { HttpResponse, http } from 'msw';
 
 import type { ApiErrorBody } from '@/types';
 
-import type { HomeFeedPage, LoginRequest, LoginResponse, UnreadCount } from '../../contracts/types';
+import type {
+  HomeFeedPage,
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
+  UnreadCount,
+} from '../../contracts/types';
 
 import {
   adminProfile,
@@ -11,6 +18,7 @@ import {
   DEMO_ADMIN_EMAIL,
   DEMO_PASSWORD,
   homeFeedPosts,
+  refreshedAccess,
   refreshedTokens,
   unreadNotificationCount,
 } from './fixtures';
@@ -45,10 +53,45 @@ export const handlers = [
     return HttpResponse.json(payload);
   }),
 
-  // Public, cookie-driven. Returns the FLAT token envelope — not nested.
+  // Public. 201 with `{ user, message }` and NO tokens: the backend mails a
+  // verification link, and only /auth/login mints a session.
+  http.post('*/api/v1/auth/register', async ({ request }) => {
+    const body = (await request.json()) as RegisterRequest;
+
+    if (body.email === DEMO_ADMIN_EMAIL) {
+      return HttpResponse.json(
+        errorBody(
+          'EMAIL_ALREADY_REGISTERED',
+          409,
+          '/api/v1/auth/register',
+          'Email already registered',
+        ),
+        { status: 409 },
+      );
+    }
+
+    const payload: RegisterResponse = {
+      user: { ...adminUser, is_verified: false },
+      message: 'Verification email sent',
+    };
+    return HttpResponse.json(payload, { status: 201 });
+  }),
+
+  // Public, body-driven. Returns the FLAT token envelope — not nested.
   http.post('*/api/v1/auth/refresh', () => HttpResponse.json(refreshedTokens)),
 
   http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+
+  // ---------------------------------------------------------------------------
+  // Same-origin Next route handlers (`src/app/api/auth/*`). In the real browser
+  // MSW only ever sees the client half of the httpOnly cookie exchange, so the
+  // mocks mirror the client-visible contract: no refresh token in any body.
+  // ---------------------------------------------------------------------------
+  http.post('*/api/auth/session', () => new HttpResponse(null, { status: 204 })),
+
+  http.post('*/api/auth/refresh', () => HttpResponse.json(refreshedAccess)),
+
+  http.post('*/api/auth/logout', () => new HttpResponse(null, { status: 204 })),
 
   http.get('*/api/v1/users/me', () => HttpResponse.json(adminProfile)),
 

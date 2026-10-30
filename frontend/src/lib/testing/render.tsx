@@ -2,6 +2,7 @@ import { render, type RenderOptions } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement, ReactNode } from 'react';
 
+import { QueryProvider } from '@/components/shared/query-provider';
 import { ThemeProvider } from '@/components/shared/theme-provider';
 import type { Locale } from '@/i18n/config';
 
@@ -29,7 +30,7 @@ export function renderWithProviders(ui: ReactElement, options: ProviderOptions =
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <NextIntlClientProvider locale={locale} messages={catalogs[locale]} timeZone="UTC">
-          {children}
+          <QueryProvider>{children}</QueryProvider>
         </NextIntlClientProvider>
       </ThemeProvider>
     );
