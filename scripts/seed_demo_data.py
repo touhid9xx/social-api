@@ -792,16 +792,22 @@ async def seed(
         # =====================================================================
         # 15. Audit log (20)
         # =====================================================================
+        # Only canonical actions. The admin audit trail filters by a closed
+        # server-side set (modules/audit/router.py::AuditActionLiteral), so a
+        # row written with an invented name like "POST_CREATED" is invisible to
+        # every option in that dropdown — the demo data would look broken.
         actions = [
             "REGISTER",
             "LOGIN",
-            "POST_CREATED",
-            "POST_DELETED",
-            "COMMENT_CREATED",
-            "LIKE_CREATED",
-            "FOLLOW_CREATED",
+            "LOGOUT",
+            "PROFILE_UPDATE",
+            "DELETE_POST",
+            "DELETE_COMMENT",
+            "BLOCK",
+            "UNBLOCK",
+            "MUTE",
+            "UNMUTE",
             "MODERATION_STATUS_UPDATE",
-            "GDPR_DELETE_SCHEDULED",
         ]
         for _ in range(20):
             actor_user = rng.choice(users)
