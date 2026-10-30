@@ -2012,8 +2012,8 @@ export interface operations {
         parameters: {
             query?: {
                 actor_id?: number | null;
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "PROFILE_UPDATE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE") | null;
-                entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
                 limit?: number | null;
@@ -2047,8 +2047,8 @@ export interface operations {
     my_audit_api_v1_audit_me_get: {
         parameters: {
             query?: {
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "PROFILE_UPDATE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE") | null;
-                entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
                 limit?: number | null;

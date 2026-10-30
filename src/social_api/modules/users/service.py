@@ -83,6 +83,7 @@ class UsersService:
         actor_id: int,
         action: str,
         entity_id: int,
+        entity: str = "user",
         after: dict[str, object] | None = None,
     ) -> None:
         """Best-effort audit write. Never fails the caller.
@@ -90,12 +91,17 @@ class UsersService:
         Audit is a forensic observation — if the write itself fails
         (Redis/DB hiccup, table lock), the business action must still
         complete. Same pattern as FollowsService._audit.
+
+        `entity` names the *kind* of row `entity_id` points at, so the
+        admin filter (`/audit?entity=...&entity_id=...`) joins to the right
+        table. Profile updates pass `entity="profile"` because they carry a
+        `profile_id`, not a `user_id`.
         """
         try:
             await AuditService(self._s).write(
                 actor_id=actor_id,
                 action=action,
-                entity="user",
+                entity=entity,
                 entity_id=entity_id,
                 after=after,
             )
@@ -183,6 +189,7 @@ class UsersService:
         await self._audit(
             actor_id=user_id,
             action="PROFILE_UPDATE",
+            entity="profile",
             entity_id=profile.id,
             after={"fields_changed": list(data.keys())},
         )

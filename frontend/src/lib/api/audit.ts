@@ -24,27 +24,59 @@ export type AuditLogView = components['schemas']['AuditLogView'];
 
 export type AuditPage = components['schemas']['AuditPage'];
 
+/**
+ * Mirrors `AuditActionLiteral` in `social_api/modules/audit/router.py`.
+ * The backend rejects any other value with 422, so this tuple must stay a
+ * superset-equal copy: an action written by a service but missing here is
+ * unreachable through the filter select. Grouped the same way as the router
+ * literals so the two are diffable by eye.
+ */
 export const AUDIT_ACTIONS = [
+  // auth
   'REGISTER',
   'LOGIN',
   'LOGOUT',
+  'VERIFY_EMAIL',
+  'PASSWORD_RESET_REQUESTED',
+  'PASSWORD_RESET_COMPLETED',
+  // users
   'PROFILE_UPDATE',
+  'CONSENT_GRANTED',
+  'CONSENT_REVOKED',
+  'USER_SOFT_DELETE',
+  // posts
   'DELETE_POST',
+  // comments
   'DELETE_COMMENT',
+  // follows
   'BLOCK',
   'UNBLOCK',
   'MUTE',
   'UNMUTE',
+  // chat
   'CREATE_CHAT_GROUP',
   'UPDATE_CHAT_GROUP_TITLE',
   'ADD_CHAT_MEMBER',
   'REMOVE_CHAT_MEMBER',
   'DELETE_CHAT_MESSAGE',
+  // moderation
   'MODERATION_STATUS_UPDATE',
+  // gdpr
+  'GDPR_DELETE_SCHEDULED',
+  'GDPR_DELETE_CANCELLED',
+  // feature flags
+  'FEATURE_FLAG_OVERRIDE',
+  // retention worker
+  'USER_HARD_DELETED',
+  'RETENTION_NOTIFICATIONS_PURGED',
+  'RETENTION_AUDIT_PURGED',
+  'RETENTION_ORPHAN_MEDIA_PURGED',
+  'RETENTION_MESSAGES_PURGED',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
+/** Mirrors `AuditEntityLiteral` — the table `entity_id` points at. */
 export const AUDIT_ENTITIES = [
   'user',
   'profile',
@@ -53,6 +85,9 @@ export const AUDIT_ENTITIES = [
   'message',
   'chat_room',
   'report',
+  'notification',
+  'audit_log',
+  'media',
 ] as const;
 
 export type AuditEntity = (typeof AUDIT_ENTITIES)[number];

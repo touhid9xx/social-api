@@ -20,23 +20,53 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 # Anything else is rejected by FastAPI with 422 before reaching the
 # service layer — no typo 500s, no injection-shaped strings, and the
 # OpenAPI schema surfaces the full enum for frontend codegen.
+#
+# INVARIANT: every action/entity written anywhere in the app must appear
+# here. A row whose action is missing from this set is still stored and
+# still shows up in the unfiltered list, but no filter can ever retrieve
+# it — the admin screen silently hides it. `tests/unit/test_audit_filters.py`
+# enforces the correspondence against the source tree.
 AuditActionLiteral = Literal[
-    "REGISTER",  # auth
-    "LOGIN",  # auth
-    "LOGOUT",  # auth
-    "PROFILE_UPDATE",  # users/profile
-    "DELETE_POST",  # posts
-    "DELETE_COMMENT",  # comments
-    "BLOCK",  # follows/block
-    "UNBLOCK",  # follows/block
-    "MUTE",  # follows/mute
-    "UNMUTE",  # follows/mute
-    "CREATE_CHAT_GROUP",  # chat
-    "UPDATE_CHAT_GROUP_TITLE",  # chat
-    "ADD_CHAT_MEMBER",  # chat
-    "REMOVE_CHAT_MEMBER",  # chat
-    "DELETE_CHAT_MESSAGE",  # chat
-    "MODERATION_STATUS_UPDATE",  # moderation
+    # auth
+    "REGISTER",
+    "LOGIN",
+    "LOGOUT",
+    "VERIFY_EMAIL",
+    "PASSWORD_RESET_REQUESTED",
+    "PASSWORD_RESET_COMPLETED",
+    # users
+    "PROFILE_UPDATE",
+    "CONSENT_GRANTED",
+    "CONSENT_REVOKED",
+    "USER_SOFT_DELETE",
+    # posts
+    "DELETE_POST",
+    # comments
+    "DELETE_COMMENT",
+    # follows
+    "BLOCK",
+    "UNBLOCK",
+    "MUTE",
+    "UNMUTE",
+    # chat
+    "CREATE_CHAT_GROUP",
+    "UPDATE_CHAT_GROUP_TITLE",
+    "ADD_CHAT_MEMBER",
+    "REMOVE_CHAT_MEMBER",
+    "DELETE_CHAT_MESSAGE",
+    # moderation
+    "MODERATION_STATUS_UPDATE",
+    # gdpr
+    "GDPR_DELETE_SCHEDULED",
+    "GDPR_DELETE_CANCELLED",
+    # feature flags
+    "FEATURE_FLAG_OVERRIDE",
+    # retention worker
+    "USER_HARD_DELETED",
+    "RETENTION_NOTIFICATIONS_PURGED",
+    "RETENTION_AUDIT_PURGED",
+    "RETENTION_ORPHAN_MEDIA_PURGED",
+    "RETENTION_MESSAGES_PURGED",
 ]
 
 AuditEntityLiteral = Literal[
@@ -47,6 +77,9 @@ AuditEntityLiteral = Literal[
     "message",
     "chat_room",
     "report",
+    "notification",
+    "audit_log",
+    "media",
 ]
 
 

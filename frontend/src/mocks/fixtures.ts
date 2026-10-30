@@ -870,4 +870,33 @@ export const auditLogs: AuditLogView[] = [
     request_id: null,
     created_at: '2026-01-15T09:10:00.000Z',
   },
+  {
+    // Auth and retention events: written by services other than the ones the
+    // admin UI usually drives, so they are the rows most likely to drift out
+    // of the filter enum unnoticed. Kept here as a live regression check.
+    id: 950,
+    actor_id: 22,
+    action: 'VERIFY_EMAIL',
+    entity: 'user',
+    entity_id: 22,
+    before: { is_verified: false },
+    after: { is_verified: true },
+    ip: '198.51.100.4',
+    user_agent: null,
+    request_id: null,
+    created_at: '2026-01-15T09:05:00.000Z',
+  },
+  {
+    id: 949,
+    actor_id: null,
+    action: 'RETENTION_AUDIT_PURGED',
+    entity: 'audit_log',
+    entity_id: null,
+    before: null,
+    after: { deleted: 12, cutoff_days: 365 },
+    ip: null,
+    user_agent: null,
+    request_id: null,
+    created_at: '2026-01-15T09:00:00.000Z',
+  },
 ];

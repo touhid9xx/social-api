@@ -264,6 +264,7 @@ async def seed(
         ]
 
         avatars_written = 0
+        profiles: list[Profile] = []
         for u, name in zip(users, names, strict=True):
             if avatar_mode == "local":
                 avatar_key = f"avatars/{u.id}.png"
@@ -295,6 +296,7 @@ async def seed(
                 created_at=u.created_at,
             )
             session.add(profile)
+            profiles.append(profile)
             bump("profiles")
         await session.flush()
         print(f"[ 2/16] profiles: {counts['profiles']} (avatars written: {avatars_written})")
@@ -680,6 +682,7 @@ async def seed(
         # 13. Notifications (30)
         # =====================================================================
         seen_n: set[tuple[int, int, str, str, int, date]] = set()
+        notifications: list[Notification] = []
 
         def notif(
             *,
@@ -695,20 +698,20 @@ async def seed(
             if key in seen_n:
                 return
             seen_n.add(key)
-            session.add(
-                Notification(
-                    user_id=recipient,
-                    actor_id=actor,
-                    type=ntype,
-                    target_type=tt,
-                    target_id=tid,
-                    is_read=is_read,
-                    read_at=_rand_dt(now, 5, rng) if is_read else None,
-                    day_bucket=day,
-                    preview=None,
-                    created_at=_rand_dt(now, 30, rng),
-                )
+            note = Notification(
+                user_id=recipient,
+                actor_id=actor,
+                type=ntype,
+                target_type=tt,
+                target_id=tid,
+                is_read=is_read,
+                read_at=_rand_dt(now, 5, rng) if is_read else None,
+                day_bucket=day,
+                preview=None,
+                created_at=_rand_dt(now, 30, rng),
             )
+            session.add(note)
+            notifications.append(note)
             bump("notifications")
 
         # Follow notifications
@@ -759,6 +762,7 @@ async def seed(
             ReportStatus.OPEN,
         ]
         seen_reports: set[tuple[int, str, int, date]] = set()
+        reports: list[Report] = []
         for i, status in enumerate(status_cycle):
             reporter = rng.choice(users[2:])
             post = rng.choice(posts)
@@ -785,49 +789,122 @@ async def seed(
                 created_at=_rand_dt(now, 20, rng),
             )
             session.add(report)
+            reports.append(report)
             bump("reports")
         await session.flush()
         print(f"[14/16] reports: {counts['reports']}")
 
         # =====================================================================
-        # 15. Audit log (20)
+        # 15. Audit log (one row per canonical action)
         # =====================================================================
         # Only canonical actions. The admin audit trail filters by a closed
         # server-side set (modules/audit/router.py::AuditActionLiteral), so a
         # row written with an invented name like "POST_CREATED" is invisible to
         # every option in that dropdown — the demo data would look broken.
-        actions = [
-            "REGISTER",
-            "LOGIN",
-            "LOGOUT",
-            "PROFILE_UPDATE",
-            "DELETE_POST",
-            "DELETE_COMMENT",
-            "BLOCK",
-            "UNBLOCK",
-            "MUTE",
-            "UNMUTE",
-            "MODERATION_STATUS_UPDATE",
+        #
+        # One row per action, each pointing at a real entity of the matching
+        # type and carrying a payload shaped like the one the service really
+        # writes, so every filter option in the admin screen returns something
+        # recognisable instead of a generic placeholder.
+        #
+        # `tests/unit/test_audit_filters.py` fails the build if this list and
+        # the router literal ever drift apart.
+        targets: dict[str, list[int]] = {
+            "user": [u.id for u in users],
+            "profile": [p.id for p in profiles],
+            "post": [p.id for p in posts],
+            "comment": [c.id for c in top_comments],
+            "message": [m.id for m in msgs],
+            "chat_room": [r.id for r in rooms],
+            "report": [r.id for r in reports],
+            "notification": [n.id for n in notifications],
+            "media": [m.id for m in medias],
+            # Retention purges point at rows that are gone, so the real worker
+            # writes `entity_id=None` — reflected here.
+            "audit_log": [],
+        }
+
+        # (action, entity, before, after). `None` payloads mirror the write sites
+        # that record only that the event happened (REGISTER, LOGIN, ...).
+        audit_spec: list[tuple[str, str, dict[str, object] | None, dict[str, object] | None]] = [
+            ("REGISTER", "user", None, None),
+            ("VERIFY_EMAIL", "user", None, None),
+            ("LOGIN", "user", None, None),
+            ("LOGOUT", "user", None, None),
+            ("PASSWORD_RESET_REQUESTED", "user", None, None),
+            ("PASSWORD_RESET_COMPLETED", "user", None, None),
+            ("PROFILE_UPDATE", "profile", None, {"fields_changed": ["bio", "location"]}),
+            ("CONSENT_GRANTED", "user", None, {"channel": "analytics"}),
+            ("CONSENT_REVOKED", "user", None, {"channel": "marketing"}),
+            ("USER_SOFT_DELETE", "user", None, None),
+            ("DELETE_POST", "post", None, {"deleted_at": "soft"}),
+            ("DELETE_COMMENT", "comment", None, {"deleted_at": "soft"}),
+            ("BLOCK", "user", None, None),
+            ("UNBLOCK", "user", None, None),
+            ("MUTE", "user", None, None),
+            ("UNMUTE", "user", None, None),
+            ("CREATE_CHAT_GROUP", "chat_room", None, {"title": "Weekend plans"}),
+            (
+                "UPDATE_CHAT_GROUP_TITLE",
+                "chat_room",
+                {"title": "Weekend plans"},
+                {"title": "Weekend plans (2026)"},
+            ),
+            ("ADD_CHAT_MEMBER", "chat_room", None, {"user_id": 1}),
+            ("REMOVE_CHAT_MEMBER", "chat_room", None, {"user_id": 1}),
+            ("DELETE_CHAT_MESSAGE", "message", None, {"deleted": True}),
+            (
+                "MODERATION_STATUS_UPDATE",
+                "report",
+                {"status": "under_review"},
+                {"status": "resolved"},
+            ),
+            ("GDPR_DELETE_SCHEDULED", "user", None, {"scheduled_hard_delete_at": "2026-02-14"}),
+            ("GDPR_DELETE_CANCELLED", "user", None, {"scheduled_hard_delete_at": None}),
+            (
+                "FEATURE_FLAG_OVERRIDE",
+                "user",
+                None,
+                {"flag": "explore_feed", "enabled": True, "action": "set"},
+            ),
+            # Written by the retention worker with the system actor.
+            ("USER_HARD_DELETED", "user", None, None),
+            ("RETENTION_NOTIFICATIONS_PURGED", "notification", None, {"count": 4}),
+            ("RETENTION_AUDIT_PURGED", "audit_log", None, {"count": 12}),
+            ("RETENTION_ORPHAN_MEDIA_PURGED", "media", None, {"count": 2}),
+            ("RETENTION_MESSAGES_PURGED", "message", None, {"count": 7}),
         ]
-        for _ in range(20):
-            actor_user = rng.choice(users)
-            entity, entity_id = rng.choice(
-                [
-                    ("user", actor_user.id),
-                    ("post", rng.choice(posts).id),
-                    ("comment", rng.choice(top_comments).id),
-                ]
-            )
+
+        # Rows the retention worker writes carry no human actor; inventing one
+        # would misreport who did what in a forensic trail.
+        system_actions = {
+            "USER_HARD_DELETED",
+            "RETENTION_NOTIFICATIONS_PURGED",
+            "RETENTION_AUDIT_PURGED",
+            "RETENTION_ORPHAN_MEDIA_PURGED",
+            "RETENTION_MESSAGES_PURGED",
+        }
+        staff_by_action = {
+            "MODERATION_STATUS_UPDATE": mod.id,
+            "FEATURE_FLAG_OVERRIDE": next(u.id for u in users if u.role == UserRole.ADMIN),
+        }
+
+        for action, entity, before, after in audit_spec:
+            pool = targets[entity]
+            entity_id = rng.choice(pool) if pool else None
+            actor_id = staff_by_action.get(action)
+            if actor_id is None and action not in system_actions:
+                actor_id = rng.choice(users).id
             audit = AuditLog(
-                actor_id=actor_user.id,
-                action=rng.choice(actions),
+                actor_id=actor_id,
+                action=action,
                 entity=entity,
                 entity_id=entity_id,
-                before=None,
-                after={"demo": True},
-                ip="127.0.0.1",
-                user_agent="seed-script",
-                request_id=uuid.uuid4().hex,
+                before=before,
+                after=after,
+                ip="127.0.0.1" if actor_id is not None else None,
+                user_agent="seed-script" if actor_id is not None else None,
+                request_id=uuid.uuid4().hex if actor_id is not None else None,
                 created_at=_rand_dt(now, 30, rng),
             )
             session.add(audit)

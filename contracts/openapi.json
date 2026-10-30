@@ -2470,7 +2470,13 @@
                     "REGISTER",
                     "LOGIN",
                     "LOGOUT",
+                    "VERIFY_EMAIL",
+                    "PASSWORD_RESET_REQUESTED",
+                    "PASSWORD_RESET_COMPLETED",
                     "PROFILE_UPDATE",
+                    "CONSENT_GRANTED",
+                    "CONSENT_REVOKED",
+                    "USER_SOFT_DELETE",
                     "DELETE_POST",
                     "DELETE_COMMENT",
                     "BLOCK",
@@ -2482,7 +2488,15 @@
                     "ADD_CHAT_MEMBER",
                     "REMOVE_CHAT_MEMBER",
                     "DELETE_CHAT_MESSAGE",
-                    "MODERATION_STATUS_UPDATE"
+                    "MODERATION_STATUS_UPDATE",
+                    "GDPR_DELETE_SCHEDULED",
+                    "GDPR_DELETE_CANCELLED",
+                    "FEATURE_FLAG_OVERRIDE",
+                    "USER_HARD_DELETED",
+                    "RETENTION_NOTIFICATIONS_PURGED",
+                    "RETENTION_AUDIT_PURGED",
+                    "RETENTION_ORPHAN_MEDIA_PURGED",
+                    "RETENTION_MESSAGES_PURGED"
                   ],
                   "type": "string"
                 },
@@ -2507,7 +2521,10 @@
                     "comment",
                     "message",
                     "chat_room",
-                    "report"
+                    "report",
+                    "notification",
+                    "audit_log",
+                    "media"
                   ],
                   "type": "string"
                 },
@@ -2618,7 +2635,13 @@
                     "REGISTER",
                     "LOGIN",
                     "LOGOUT",
+                    "VERIFY_EMAIL",
+                    "PASSWORD_RESET_REQUESTED",
+                    "PASSWORD_RESET_COMPLETED",
                     "PROFILE_UPDATE",
+                    "CONSENT_GRANTED",
+                    "CONSENT_REVOKED",
+                    "USER_SOFT_DELETE",
                     "DELETE_POST",
                     "DELETE_COMMENT",
                     "BLOCK",
@@ -2630,7 +2653,15 @@
                     "ADD_CHAT_MEMBER",
                     "REMOVE_CHAT_MEMBER",
                     "DELETE_CHAT_MESSAGE",
-                    "MODERATION_STATUS_UPDATE"
+                    "MODERATION_STATUS_UPDATE",
+                    "GDPR_DELETE_SCHEDULED",
+                    "GDPR_DELETE_CANCELLED",
+                    "FEATURE_FLAG_OVERRIDE",
+                    "USER_HARD_DELETED",
+                    "RETENTION_NOTIFICATIONS_PURGED",
+                    "RETENTION_AUDIT_PURGED",
+                    "RETENTION_ORPHAN_MEDIA_PURGED",
+                    "RETENTION_MESSAGES_PURGED"
                   ],
                   "type": "string"
                 },
@@ -2655,7 +2686,10 @@
                     "comment",
                     "message",
                     "chat_room",
-                    "report"
+                    "report",
+                    "notification",
+                    "audit_log",
+                    "media"
                   ],
                   "type": "string"
                 },

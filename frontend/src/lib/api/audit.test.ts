@@ -132,7 +132,9 @@ describe('getAuditLog', () => {
 });
 
 // The two tuples build the filter selects, so a value the backend writes that
-// is missing here would silently become unfilterable.
+// is missing here would silently become unfilterable. `tests/unit/
+// test_audit_filters.py` proves the backend pair is exactly what the services
+// emit; these checks keep the frontend copy from falling behind it.
 describe('filter tuples', () => {
   it('lists every action the backend can record', () => {
     expect(AUDIT_ACTIONS).toContain('MODERATION_STATUS_UPDATE');
@@ -141,6 +143,71 @@ describe('filter tuples', () => {
     for (const log of auditLogs) {
       expect(AUDIT_ACTIONS).toContain(log.action);
       expect(AUDIT_ENTITIES).toContain(log.entity);
+    }
+  });
+
+  it('covers the auth lifecycle, not just CRUD', () => {
+    // Registration and sign-in are the busiest write sites in the app; leaving
+    // them out of the tuple would make the dropdown blind to most traffic.
+    for (const action of [
+      'REGISTER',
+      'LOGIN',
+      'LOGOUT',
+      'VERIFY_EMAIL',
+      'PASSWORD_RESET_REQUESTED',
+      'PASSWORD_RESET_COMPLETED',
+    ]) {
+      expect(AUDIT_ACTIONS).toContain(action);
+    }
+  });
+
+  it('covers user, GDPR, flag and retention events', () => {
+    for (const action of [
+      'PROFILE_UPDATE',
+      'CONSENT_GRANTED',
+      'CONSENT_REVOKED',
+      'USER_SOFT_DELETE',
+      'GDPR_DELETE_SCHEDULED',
+      'GDPR_DELETE_CANCELLED',
+      'FEATURE_FLAG_OVERRIDE',
+      'USER_HARD_DELETED',
+      'RETENTION_NOTIFICATIONS_PURGED',
+      'RETENTION_AUDIT_PURGED',
+      'RETENTION_ORPHAN_MEDIA_PURGED',
+      'RETENTION_MESSAGES_PURGED',
+    ]) {
+      expect(AUDIT_ACTIONS).toContain(action);
+    }
+  });
+
+  it('covers every chat operation the service audits', () => {
+    for (const action of [
+      'CREATE_CHAT_GROUP',
+      'UPDATE_CHAT_GROUP_TITLE',
+      'ADD_CHAT_MEMBER',
+      'REMOVE_CHAT_MEMBER',
+      'DELETE_CHAT_MESSAGE',
+    ]) {
+      expect(AUDIT_ACTIONS).toContain(action);
+    }
+  });
+
+  it('lists every entity an audit row can point at', () => {
+    // `notification`, `audit_log` and `media` were written but unreachable
+    // before the enum was widened, so they are asserted explicitly.
+    for (const entity of [
+      'user',
+      'profile',
+      'post',
+      'comment',
+      'message',
+      'chat_room',
+      'report',
+      'notification',
+      'audit_log',
+      'media',
+    ]) {
+      expect(AUDIT_ENTITIES).toContain(entity);
     }
   });
 
