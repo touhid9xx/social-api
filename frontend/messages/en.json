@@ -1,0 +1,288 @@
+{
+  "app": {
+    "name": "Social",
+    "tagline": "Where your people are."
+  },
+  "common": {
+    "skipToContent": "Skip to content",
+    "milestoneBadge": "Placeholder · arrives in a later milestone",
+    "backToHome": "Back to home",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "errorTitle": "Something went wrong",
+    "errorBody": "An unexpected error occurred. You can try again.",
+    "retry": "Try again",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you were looking for does not exist.",
+    "loading": "Loading"
+  },
+  "designSystem": {
+    "title": "Design system",
+    "subtitle": "Every primitive, variant and state in one place. Flip the theme in this header to check both palettes.",
+    "backHome": "Back to home",
+    "colorsLink": "Open the full color preview",
+    "sections": {
+      "typography": "Typography",
+      "colors": "Color tokens",
+      "buttons": "Buttons",
+      "badges": "Badges",
+      "forms": "Form controls",
+      "card": "Card",
+      "avatar": "Avatar",
+      "tabs": "Tabs",
+      "skeleton": "Skeleton",
+      "dialog": "Dialog",
+      "dropdown": "Dropdown menu",
+      "toasts": "Toasts"
+    },
+    "typography": {
+      "display": "Aa 56 — Display",
+      "h1": "Aa 36 — Heading one",
+      "h2": "Aa 24 — Heading two",
+      "h3": "Aa 18 — Heading three",
+      "body": "Aa 16 — Body copy for feeds and long-form content.",
+      "small": "Aa 14 — Secondary and muted text.",
+      "micro": "Aa 12 — Labels, badges and metadata.",
+      "mono": "mono · post_id=42 · next_cursor=eyJvZmZzZXQiOjIwfQ",
+      "note": "Each step is a --text-* theme token, so tracking and line-height travel with the size."
+    },
+    "colors": {
+      "surfaces": "Surfaces",
+      "brand": "Brand and status",
+      "charts": "Charts"
+    },
+    "buttons": {
+      "variants": "Variants",
+      "sizes": "Sizes",
+      "states": "States",
+      "default": "Primary",
+      "secondary": "Secondary",
+      "destructive": "Destructive",
+      "outline": "Outline",
+      "ghost": "Ghost",
+      "link": "Link",
+      "sm": "Small",
+      "md": "Default",
+      "lg": "Large",
+      "icon": "Icon",
+      "disabled": "Disabled",
+      "withIcon": "With icon",
+      "asChild": "As link",
+      "follow": "Follow",
+      "save": "Save changes"
+    },
+    "badges": {
+      "default": "Default",
+      "secondary": "Secondary",
+      "outline": "Outline",
+      "destructive": "Destructive",
+      "success": "Verified",
+      "new": "New"
+    },
+    "forms": {
+      "name": "Display name",
+      "namePlaceholder": "Alice Rahman",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "bio": "Bio",
+      "bioPlaceholder": "A short line about you.",
+      "invalidLabel": "Invalid state",
+      "invalidEmail": "not-an-email",
+      "invalidHelp": "Enter a valid email address.",
+      "disabledLabel": "Disabled",
+      "disabledValue": "Read only",
+      "help": "Helper text sits under the field."
+    },
+    "card": {
+      "title": "Weekly digest",
+      "description": "What your people shared this week.",
+      "body": "Cursor pagination keeps the list steady while new posts stream in at the top.",
+      "footer": "Delivered every Monday",
+      "action": "Open"
+    },
+    "avatar": {
+      "alt": "Alice Rahman",
+      "fallback": "AR",
+      "sizes": "Extra small, small, default and large"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "activity": "Activity",
+      "settings": "Settings",
+      "overviewBody": "The overview panel. Tabs are roving-tabindex and fully keyboard operable.",
+      "activityBody": "Arrow keys move between triggers, Home and End jump to the edges.",
+      "settingsBody": "Every panel keeps its own state; nothing unmounts the page."
+    },
+    "skeleton": {
+      "note": "Skeletons mirror the final layout so nothing shifts when data lands."
+    },
+    "dialog": {
+      "trigger": "Open dialog",
+      "title": "Delete this post?",
+      "description": "This removes the post and its comments. You cannot undo it.",
+      "cancel": "Cancel",
+      "confirm": "Delete post"
+    },
+    "dropdown": {
+      "trigger": "Open menu",
+      "label": "My account",
+      "profile": "Profile",
+      "settings": "Settings",
+      "signOut": "Sign out",
+      "danger": "Delete account"
+    },
+    "toasts": {
+      "trigger": "Show a toast",
+      "success": "Post published",
+      "info": "Draft saved to this device only",
+      "warning": "Slow connection, retrying",
+      "error": "Could not reach the server",
+      "note": "Sonner is mounted once in the root layout."
+    }
+  },
+  "landing": {
+    "brand": "Social",
+    "nav": {
+      "signIn": "Sign in",
+      "signUp": "Create account"
+    },
+    "hero": {
+      "eyebrow": "Social, rebuilt",
+      "title": "Share the moment. Keep the people.",
+      "body": "A fast, private, real-time social network. Feeds that respect your attention, chat that feels instant, and controls that are actually in your hands.",
+      "primaryCta": "Get started",
+      "secondaryCta": "See the design system",
+      "note": "F0 bootstrap · design tokens, theming and i18n wired · auth lands in F4"
+    },
+    "mock": {
+      "author": "Alice Rahman",
+      "meta": "2 minutes ago · public",
+      "badge": "New",
+      "body": "Shipped the new feed pipeline today: cursor pagination, no layout jumps, and the dark theme finally looks right.",
+      "likes": "128 likes",
+      "comments": "24 comments"
+    },
+    "features": {
+      "feed": {
+        "title": "Hybrid feed",
+        "body": "Following plus ranked discovery, cursor-paginated so the list never jumps under your thumb."
+      },
+      "chat": {
+        "title": "Real-time chat",
+        "body": "One-to-one and group rooms with typing indicators, read receipts and media messages."
+      },
+      "people": {
+        "title": "People you know",
+        "body": "Follow graphs, suggestions and search across users, posts and hashtags."
+      },
+      "privacy": {
+        "title": "Privacy first",
+        "body": "Consent controls, GDPR export and account deletion built in from day one."
+      }
+    },
+    "footer": {
+      "note": "Contract-driven. Types generated from the backend OpenAPI spec."
+    }
+  },
+  "pages": {
+    "login": {
+      "title": "Sign in",
+      "description": "Email and password sign-in lands in F4, real backend integration in F5."
+    },
+    "register": {
+      "title": "Create account",
+      "description": "Registration with password policy validation lands in F4."
+    },
+    "verifyEmail": {
+      "title": "Verify email",
+      "description": "The emailed verification token is consumed against the backend in F5."
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "description": "The reset request goes out through the backend email channel in F5."
+    },
+    "resetPassword": {
+      "title": "Reset password",
+      "description": "Password reset with token and fingerprint validation arrives in F5."
+    },
+    "home": {
+      "title": "Home feed",
+      "description": "The hybrid following plus ranked feed with cursor pagination arrives in F7."
+    },
+    "explore": {
+      "title": "Explore",
+      "description": "Trending media grid and hashtag filters arrive in F12."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "The in-app inbox with unread badge arrives in F14, realtime delivery in F16."
+    },
+    "messages": {
+      "title": "Messages",
+      "description": "One-to-one and group chat with receipts and typing indicators arrives in F17 and F18."
+    },
+    "search": {
+      "title": "Search",
+      "description": "Debounced search across users, posts and hashtags arrives in F13."
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Account, privacy, notification and GDPR controls arrive in F20."
+    },
+    "admin": {
+      "title": "Admin dashboard",
+      "description": "RBAC-protected stat cards and charts arrive in F21."
+    },
+    "adminUsers": {
+      "title": "Admin · users",
+      "description": "The paginated user table arrives in F21."
+    },
+    "adminReports": {
+      "title": "Admin · reports",
+      "description": "The moderation report queue arrives in F21."
+    },
+    "adminAudit": {
+      "title": "Admin · audit log",
+      "description": "The audit log explorer arrives in F21."
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "The public profile for {username} arrives in F11."
+    },
+    "postDetail": {
+      "title": "Post detail",
+      "description": "Post {id} with nested comments arrives in F9."
+    }
+  },
+  "preview": {
+    "title": "Color and type preview",
+    "body": "Every token below is a CSS variable in globals.css, mapped into Tailwind 4 through @theme inline. Light and dark render side by side.",
+    "light": "Light",
+    "dark": "Dark",
+    "scopeLight": ":root",
+    "scopeDark": ".dark",
+    "surfaces": "Surfaces",
+    "brand": "Brand and status",
+    "charts": "Charts",
+    "typography": "Typography scale",
+    "controls": "Controls",
+    "note": "Use the theme switch in the header to change the whole app. Press Tab to check the focus rings.",
+    "samples": {
+      "display": "Aa 64 — Display",
+      "heading": "Aa 24 — Heading",
+      "body": "Aa 16 — Body copy for feeds and long-form content.",
+      "small": "Aa 14 — Secondary, muted text.",
+      "mono": "monospace · post_id=42 · next_cursor=eyJvZmZzZXQiOjIwfQ"
+    },
+    "controlsSample": {
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "destructive": "Destructive",
+      "disabled": "Disabled",
+      "success": "success",
+      "emailPlaceholder": "you@example.com"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+.next/
+coverage/
+pnpm-lock.yaml
+contracts/
+src/types/api.d.ts
+next-env.d.ts

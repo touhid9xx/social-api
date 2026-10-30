@@ -1,7 +1,7 @@
 # API Contract - Social API
 
 **Version:** `0.1.0`  
-**Generated from commit:** `b7220199e113` on 2026-10-30T12:21:11.110910+00:00
+**Generated from commit:** `f2dff0a1b519` on 2026-10-30T12:33:55.547420+00:00
 
 ---
 

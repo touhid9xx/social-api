@@ -100,6 +100,13 @@ node_modules/
 .pnpm-store/
 .yarn/
 
+# ---- Frontend app (frontend/) ------------------------------------------------
+# A separate Next.js workspace nested in this repo. It is NOT part of the
+# Python runtime image: the API never reads it, and keeping it out of the
+# build context avoids shipping .next/ build output and the source tree on
+# every `docker compose build` (node_modules/ is already excluded above).
+frontend/
+
 # ---- Transient editor/test artifacts --------------------------------------
 *.orig
 *.rej
