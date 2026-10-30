@@ -86,3 +86,38 @@ pytest tests/chaos -v
 ```powershell
 .\venv\Scripts\Activate.ps1
 pytest tests/e2e -v
+
+## Documentation
+
+Deep-dive docs for reviewers and for my own future self:
+
+- **[Architecture](docs/architecture.md)** — system context diagram,
+  module layout, data flow diagrams for `POST /posts` and `GET /feed`,
+  scaling path to 1M users.
+- **[Runbook](docs/runbook.md)** — incident playbook. Seven scenarios
+  with symptom → diagnosis → mitigation → post-mortem hooks.
+- **[ADRs](docs/adr/README.md)** — 7 Architecture Decision Records.
+  Each is one page explaining a specific tradeoff:
+  - ADR-001 Modular monolith
+  - ADR-002 Cursor pagination
+  - ADR-003 Hybrid feed fanout
+  - ADR-004 PII encryption at rest
+  - ADR-005 JWT refresh rotation
+  - ADR-006 Idempotency middleware
+  - ADR-007 Dual feature flag providers
+
+## Demo
+
+Want to poke around without registering users manually?
+
+```powershell
+# Start the stack
+docker compose up -d
+alembic upgrade head
+
+# Seed demo data (idempotent)
+python scripts/seed_demo_data.py
+
+# Login with:
+#   Email:    alice0@demo.local
+#   Password: Str0ng!Passw0rd
