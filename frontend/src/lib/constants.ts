@@ -5,7 +5,6 @@ export const DEFAULT_PAGE_SIZE = 20;
 
 export const ROUTES = {
   landing: '/',
-  previewColors: '/preview-colors',
   designSystem: '/design-system',
   login: '/login',
   register: '/register',

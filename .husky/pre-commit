@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+# Staged-file gate for the frontend package.
+#
+# This hook lives at the repository root because the git toplevel is the Python
+# project (`social-api`), not `frontend/`. A `.husky/` inside `frontend/` is
+# never consulted: husky writes `core.hooksPath` relative to the toplevel and
+# git only looks there.
+#
+# lint-staged has to run from the same toplevel. It resolves each staged path as
+# `path.resolve(cwd, filename)`, while git reports filenames relative to the
+# repository root — so from `frontend/` a staged `frontend/src/x.ts` would be
+# read as `frontend/frontend/src/x.ts`. See lint-staged.config.mjs.
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ ! -f frontend/node_modules/lint-staged/bin/lint-staged.js ]; then
+  echo 'husky: frontend dependencies are not installed — run `pnpm install` in frontend/' >&2
+  exit 1
+fi
+
+exec node frontend/node_modules/lint-staged/bin/lint-staged.js --config lint-staged.config.mjs

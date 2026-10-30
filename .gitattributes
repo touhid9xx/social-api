@@ -1,0 +1,9 @@
+# Git runs tracked hooks through its own sh, and sh cannot parse CRLF line
+# endings — a Windows checkout (core.autocrlf=true) would otherwise rewrite
+# .husky/pre-commit to CRLF and every commit would fail with a "not found" error.
+.husky/** text eol=lf
+
+# Same reasoning for the hook tooling itself: lint-staged.config.mjs and the
+# script it drives are Node sources that may grow a shebang, and a CRLF clone
+# would make them unrunnable on any platform.
+*.mjs text eol=lf

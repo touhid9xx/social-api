@@ -41,7 +41,6 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 type Swatch = { token: string; className: string };
@@ -125,9 +124,6 @@ export default function DesignSystemPage() {
             <SwatchGrid title={t('colors.surfaces')} items={SURFACES} />
             <SwatchGrid title={t('colors.brand')} items={BRAND} />
             <SwatchGrid title={t('colors.charts')} items={CHARTS} />
-            <Button asChild variant="link" size="sm" className="px-0">
-              <Link href={ROUTES.previewColors}>{t('colorsLink')}</Link>
-            </Button>
           </div>
         </Section>
 

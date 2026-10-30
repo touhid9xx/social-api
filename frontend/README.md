@@ -56,7 +56,12 @@ pnpm test:watch  # watch mode while developing
 MSW runs with `onUnhandledFrame: 'error'`, so a request with no handler fails the
 test instead of silently hitting the network.
 
-Git hooks: `husky` + `lint-staged` run on commit via `.husky/pre-commit`
-(`eslint --fix` + `prettier --write` on staged files). `scripts/prepare-husky.mjs`
-skips hook installation when `.git` is absent, so `pnpm install` stays green in
+Git hooks: `husky` + `lint-staged` run on commit (`eslint --fix` +
+`prettier --write` on staged files). The hook bodies live in the **repository-root**
+`.husky/` directory, not here — the git toplevel is the parent Python repo, so a
+`.husky/` inside `frontend/` is never consulted. `lint-staged.config.mjs` at the
+root holds the `frontend/`-prefixed patterns, because lint-staged must run from
+the toplevel: it resolves staged paths relative to its own cwd while git reports
+them relative to the root. `scripts/prepare-husky.mjs` asks git for the toplevel
+and skips installation when there is none, so `pnpm install` stays green in
 archives and review sandboxes.

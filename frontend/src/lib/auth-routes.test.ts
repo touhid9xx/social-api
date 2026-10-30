@@ -46,7 +46,6 @@ describe('isProtectedPath', () => {
       '/reset-password',
       '/verify-email',
       '/design-system',
-      '/preview-colors',
     ]) {
       expect(isProtectedPath(path)).toBe(false);
     }
@@ -180,14 +179,7 @@ describe('middleware matcher', () => {
   });
 
   it('never runs on a public route or on the auth/API endpoints', () => {
-    for (const path of [
-      '/login',
-      '/register',
-      '/design-system',
-      '/preview-colors',
-      '/api/auth/refresh',
-      '/',
-    ]) {
+    for (const path of ['/login', '/register', '/design-system', '/api/auth/refresh', '/']) {
       expect(config.matcher).not.toContain(path);
       expect(config.matcher.some((entry) => path.startsWith(entry.replace('/:path*', '')))).toBe(
         false,

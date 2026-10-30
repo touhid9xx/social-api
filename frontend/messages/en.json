@@ -78,7 +78,6 @@
     "title": "Design system",
     "subtitle": "Every primitive, variant and state in one place. Flip the theme in this header to check both palettes.",
     "backHome": "Back to home",
-    "colorsLink": "Open the full color preview",
     "sections": {
       "typography": "Typography",
       "colors": "Color tokens",
@@ -406,35 +405,6 @@
     "postDetail": {
       "title": "Post detail",
       "description": "Post {id} with nested comments arrives in F9."
-    }
-  },
-  "preview": {
-    "title": "Color and type preview",
-    "body": "Every token below is a CSS variable in globals.css, mapped into Tailwind 4 through @theme inline. Light and dark render side by side.",
-    "light": "Light",
-    "dark": "Dark",
-    "scopeLight": ":root",
-    "scopeDark": ".dark",
-    "surfaces": "Surfaces",
-    "brand": "Brand and status",
-    "charts": "Charts",
-    "typography": "Typography scale",
-    "controls": "Controls",
-    "note": "Use the theme switch in the header to change the whole app. Press Tab to check the focus rings.",
-    "samples": {
-      "display": "Aa 64 — Display",
-      "heading": "Aa 24 — Heading",
-      "body": "Aa 16 — Body copy for feeds and long-form content.",
-      "small": "Aa 14 — Secondary, muted text.",
-      "mono": "monospace · post_id=42 · next_cursor=eyJvZmZzZXQiOjIwfQ"
-    },
-    "controlsSample": {
-      "primary": "Primary",
-      "secondary": "Secondary",
-      "destructive": "Destructive",
-      "disabled": "Disabled",
-      "success": "success",
-      "emailPlaceholder": "you@example.com"
     }
   }
 }

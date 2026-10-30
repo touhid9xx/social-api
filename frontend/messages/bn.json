@@ -78,7 +78,6 @@
     "title": "ডিজাইন সিস্টেম",
     "subtitle": "সব প্রিমিটিভ, ভ্যারিয়েন্ট আর স্টেট এক জায়গায়। এই হেডারের থিম সুইচ দিয়ে দুই প্যালেটই দেখে নিন।",
     "backHome": "হোমে ফিরে যান",
-    "colorsLink": "পুরো কালার প্রিভিউ দেখুন",
     "sections": {
       "typography": "টাইপোগ্রাফি",
       "colors": "কালার টোকেন",
@@ -406,35 +405,6 @@
     "postDetail": {
       "title": "পোস্ট ডিটেইল",
       "description": "পোস্ট {id} আর নেস্টেড কমেন্ট F9-এ আসবে।"
-    }
-  },
-  "preview": {
-    "title": "কালার আর টাইপো প্রিভিউ",
-    "body": "নিচের প্রতিটি টোকেন globals.css-এ CSS ভেরিয়েবল, @theme inline দিয়ে Tailwind 4-এ ম্যাপ করা। লাইট আর ডার্ক পাশাপাশি দেখানো হচ্ছে।",
-    "light": "লাইট",
-    "dark": "ডার্ক",
-    "scopeLight": ":root",
-    "scopeDark": ".dark",
-    "surfaces": "সারফেস",
-    "brand": "ব্র্যান্ড ও স্টেটাস",
-    "charts": "চার্ট",
-    "typography": "টাইপোগ্রাফি স্কেল",
-    "controls": "কন্ট্রোল",
-    "note": "হেডারের থিম সুইচ দিয়ে পুরো অ্যাপের থিম বদলান। Tab চেপে ফোকাস রিং দেখুন।",
-    "samples": {
-      "display": "আ আ ৬৪ — ডিসপ্লে",
-      "heading": "আ আ ২৪ — হেডিং",
-      "body": "আ আ ১৬ — ফিড আর লম্বা লেখার বডি টেক্সট।",
-      "small": "আ আ ১৪ — সেকেন্ডারি, মিউটেড টেক্সট।",
-      "mono": "monospace · post_id=42 · next_cursor=eyJvZmZzZXQiOjIwfQ"
-    },
-    "controlsSample": {
-      "primary": "প্রাইমারি",
-      "secondary": "সেকেন্ডারি",
-      "destructive": "ডেস্ট্রাকটিভ",
-      "disabled": "নিষ্ক্রিয়",
-      "success": "সফল",
-      "emailPlaceholder": "you@example.com"
     }
   }
 }
