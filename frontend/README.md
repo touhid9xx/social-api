@@ -29,13 +29,29 @@ pnpm dev           # http://localhost:3000
 
 ## Environment
 
-`.env.local` (gitignored) — see `.env.example`:
+`.env.local` (gitignored). `.env.example` carries the deployed shape:
 
 ```
 NEXT_PUBLIC_API_URL=http://localhost
 NEXT_PUBLIC_WS_URL=ws://localhost
 NEXT_PUBLIC_APP_NAME=Social
 ```
+
+**Port matters.** The values above are the deployed shape, where nginx listens on
+:80 and proxies `/api/v1/*` to the backend container. Locally there is no nginx:
+`uvicorn` serves the API directly on :8000, so a dev `.env.local` must carry the
+port explicitly —
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+NEXT_PUBLIC_APP_NAME=Social
+```
+
+With the bare origin, every request is refused and the forms surface
+`errors.networkError` ("Could not reach the server…") even though the API is up.
+These are `NEXT_PUBLIC_*` values: they are inlined into the client bundle, so a
+change requires restarting `pnpm dev` (a hot reload is not enough).
 
 ## Testing
 
