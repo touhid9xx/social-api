@@ -54,25 +54,52 @@ export const loginSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>;
 
+/**
+ * A password the backend will actually accept.
+ *
+ * Shared by registration and reset: `RegisterRequest.password` and
+ * `ResetPasswordRequest.new_password` carry the SAME `Field(12..128)` bounds and
+ * the same `validate_password_policy` validator, so two schemas that could drift
+ * apart would be two chances to disagree with the contract. One definition, two
+ * forms.
+ */
+const strongPasswordField = z
+  .string()
+  .min(1, { message: 'passwordRequired' })
+  .max(PASSWORD_MAX_LENGTH, { message: 'passwordTooLong' })
+  .superRefine((value, ctx) => {
+    const checks = passwordChecks(value);
+    if (!checks.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'passwordTooShort' });
+      return;
+    }
+    if (!checks.lower || !checks.upper || !checks.digit || !checks.symbol) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'passwordTooWeak' });
+    }
+  });
+
 export const registerSchema = z.object({
   email: emailField,
-  password: z
-    .string()
-    .min(1, { message: 'passwordRequired' })
-    .max(PASSWORD_MAX_LENGTH, { message: 'passwordTooLong' })
-    .superRefine((value, ctx) => {
-      const checks = passwordChecks(value);
-      if (!checks.length) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'passwordTooShort' });
-        return;
-      }
-      if (!checks.lower || !checks.upper || !checks.digit || !checks.symbol) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'passwordTooWeak' });
-      }
-    }),
+  password: strongPasswordField,
 });
 
 export type RegisterValues = z.infer<typeof registerSchema>;
+
+/** `ForgotPasswordRequest` is `{ email: EmailStr }` — nothing else. */
+export const forgotPasswordSchema = z.object({ email: emailField });
+
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * The password half of `ResetPasswordRequest`.
+ *
+ * The token is NOT part of this schema: it arrives in the URL, not in the form,
+ * and `resetPasswordSchema` validating a field the user cannot edit would only
+ * produce an error message pointing at nothing.
+ */
+export const resetPasswordSchema = z.object({ password: strongPasswordField });
+
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
 export type FieldErrors<TValues> = Partial<Record<keyof TValues & string, string>>;
 

@@ -36,6 +36,43 @@
       "sentBody": "We sent a verification link to {email}. Follow it to activate your account, then sign in.",
       "goToSignIn": "Go to sign in"
     },
+    "verifyEmail": {
+      "title": "Verify your email",
+      "subtitle": "Confirming the link you just opened.",
+      "verifying": "Verifying your email…",
+      "successTitle": "Email verified",
+      "successBody": "Your address is confirmed. You can sign in now.",
+      "missingToken": "This link is missing its token. Open the link from your inbox again.",
+      "goToSignIn": "Go to sign in"
+    },
+    "forgotPassword": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send a reset link if the address exists.",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "submit": "Send reset link",
+      "submitting": "Sending…",
+      "sentTitle": "Check your inbox",
+      "sentBody": "If {email} has an account, a reset link is on its way.",
+      "goToSignIn": "Back to sign in",
+      "remembered": "Remembered it?",
+      "signIn": "Sign in"
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "subtitle": "Set a new password for your account.",
+      "password": "New password",
+      "passwordPlaceholder": "At least {min} characters",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Update password",
+      "submitting": "Updating…",
+      "successTitle": "Password updated",
+      "successBody": "Use your new password the next time you sign in.",
+      "missingToken": "This reset link is missing its token. Request a new one.",
+      "requestNewLink": "Request a new link",
+      "goToSignIn": "Go to sign in"
+    },
     "validation": {
       "emailRequired": "Enter your email address.",
       "emailInvalid": "That does not look like an email address.",
@@ -468,18 +505,6 @@
     }
   },
   "pages": {
-    "verifyEmail": {
-      "title": "Verify email",
-      "description": "The emailed verification token is consumed against the backend in F5."
-    },
-    "forgotPassword": {
-      "title": "Forgot password",
-      "description": "The reset request goes out through the backend email channel in F5."
-    },
-    "resetPassword": {
-      "title": "Reset password",
-      "description": "Password reset with token and fingerprint validation arrives in F5."
-    },
     "messages": {
       "title": "Messages",
       "description": "One-to-one and group chat with receipts and typing indicators arrives in F17 and F18."

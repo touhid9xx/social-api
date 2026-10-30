@@ -22,6 +22,17 @@ import type {
 export const DEMO_PASSWORD = 'DemoPass123!';
 export const DEMO_ADMIN_EMAIL = 'admin@example.com';
 
+/**
+ * The one token value the mock endpoints in `./handlers` accept.
+ *
+ * The real endpoints consume self-contained JWTs minted by the backend
+ * (`type` claim = `verify` | `reset`), which no fixture can reproduce. Any other
+ * value is answered with a real 401 `INVALID_TOKEN`, so a test that passes a
+ * bogus token exercises the expired-link path instead of silently succeeding.
+ */
+export const VERIFY_EMAIL_TOKEN = 'verify-email-token-ok';
+export const RESET_PASSWORD_TOKEN = 'reset-password-token-ok';
+
 /** ISO-8601 UTC, the only format allowed in state and query cache. */
 export const FIXTURE_NOW = '2026-01-15T10:00:00.000Z';
 

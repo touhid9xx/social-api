@@ -41,6 +41,13 @@ export const queryKeys = {
     all: ['social', 'auth'] as const,
     me: () => ['social', 'auth', 'me'] as const,
     session: () => ['social', 'auth', 'session'] as const,
+    /**
+     * Email verification is a one-shot POST, but it is keyed like a read so
+     * TanStack Query de-duplicates it: the token is the identity of the request,
+     * and re-mounting the panel must not spend a second slot of the 3/hour
+     * budget the endpoint allows.
+     */
+    verifyEmail: (token: string) => ['social', 'auth', 'verify-email', token] as const,
   },
 
   users: {

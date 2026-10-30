@@ -10,10 +10,12 @@ import type {
   FollowCounts,
   FollowListPage,
   FollowStatus,
+  ForgotPasswordRequest,
   HomeFeedPage,
   LoginRequest,
   LoginResponse,
   MarkReadResponse,
+  MessageResponse,
   NotificationPage,
   NotificationView,
   PostCreate,
@@ -21,7 +23,9 @@ import type {
   PostView,
   RegisterRequest,
   RegisterResponse,
+  ResetPasswordRequest,
   UnreadCount,
+  VerifyEmailRequest,
 } from '../../contracts/types';
 
 import {
@@ -43,7 +47,9 @@ import {
   postComments,
   refreshedAccess,
   refreshedTokens,
+  RESET_PASSWORD_TOKEN,
   unreadNotificationCount,
+  VERIFY_EMAIL_TOKEN,
 } from './fixtures';
 
 /**
@@ -113,6 +119,70 @@ export const handlers = [
   http.post('*/api/v1/auth/refresh', () => HttpResponse.json(refreshedTokens)),
 
   http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+
+  // ---------------------------------------------------------------------------
+  // One-shot token flows (F5): verify-email, forgot-password, reset-password.
+  //
+  // All three answer `MessageResponse` (`{ message }`). The two that CONSUME a
+  // token accept only the seeded fixture token and answer a real 401
+  // `INVALID_TOKEN` for anything else — a panel that can only ever succeed could
+  // never be tested for the "this link expired" branch, which is the branch users
+  // actually hit.
+  // ---------------------------------------------------------------------------
+  http.post('*/api/v1/auth/verify-email', async ({ request }) => {
+    const body = (await request.json()) as VerifyEmailRequest;
+
+    if (body.token !== VERIFY_EMAIL_TOKEN) {
+      return HttpResponse.json(
+        errorBody('INVALID_TOKEN', 401, '/api/v1/auth/verify-email', 'Invalid or expired token'),
+        { status: 401 },
+      );
+    }
+
+    const payload: MessageResponse = { message: 'Email verified' };
+    return HttpResponse.json(payload);
+  }),
+
+  // Always 200 with the same `message`, whether or not the address exists: the
+  // real endpoint is deliberately not an account-enumeration oracle, and a mock
+  // that 404'd for an unknown address would teach tests the opposite.
+  //
+  // A malformed address is still a real 422 — `ForgotPasswordRequest.email` is an
+  // `EmailStr`, so that is the server's answer, not an invention here.
+  http.post('*/api/v1/auth/forgot-password', async ({ request }) => {
+    const body = (await request.json()) as ForgotPasswordRequest;
+
+    if (!body.email || !body.email.includes('@')) {
+      return HttpResponse.json(
+        errorBody(
+          'VALIDATION_ERROR',
+          422,
+          '/api/v1/auth/forgot-password',
+          'email: value is not a valid email address',
+        ),
+        { status: 422 },
+      );
+    }
+
+    const payload: MessageResponse = {
+      message: 'If that address exists, a reset link is on its way',
+    };
+    return HttpResponse.json(payload);
+  }),
+
+  http.post('*/api/v1/auth/reset-password', async ({ request }) => {
+    const body = (await request.json()) as ResetPasswordRequest;
+
+    if (body.token !== RESET_PASSWORD_TOKEN) {
+      return HttpResponse.json(
+        errorBody('INVALID_TOKEN', 401, '/api/v1/auth/reset-password', 'Invalid or expired token'),
+        { status: 401 },
+      );
+    }
+
+    const payload: MessageResponse = { message: 'Password updated' };
+    return HttpResponse.json(payload);
+  }),
 
   // ---------------------------------------------------------------------------
   // Same-origin Next route handlers (`src/app/api/auth/*`). In the real browser
