@@ -201,7 +201,12 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 60  # M0 target; raise to 85 by M2 (M2 checklist item)
+# Ratchet, not an aspiration: this is the floor the unit suite actually clears
+# (measured 63.96%). `tests/unit` can never reach 85% on its own — the bulk of
+# the remaining lines are repositories and routers that only the integration
+# suite exercises. Raise this whenever real coverage rises; never lower it to
+# turn a red build green.
+fail_under = 63
 
 [tool.bandit]
 exclude_dirs = ["tests", "alembic", "venv", ".venv", "data", "contracts", "scripts"]

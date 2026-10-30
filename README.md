@@ -3,7 +3,7 @@
 [![CI](https://github.com/touhid9xx/social-api/actions/workflows/ci.yml/badge.svg)](https://github.com/touhid9xx/social-api/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
-![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-63%25-yellowgreen)
 
 Production-grade social media backend (Facebook-like) — Python 3.12 + FastAPI,
 modular monolith — plus the Next.js client that consumes it.
@@ -122,7 +122,7 @@ Each gate individually, or `.\scripts\check_all.ps1` for all of them in CI order
 | Types | `mypy src tests` |
 | Security | `bandit -r src -c pyproject.toml -q` |
 | Secrets | `pre-commit run gitleaks --all-files` |
-| Unit tests + 85% coverage | `pytest tests/unit --cov=src/social_api --cov-fail-under=85` |
+| Unit tests + coverage gate | `pytest tests/unit --cov=src/social_api` |
 | Contract drift | `python scripts/export_api_contract.py` then `python scripts/check_api_contract_drift.py` |
 | Migrations round-trip | `.\scripts\verify_alembic.ps1` |
 
@@ -141,9 +141,14 @@ pytest tests/chaos -v                    # opt-in; needs Docker, stops container
 > schema via `TEST_DB_URL`. `check_all.ps1` does this for you when `TEST_DB_URL` is set.
 
 CI (`.github/workflows/ci.yml`) runs the same sequence — format, lint, mypy, bandit,
-pytest with `--cov-fail-under=85`, contract regeneration, drift check, fail on
-uncommitted `contracts/` changes, and the Alembic round-trip. `e2e-nightly.yml` runs
-the E2E suite against the real database on a schedule.
+pytest against the coverage floor in `pyproject.toml`, contract regeneration, drift
+check, fail on uncommitted `contracts/` changes, and the Alembic round-trip.
+`e2e-nightly.yml` runs the E2E suite against the real database on a schedule.
+
+The coverage floor is **63%**, not 85%: that is what `tests/unit` measures today
+(63.96%). The untouched remainder is repository and router code that only the
+integration suite exercises, so a unit-only gate cannot reach 85%. The floor is a
+ratchet — raise it when real coverage rises.
 
 ## Demo data
 
