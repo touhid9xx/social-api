@@ -3,7 +3,7 @@ Fail if committed contracts/ is out of sync with current code.
 
 Checks:
   - openapi.json          (byte-equal via JSON dict compare)
-  - api_reference.md      (line-by-line)
+  - api_reference.md      (line-by-line, ignores the generated commit SHA)
   - api_reference.xlsx    (cell-by-cell via openpyxl)
   - types.ts              (line-by-line)
   - index.md              (line-by-line, ignores generated_at / commit)
@@ -98,8 +98,24 @@ def _check_openapi(current_spec: dict[str, Any]) -> bool:
     return False
 
 
+GENERATED_COMMIT_PREFIX = "**Generated from commit:**"
+
+
+def _strip_generated_markers(text: str) -> list[str]:
+    """Drop the volatile commit-SHA line before comparing.
+
+    Both api_reference.md and index.md embed the HEAD SHA they were
+    generated from. Comparing that line would make these checks pass only
+    in the commit that regenerates the bundle and fail in every commit
+    after it — churn, not real drift. The SHA is provenance, not
+    contract content, so it is excluded here (same reasoning as
+    version_manifest.json, which is skipped entirely).
+    """
+    return [line for line in text.splitlines() if not line.startswith(GENERATED_COMMIT_PREFIX)]
+
+
 def _check_md(current_spec: dict[str, Any]) -> bool:
-    """Regenerate in memory and line-compare."""
+    """Regenerate in memory and line-compare (ignoring the commit SHA)."""
     path = CONTRACTS_DIR / "api_reference.md"
     if not path.exists():
         print(f"  ✗ MISSING: {path.name}")
@@ -111,8 +127,8 @@ def _check_md(current_spec: dict[str, Any]) -> bool:
         tmp_path = Path(tmp.name)
 
     _write_markdown(tmp_path, current_spec)
-    a = path.read_text(encoding="utf-8").splitlines()
-    b = tmp_path.read_text(encoding="utf-8").splitlines()
+    a = _strip_generated_markers(path.read_text(encoding="utf-8"))
+    b = _strip_generated_markers(tmp_path.read_text(encoding="utf-8"))
     tmp_path.unlink(missing_ok=True)
 
     if a == b:
@@ -193,11 +209,6 @@ def _check_index_md(current_spec: dict[str, Any]) -> bool:
         print(f"  ✗ MISSING: {path.name}")
         return False
 
-    def _strip(d: str) -> list[str]:
-        return [
-            line for line in d.splitlines() if not line.startswith("**Generated from commit:**")
-        ]
-
     with tempfile.NamedTemporaryFile(
         mode="w+", suffix=".md", delete=False, encoding="utf-8"
     ) as tmp:
@@ -218,8 +229,8 @@ def _check_index_md(current_spec: dict[str, Any]) -> bool:
     }
     _write_index_md(tmp_path, current_spec, fake_manifest)
 
-    a = _strip(path.read_text(encoding="utf-8"))
-    b = _strip(tmp_path.read_text(encoding="utf-8"))
+    a = _strip_generated_markers(path.read_text(encoding="utf-8"))
+    b = _strip_generated_markers(tmp_path.read_text(encoding="utf-8"))
     tmp_path.unlink(missing_ok=True)
 
     if a == b:

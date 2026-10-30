@@ -9,11 +9,13 @@ If this fails, run: python scripts/export_api_contract.py
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -57,6 +59,60 @@ def test_contract_is_valid_json_schema() -> None:
     assert spec["openapi"].startswith("3.")
     assert "info" in spec
     assert "paths" in spec
+
+
+def _load_drift_module() -> ModuleType:
+    """Load scripts/check_api_contract_drift.py by path.
+
+    Same technique the drift script itself uses for the exporter: the
+    repo root is not guaranteed to be importable as a package from the
+    pytest working directory, so load by file path.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "check_api_contract_drift",
+        ROOT / "scripts" / "check_api_contract_drift.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_generated_commit_line_is_stripped() -> None:
+    """The provenance line must not participate in the comparison.
+
+    api_reference.md embeds the HEAD SHA it was generated from, which
+    can never match the committed copy after the generating commit. If
+    that line is compared, the whole backend unit suite goes red on
+    every commit that does not regenerate contracts.
+    """
+    drift = _load_drift_module()
+    text = (
+        "# API — API Reference\n"
+        "**Version:** `0.1.0`\n"
+        "**Generated from commit:** `deadbeef1234`\n"
+        "---\n"
+    )
+    stripped = drift._strip_generated_markers(text)
+    assert stripped == ["# API — API Reference", "**Version:** `0.1.0`", "---"]
+    assert not any("Generated from commit" in line for line in stripped)
+
+
+def test_markdown_drift_check_tolerates_commit_mismatch() -> None:
+    """Functional twin: a stale SHA alone must not read as drift.
+
+    The committed api_reference.md was generated from an older commit
+    than HEAD, so its SHA line differs by construction. _check_md must
+    still report in-sync.
+    """
+    drift = _load_drift_module()
+    committed = (ROOT / "contracts" / "api_reference.md").read_text(encoding="utf-8")
+    assert "**Generated from commit:**" in committed, (
+        "api_reference.md is expected to carry a provenance line; "
+        "if the generator stopped emitting it, drop this assertion."
+    )
+    assert drift._check_md(create_app().openapi()) is True
 
 
 def test_all_contracts_in_sync() -> None:

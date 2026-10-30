@@ -1,15 +1,45 @@
 # Social API — Modular Monolith Backend
 
-[![CI](https://github.com/touhid9xx/social-api/actions/workflows/ci.yml/badge.svg)](https://github.com/<YOUR_GH_USER>/<YOUR_REPO>/actions/workflows/ci.yml)
+[![CI](https://github.com/touhid9xx/social-api/actions/workflows/ci.yml/badge.svg)](https://github.com/touhid9xx/social-api/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
 ![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Production-grade social media backend (Facebook-like) — Python 3.12 + FastAPI,
-modular monolith, backend-only.
+modular monolith — plus the Next.js client that consumes it.
 
-**Status:** M2 — CI hardened, contract drift enforced end-to-end.
+## Status
+
+**Backend: complete.** All backend milestones (M0–M26) are implemented: auth and
+sessions, users/profiles/consent/GDPR, follows/blocks/mutes, posts/comments/likes,
+media, three feed strategies, notifications, 1-1 and group chat, moderation, audit,
+idempotency, feature flags, presence, WebSockets, and observability. API, Celery
+worker and scheduler, migrations, container images, contracts, ADRs and runbook are
+all in place and gated by CI.
+
+**Frontend: in progress.** The Next.js app in [`frontend/`](frontend/README.md)
+covers the landing page, auth (sign in / sign up), home and explore feeds, post
+detail, notifications, and profiles including the follow graph. Still placeholder
+screens: `/verify-email`, `/forgot-password`, `/reset-password`, `/search`,
+`/messages`, `/settings`, and the four `/admin/*` staff screens. There is no
+WebSocket client, media-upload UI or moderation UI yet.
+
+> **Note:** the API surface is complete for the social features above, but not every
+> planned screen has a backend endpoint behind it. Search, the admin user list and
+> the admin stat cards still need endpoints; everything else the placeholder screens
+> need is already served and covered by integration tests.
+
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `src/social_api/` | FastAPI application — `api/v1/` routers over `modules/*` services |
+| `tests/` | `unit/` (no DB), `integration/` (real MySQL), `e2e/`, `chaos/`, `load/` |
+| `alembic/` | 13 migrations, baseline `0001` → `0013` |
+| `contracts/` | Generated OpenAPI JSON, Markdown/xlsx reference, TypeScript types |
+| `docs/` | Architecture, runbook, and 7 ADRs |
+| `frontend/` | Next.js 15 client — see [`frontend/README.md`](frontend/README.md) |
+| `scripts/` | PowerShell dev/CI helpers (see [Verification](#verification)) |
 
 ## Quickstart
 
@@ -19,20 +49,155 @@ py -3.12 -m venv venv
 pip install -e ".[dev]"
 
 copy .env.example .env
-# Generate ENCRYPTION_KEY and JWT keys — see docs/setup.md (added M26)
+```
 
-.\scripts\dev-up.ps1                     # docker services
+Then fill in the three secrets `.env` needs. Generate them into `secrets/`
+(git-ignored):
+
+```powershell
+New-Item -ItemType Directory -Force secrets | Out-Null
+@'
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+
+open("secrets/enc.key", "w").write(Fernet.generate_key().decode())
+k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+open("secrets/jwt_private.pem", "wb").write(k.private_bytes(
+    serialization.Encoding.PEM,
+    serialization.PrivateFormat.PKCS8,
+    serialization.NoEncryption(),
+))
+open("secrets/jwt_public.pem", "wb").write(k.public_key().public_bytes(
+    serialization.Encoding.PEM,
+    serialization.PublicFormat.SubjectPublicKeyInfo,
+))
+'@ | python -
+```
+
+Copy the printed Fernet key into `ENCRYPTION_KEY` in `.env`. `JWT_PRIVATE_KEY_PATH`
+and `JWT_PUBLIC_KEY_PATH` already default to `./secrets/jwt_private.pem` and
+`./secrets/jwt_public.pem` — no edit needed if you generated them in that order.
+
+`ENCRYPTION_KEY` must be a valid Fernet key (44-char urlsafe base64); a placeholder
+value raises at first use. The API fails fast at startup if a JWT PEM is missing
+rather than falling back to a dev key.
+
+Start the stack and run the API:
+
+```powershell
+.\scripts\dev-up.ps1                     # docker compose up -d, waits for MySQL health
+alembic upgrade head
 uvicorn social_api.main:app --reload     # API on :8000
 
 python scripts/export_api_contract.py    # regenerate contracts/
 .\scripts\check_all.ps1                  # mirror CI locally
+```
 
+`dev-up.ps1` prints the port map for MySQL, Redis, Jaeger, Prometheus and Grafana
+when services are healthy — read it from there rather than from this file, since the
+host ports are set in `docker-compose.yml`.
+
+Interactive API docs: <http://localhost:8000/docs>. Probes: `/health` (liveness),
+`/health/db`, `/health/redis`, `/health/ready` (aggregate), and `/metrics`;
+`/health/circuit-breakers` is an admin-only snapshot.
+
+The frontend runs separately — see [`frontend/README.md`](frontend/README.md):
+
+```powershell
+cd frontend
+pnpm install
+pnpm sync-api      # pull contracts from ../contracts, regenerate src/types/api.d.ts
+pnpm dev           # http://localhost:3000
+```
+
+## Verification
+
+Each gate individually, or `.\scripts\check_all.ps1` for all of them in CI order:
+
+| Gate | Command |
+|---|---|
+| Formatting | `ruff format --check src tests scripts` |
+| Lint | `ruff check src tests scripts` |
+| Types | `mypy src tests` |
+| Security | `bandit -r src -c pyproject.toml -q` |
+| Secrets | `pre-commit run gitleaks --all-files` |
+| Unit tests + 85% coverage | `pytest tests/unit --cov=src/social_api --cov-fail-under=85` |
+| Contract drift | `python scripts/export_api_contract.py` then `python scripts/check_api_contract_drift.py` |
+| Migrations round-trip | `.\scripts\verify_alembic.ps1` |
+
+Integration and E2E tests need a real MySQL. Integration tests are skipped unless
+`TEST_DB_URL` is set, so unit runs stay hermetic:
+
+```powershell
+$env:TEST_DB_URL = "mysql+asyncmy://social:testpaas@127.0.0.1:3306/social_test"
+pytest tests/integration -v              # real MySQL, fakeredis
+pytest tests/e2e -v                      # full user journey end to end
+pytest tests/chaos -v                    # opt-in; needs Docker, stops containers
+```
+
+> **Warning:** `scripts/verify_alembic.ps1` runs `upgrade head → downgrade base →
+> upgrade head`, so it **wipes the database it points at**. Point it at a throwaway
+> schema via `TEST_DB_URL`. `check_all.ps1` does this for you when `TEST_DB_URL` is set.
+
+CI (`.github/workflows/ci.yml`) runs the same sequence — format, lint, mypy, bandit,
+pytest with `--cov-fail-under=85`, contract regeneration, drift check, fail on
+uncommitted `contracts/` changes, and the Alembic round-trip. `e2e-nightly.yml` runs
+the E2E suite against the real database on a schedule.
+
+## Demo data
+
+Seeded and idempotent — no manual user creation needed:
+
+```powershell
+.\scripts\dev-up.ps1
+alembic upgrade head
+python scripts/seed_demo_data.py         # ~215 records
+
+python scripts/seed_demo_data.py --reset # clear demo users first
+python scripts/seed_demo_data.py --scale 2   # ~430 records
+python scripts/seed_demo_data.py --dry-run   # count only
+```
+
+Every seeded account uses the password **`DemoPass123!`**:
+
+| Email | Role |
+|---|---|
+| `admin@example.com` | admin |
+| `mod@example.com` | moderator |
+| `alice@example.com` | celebrity — everyone follows her |
+| `bob@example.com`, `carol@example.com` | regular users |
+| …15 more | regular users |
+
+Avatars are written as real PNG bytes to `MEDIA_ROOT` so `<img src>` works offline;
+use `--avatar external` if you don't serve `/media/*`.
+
+## Documentation
+
+Deep-dive docs for reviewers and for my own future self:
+
+- **[Architecture](docs/architecture.md)** — system context diagram, module layout,
+  data flow diagrams for `POST /posts` and `GET /feed`, scaling path to 1M users.
+- **[Runbook](docs/runbook.md)** — incident playbook. Seven scenarios with
+  symptom → diagnosis → mitigation → post-mortem hooks.
+- **[ADRs](docs/adr/README.md)** — 7 Architecture Decision Records, one page each:
+  - [ADR-001 Modular monolith](docs/adr/001-modular-monolith.md)
+  - [ADR-002 Cursor pagination](docs/adr/002-cursor-pagination.md)
+  - [ADR-003 Hybrid feed fanout](docs/adr/003-hybrid-feed-fanout.md)
+  - [ADR-004 PII encryption at rest](docs/adr/004-pii-encryption.md)
+  - [ADR-005 JWT refresh rotation](docs/adr/005-jwt-refresh-rotation.md)
+  - [ADR-006 Idempotency middleware](docs/adr/006-idempotency-middleware.md)
+  - [ADR-007 Dual feature flag providers](docs/adr/007-dual-feature-flags.md)
+- **[API reference](contracts/api_reference.md)** — generated from the OpenAPI
+  schema; regenerate with `python scripts/export_api_contract.py` and never hand-edit.
+- **[Frontend](frontend/README.md)** — Next.js setup, scripts and contract sync.
 
 ## Benchmark
 
-Load test: 5,000 concurrent readers + 500 concurrent writers (Locust),
-warm cache, on 16 GB Windows 11 + Docker Desktop, single uvicorn worker
-(4-thread async loop), MySQL 8 + Redis 7 in Docker.
+Indicative numbers only — reproduce on your own hardware. Load test: 5,000
+concurrent readers + 500 concurrent writers (Locust), warm cache, on 16 GB
+Windows 11 + Docker Desktop, single uvicorn worker (4-thread async loop), MySQL 8 +
+Redis 7 in Docker.
 
 | Metric | Value |
 |---|---|
@@ -45,79 +210,35 @@ warm cache, on 16 GB Windows 11 + Docker Desktop, single uvicorn worker
 | Total sustained RPS | ~3,200 |
 | Error rate | 0.03% |
 
-_Reproduce: `.\tests\load\run.ps1` after starting uvicorn. Update table
-with your hardware numbers._
+Reproduce with `.\tests\load\run.ps1` after starting uvicorn. The table is a
+reference point, not a guarantee — replace it with your own measurements.
 
 ## Chaos testing
 
-Manual procedure (requires running stack + Docker):
+Manual procedure, requires a running stack and Docker:
 
 ```powershell
-# Terminal 1: uvicorn
+# Terminal 1: API
 uvicorn social_api.main:app --reload
 
-# Terminal 2: run chaos tests (skipped by default)
+# Terminal 2: run chaos tests (excluded from normal CI)
 pytest tests/chaos -v
+```
 
+Chaos tests are opt-in via `-m chaos` and are excluded from `check_all.ps1` by
+default, because they stop and restart MySQL/Redis mid-run.
 
----
-
-## ⚠️ Common Pitfalls (M25 specific)
+## Common pitfalls
 
 | Pitfall | Symptom | Fix |
 |---|---|---|
-| E2E flakes on rate limits | 429 on login | Integration conftest disables rate limit (M12); E2E runs under `fake_redis` too |
-| Chaos tests run in normal CI | Hang (no Docker in normal job) | `pytest -m chaos` opt-in; `check_all.ps1` excludes chaos by default |
-| Chaos leaves infra broken | MySQL stopped after failed test | `finally:` block restarts services |
-| Locust user creation slow | 5000 users × register = 5000 requests upfront | 30–60s ramp; acceptable for a 3m run |
-| Load test pollutes DB | 15K test users + 100K posts | Fresh DB per run (`docker compose down -v && up -d`) |
-| Locust `/metrics` curl 403 | Admin-only endpoint | `/metrics` is public (M0); breaker check is parse-only |
-| Chaos `sleep(32)` too long | Test takes 40s | Acceptable for opt-in; skip in normal CI |
-| WS E2E `ping` interleaving | Test hangs waiting for notification | Drain loop — `while type == "ping": receive again` (M14 pattern) |
-| Benchmark numbers vary | Different hardware | Documented "on your machine"; README placeholder is indicative |
-| Locust `weight` vs `tasks` | Both multiply | Weight is class-level; task weight is method-level — used both correctly |
-
----
-
-## ✅ Verification (PowerShell)
-
-### 1) Local E2E test (fast, no Docker services beyond testcontainers)
-
-```powershell
-.\venv\Scripts\Activate.ps1
-pytest tests/e2e -v
-
-## Documentation
-
-Deep-dive docs for reviewers and for my own future self:
-
-- **[Architecture](docs/architecture.md)** — system context diagram,
-  module layout, data flow diagrams for `POST /posts` and `GET /feed`,
-  scaling path to 1M users.
-- **[Runbook](docs/runbook.md)** — incident playbook. Seven scenarios
-  with symptom → diagnosis → mitigation → post-mortem hooks.
-- **[ADRs](docs/adr/README.md)** — 7 Architecture Decision Records.
-  Each is one page explaining a specific tradeoff:
-  - ADR-001 Modular monolith
-  - ADR-002 Cursor pagination
-  - ADR-003 Hybrid feed fanout
-  - ADR-004 PII encryption at rest
-  - ADR-005 JWT refresh rotation
-  - ADR-006 Idempotency middleware
-  - ADR-007 Dual feature flag providers
-
-## Demo
-
-Want to poke around without registering users manually?
-
-```powershell
-# Start the stack
-docker compose up -d
-alembic upgrade head
-
-# Seed demo data (idempotent)
-python scripts/seed_demo_data.py
-
-# Login with:
-#   Email:    alice0@demo.local
-#   Password: Str0ng!Passw0rd
+| E2E flakes on rate limits | 429 on login | Integration conftest disables the limiter; E2E runs under `fake_redis` too |
+| Chaos tests run in normal CI | Hang (no Docker in the job) | `pytest -m chaos` is opt-in; `check_all.ps1` excludes chaos |
+| Chaos leaves infra broken | MySQL stopped after a failed test | `finally:` block restarts services |
+| Locust user creation is slow | 5,000 users × register = 5,000 upfront requests | 30–60 s ramp; acceptable for a 3-minute run |
+| Load test pollutes the DB | ~15 K test users, ~100 K posts | Fresh DB per run: `docker compose down -v && docker compose up -d` |
+| Locust `/metrics` returns 403 | Expecting an auth error | `/metrics` is public; the breaker check is parse-only |
+| Chaos `sleep(32)` is long | Test takes ~40 s | Acceptable for opt-in runs; skipped in normal CI |
+| WS E2E hangs on `ping` | Waiting for a notification that never arrives | Drain loop — `while type == "ping": receive again` |
+| Benchmark numbers vary | Different hardware | The table is explicitly indicative |
+| Locust `weight` vs `tasks` | Both multiply | Class-level `weight` and method-level `task` weight are orthogonal — both are used deliberately |
