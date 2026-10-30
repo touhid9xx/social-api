@@ -63,6 +63,8 @@ export const queryKeys = {
     detail: (postId: number) => ['social', 'posts', 'detail', postId] as const,
     byAuthor: (authorId: number, filters: ListFilters = {}) =>
       ['social', 'posts', 'by-author', authorId, listKey(filters)] as const,
+    /** Prefix for every page-size variant of one post's comments. */
+    commentThreads: (postId: number) => ['social', 'posts', 'comments', postId] as const,
     comments: (postId: number, filters: ListFilters = {}) =>
       ['social', 'posts', 'comments', postId, listKey(filters)] as const,
     likers: (targetType: string, targetId: number, filters: ListFilters = {}) =>

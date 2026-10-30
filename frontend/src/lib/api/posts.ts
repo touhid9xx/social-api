@@ -15,9 +15,12 @@ import { IDEMPOTENCY_HEADER, idempotencyKey } from './idempotency';
  * carries a fresh `Idempotency-Key`: a retried submit returns the FIRST post
  * instead of publishing a duplicate.
  *
- * `PATCH`/`DELETE` are deliberately absent until the post-detail milestone —
- * `PostUpdate` requires `version` for the optimistic lock, which only a detail
- * view can supply.
+ * `GET /api/v1/posts/{post_id}` — [contracts/api_reference.md:2233] — is what the
+ * detail route reads. It serialises the same `PostView` the feed does, so a card
+ * and a detail page render from one type.
+ *
+ * `PATCH`/`DELETE` stay absent: `PostUpdate` requires `version` for the
+ * optimistic lock, and the edit/delete UI is its own milestone.
  */
 
 export type PostView = components['schemas']['PostView'];
@@ -26,6 +29,14 @@ export type PostView = components['schemas']['PostView'];
 export type PostCreateBody = components['schemas']['PostCreate'];
 
 export type PostVisibility = PostCreateBody['visibility'];
+
+export async function getPost(postId: number): Promise<PostView> {
+  return apiRequest(() =>
+    apiClient.GET('/api/v1/posts/{post_id}', {
+      params: { path: { post_id: postId } },
+    }),
+  );
+}
 
 export async function createPost(input: PostCreateBody): Promise<PostView> {
   return apiRequest(() =>

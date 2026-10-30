@@ -298,6 +298,43 @@
         "visibilityInvalid": "Choose who can see this post."
       }
     },
+    "comments": {
+      "title": "Comments",
+      "loadingComments": "Loading comments…",
+      "emptyTitle": "No comments yet",
+      "emptyBody": "Be the first to say something.",
+      "loadMore": "Load more comments",
+      "loadingMore": "Loading more…",
+      "loadMoreFailed": "Couldn't load more comments. Try again.",
+      "formLabel": "Write a comment",
+      "bodyLabel": "Comment",
+      "placeholder": "Add a comment…",
+      "replyFormLabel": "Reply to {name}",
+      "replyLabel": "Your reply",
+      "replyPlaceholder": "Write a reply…",
+      "reply": "Reply",
+      "replySubmit": "Post reply",
+      "cancel": "Cancel",
+      "submit": "Comment",
+      "submitting": "Posting…",
+      "success": "Comment posted",
+      "replySuccess": "Reply posted",
+      "counter": "{count, plural, one {# character left} other {# characters left}}",
+      "validation": {
+        "bodyRequired": "Write something before commenting.",
+        "bodyTooLong": "Keep it under {max} characters."
+      }
+    },
+    "postDetail": {
+      "title": "Post",
+      "subtitle": "The post and everything people said about it.",
+      "backToFeed": "Back to feed",
+      "loading": "Loading this post…",
+      "notFoundTitle": "Post not found",
+      "notFoundBody": "It may have been deleted, or it may not be visible to you.",
+      "errorTitle": "Couldn't load this post",
+      "errorBody": "The post didn't come back. Check your connection and try again."
+    },
     "visibilityLabel": "Visibility: {visibility}",
     "visibility": {
       "public": "Public",
@@ -401,10 +438,6 @@
     "profile": {
       "title": "Profile",
       "description": "The public profile for {username} arrives in F11."
-    },
-    "postDetail": {
-      "title": "Post detail",
-      "description": "Post {id} with nested comments arrives in F9."
     }
   }
 }

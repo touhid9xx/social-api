@@ -298,6 +298,43 @@
         "visibilityInvalid": "কে দেখতে পাবে তা বেছে নিন।"
       }
     },
+    "comments": {
+      "title": "কমেন্ট",
+      "loadingComments": "কমেন্ট লোড হচ্ছে…",
+      "emptyTitle": "এখনও কোনো কমেন্ট নেই",
+      "emptyBody": "প্রথম কথাটা আপনিই বলুন।",
+      "loadMore": "আরও কমেন্ট দেখুন",
+      "loadingMore": "আরও লোড হচ্ছে…",
+      "loadMoreFailed": "আরও কমেন্ট লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "formLabel": "একটি কমেন্ট লিখুন",
+      "bodyLabel": "কমেন্ট",
+      "placeholder": "একটি কমেন্ট যোগ করুন…",
+      "replyFormLabel": "{name}-কে উত্তর দিন",
+      "replyLabel": "আপনার উত্তর",
+      "replyPlaceholder": "উত্তর লিখুন…",
+      "reply": "উত্তর দিন",
+      "replySubmit": "উত্তর পাঠান",
+      "cancel": "বাতিল",
+      "submit": "কমেন্ট করুন",
+      "submitting": "পাঠানো হচ্ছে…",
+      "success": "কমেন্ট প্রকাশিত হয়েছে",
+      "replySuccess": "উত্তর প্রকাশিত হয়েছে",
+      "counter": "{count, plural, one {#টি অক্ষর বাকি} other {#টি অক্ষর বাকি}}",
+      "validation": {
+        "bodyRequired": "কমেন্ট করার আগে কিছু লিখুন।",
+        "bodyTooLong": "{max} অক্ষরের মধ্যে রাখুন।"
+      }
+    },
+    "postDetail": {
+      "title": "পোস্ট",
+      "subtitle": "পোস্টটি এবং মানুষ এ নিয়ে যা বলেছে।",
+      "backToFeed": "ফিডে ফিরুন",
+      "loading": "পোস্টটি লোড হচ্ছে…",
+      "notFoundTitle": "পোস্ট পাওয়া যায়নি",
+      "notFoundBody": "এটি মুছে ফেলা হতে পারে, অথবা আপনার দেখার অনুমতি নেই।",
+      "errorTitle": "পোস্টটি লোড করা যায়নি",
+      "errorBody": "পোস্টটি আসেনি। সংযোগ দেখে আবার চেষ্টা করুন।"
+    },
     "visibilityLabel": "দৃশ্যমানতা: {visibility}",
     "visibility": {
       "public": "পাবলিক",
@@ -401,10 +438,6 @@
     "profile": {
       "title": "প্রোফাইল",
       "description": "{username}-এর পাবলিক প্রোফাইল F11-এ আসবে।"
-    },
-    "postDetail": {
-      "title": "পোস্ট ডিটেইল",
-      "description": "পোস্ট {id} আর নেস্টেড কমেন্ট F9-এ আসবে।"
     }
   }
 }

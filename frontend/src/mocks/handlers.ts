@@ -3,6 +3,9 @@ import { HttpResponse, http } from 'msw';
 import type { ApiErrorBody } from '@/types';
 
 import type {
+  CommentCreate,
+  CommentPage,
+  CommentView,
   HomeFeedPage,
   LoginRequest,
   LoginResponse,
@@ -22,6 +25,7 @@ import {
   DEMO_PASSWORD,
   FIXTURE_NOW,
   homeFeedPosts,
+  postComments,
   refreshedAccess,
   refreshedTokens,
   unreadNotificationCount,
@@ -42,6 +46,9 @@ const TEST_REQUEST_ID = 'test-request-id';
  * (101–103) so a test can tell a created post from a seeded one.
  */
 let nextCreatedPostId = 900;
+
+/** Comment ids start above the fixture range (501–503) for the same reason. */
+let nextCreatedCommentId = 950;
 
 function errorBody(error: string, status: number, path: string, detail: unknown): ApiErrorBody {
   return { error, status, detail, path, request_id: TEST_REQUEST_ID };
@@ -142,6 +149,59 @@ export const handlers = [
     return HttpResponse.json(payload);
   }),
 
+  // ---------------------------------------------------------------------------
+  // The post detail route (F9): one post, then its thread.
+  //
+  // An unknown post is a real 404 `POST_NOT_FOUND` — the fixture set is the
+  // contract, and inventing a post for an id nobody seeded would hide a broken
+  // link instead of failing the test that follows it.
+  //
+  // The thread is served from `postComments` and NEVER mutated by the create
+  // handler below: a shared fixture that grows would leak one test's comment into
+  // the next. "The new comment appears" is a refetch, which the invalidation in
+  // `useCreateComment` performs.
+  // ---------------------------------------------------------------------------
+  http.get('*/api/v1/posts/:post_id', ({ params }) => {
+    const raw = String(params.post_id);
+    const post = homeFeedPosts.find((item) => item.id === Number(raw));
+
+    if (!post) {
+      return HttpResponse.json(
+        errorBody('POST_NOT_FOUND', 404, `/api/v1/posts/${raw}`, 'Post not found'),
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json(post);
+  }),
+
+  http.get('*/api/v1/posts/:post_id/comments', ({ request, params }) => {
+    const raw = String(params.post_id);
+    const post = homeFeedPosts.find((item) => item.id === Number(raw));
+
+    if (!post) {
+      return HttpResponse.json(
+        errorBody('POST_NOT_FOUND', 404, `/api/v1/posts/${raw}`, 'Post not found'),
+        { status: 404 },
+      );
+    }
+
+    const url = new URL(request.url);
+    const requested = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number.isFinite(requested) && requested > 0 ? requested : 20;
+    // The opaque cursor is an index here; the real one is opaque, which is
+    // exactly why the client never parses it.
+    const start = Number(url.searchParams.get('cursor') ?? '0');
+    const thread = postComments.filter((comment) => comment.post_id === post.id);
+    const items = thread.slice(start, start + limit);
+
+    const payload: CommentPage = {
+      items,
+      next_cursor: start + limit < thread.length ? String(start + limit) : null,
+    };
+    return HttpResponse.json(payload);
+  }),
+
   http.get('*/api/v1/notifications/unread-count', () => {
     const payload: UnreadCount = unreadNotificationCount;
     return HttpResponse.json(payload);
@@ -192,6 +252,88 @@ export const handlers = [
     '*/api/v1/likes/:target_type/:target_id',
     () => new HttpResponse(null, { status: 204 }),
   ),
+
+  // `CommentCreate` is `min_length=1`, and depth is capped at 2 on the server:
+  // a reply to a reply is a real 422, so the mock refuses it too rather than
+  // accepting something the backend would reject.
+  http.post('*/api/v1/posts/:post_id/comments', async ({ request, params }) => {
+    const raw = String(params.post_id);
+    const post = homeFeedPosts.find((item) => item.id === Number(raw));
+
+    if (!post) {
+      return HttpResponse.json(
+        errorBody('POST_NOT_FOUND', 404, `/api/v1/posts/${raw}`, 'Post not found'),
+        { status: 404 },
+      );
+    }
+
+    const body = (await request.json()) as CommentCreate;
+    const text = (body.body ?? '').trim();
+
+    if (text.length === 0) {
+      return HttpResponse.json(
+        errorBody(
+          'VALIDATION_ERROR',
+          422,
+          `/api/v1/posts/${raw}/comments`,
+          'body must not be empty',
+        ),
+        { status: 422 },
+      );
+    }
+
+    const parentId = body.parent_id ?? null;
+    let depth = 0;
+
+    if (parentId !== null) {
+      // A reply is serialised INSIDE its parent (`CommentView.replies`), but it is
+      // still a comment row the backend can resolve by id — so the lookup has to
+      // look one level down too. Searching only the top-level page would answer
+      // 404 for a real comment and hide the depth limit behind it.
+      const parent =
+        postComments.find((comment) => comment.id === parentId) ??
+        postComments
+          .flatMap((comment) => comment.replies ?? [])
+          .find((reply) => reply.id === parentId);
+
+      if (!parent) {
+        return HttpResponse.json(
+          errorBody('COMMENT_NOT_FOUND', 404, `/api/v1/posts/${raw}/comments`, 'Comment not found'),
+          { status: 404 },
+        );
+      }
+
+      if (parent.depth >= 1) {
+        return HttpResponse.json(
+          errorBody(
+            'COMMENT_DEPTH_EXCEEDED',
+            422,
+            `/api/v1/posts/${raw}/comments`,
+            'Maximum comment depth exceeded',
+          ),
+          { status: 422 },
+        );
+      }
+
+      depth = parent.depth + 1;
+    }
+
+    const created: CommentView = {
+      id: nextCreatedCommentId++,
+      post_id: post.id,
+      author_id: adminUser.id,
+      parent_id: parentId,
+      depth,
+      body: text,
+      like_count: 0,
+      created_at: FIXTURE_NOW,
+      updated_at: FIXTURE_NOW,
+      is_liked_by_me: false,
+      is_edited: false,
+    };
+
+    return HttpResponse.json(created, { status: 201 });
+  }),
 
   http.delete(
     '*/api/v1/likes/:target_type/:target_id',

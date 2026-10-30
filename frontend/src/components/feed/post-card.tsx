@@ -99,7 +99,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         {/* The like button owns its own count and `aria-pressed` state; the card
             merely supplies the values so the optimistic cache remains the one
             source of truth for both. */}
-        <LikeButton postId={post.id} isLiked={post.is_liked_by_me} count={post.like_count} />
+        <LikeButton targetId={post.id} isLiked={post.is_liked_by_me} count={post.like_count} />
 
         <Link
           href={`${ROUTES.posts}/${String(post.id)}`}

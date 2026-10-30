@@ -1,5 +1,6 @@
 import type {
   AuthTokens,
+  CommentView,
   PostView,
   ProfilePublic,
   ProfileSelf,
@@ -161,6 +162,59 @@ export const homeFeedPosts: PostView[] = [
     updated_at: '2026-01-15T09:20:00.000Z',
     is_liked_by_me: false,
     is_edited: true,
+  },
+];
+
+/**
+ * The thread under post 101 — two top-level comments, one of which carries a
+ * reply, for three comments in total. That matches `homeFeedPosts[0]`'s
+ * `comment_count: 3`, so a detail page and a feed card cannot disagree.
+ *
+ * `depth` is part of the contract, and the backend caps it at 2: replies here are
+ * `depth: 1` and are never given a `replies` array, because a reply-to-a-reply is
+ * a real `COMMENT_DEPTH_EXCEEDED`.
+ */
+export const postComments: CommentView[] = [
+  {
+    id: 501,
+    post_id: 101,
+    author_id: 23,
+    parent_id: null,
+    depth: 0,
+    body: 'This is exactly the problem I kept hitting.',
+    like_count: 2,
+    created_at: '2026-01-15T09:58:30.000Z',
+    updated_at: '2026-01-15T09:58:30.000Z',
+    is_liked_by_me: false,
+    is_edited: false,
+    replies: [
+      {
+        id: 503,
+        post_id: 101,
+        author_id: 22,
+        parent_id: 501,
+        depth: 1,
+        body: 'Glad it landed.',
+        like_count: 0,
+        created_at: '2026-01-15T09:59:00.000Z',
+        updated_at: '2026-01-15T09:59:00.000Z',
+        is_liked_by_me: false,
+        is_edited: false,
+      },
+    ],
+  },
+  {
+    id: 502,
+    post_id: 101,
+    author_id: 24,
+    parent_id: null,
+    depth: 0,
+    body: 'Does this hold up on a slow connection?',
+    like_count: 1,
+    created_at: '2026-01-15T09:58:45.000Z',
+    updated_at: '2026-01-15T09:58:45.000Z',
+    is_liked_by_me: true,
+    is_edited: false,
   },
 ];
 

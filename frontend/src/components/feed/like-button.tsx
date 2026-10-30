@@ -6,30 +6,37 @@ import { toast } from 'sonner';
 
 import { useToggleLike } from '@/hooks/use-toggle-like';
 import { errorMessageKey } from '@/lib/api';
+import type { LikeTargetType } from '@/lib/api/likes';
 import { formatCount } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 /**
- * The like control on a feed card.
+ * The like control, for a feed card and for a comment.
  *
  * `aria-pressed` carries the state and the visible number carries the count, so
  * the accessible name reads "12 Unlike" — a stateful button, not a mystery
  * icon. The `sr-only` word is the ACTION (`Like` / `Unlike`), because turning
  * the state into the label would announce "Liked, button, not pressed".
  *
- * The count comes from props (the card's post), not from a local copy: the
- * optimistic write lands in the query cache, so the card re-renders from one
- * source of truth and the number can never drift from `is_liked_by_me`.
+ * The count comes from props (the entity being rendered), not from a local
+ * copy: the optimistic write lands in the query cache, so the owner re-renders
+ * from one source of truth and the number can never drift from
+ * `is_liked_by_me`.
+ *
+ * `targetType` exists because the backend has a single endpoint for both
+ * targets; the hook uses it to decide which caches to patch.
  *
  * A failed request rolls the cache back in `useToggleLike` and surfaces one
  * toast here — an inline error per card would be noise the user cannot act on.
  */
 export function LikeButton({
-  postId,
+  targetId,
+  targetType = 'post',
   isLiked,
   count,
 }: {
-  postId: number;
+  targetId: number;
+  targetType?: LikeTargetType;
   isLiked: boolean;
   count: number;
 }) {
@@ -47,7 +54,7 @@ export function LikeButton({
 
   function handleClick() {
     like.mutate(
-      { postId, liked: !isLiked },
+      { targetType, targetId, liked: !isLiked },
       {
         onError: (error) => {
           toast.error(tRoot(errorMessageKey(error)));
