@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 
@@ -9,6 +10,7 @@ import { useAuthor } from '@/hooks/use-author';
 import { useComments } from '@/hooks/use-comments';
 import { useInView } from '@/hooks/use-in-view';
 import type { CommentView } from '@/lib/api/comments';
+import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -73,7 +75,14 @@ function CommentItem({
     <li className="space-y-2">
       <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
         <header className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-sm font-semibold text-foreground">{displayName}</span>
+          {/* Keyed by `author_id`, like the feed card — the comment payload
+              carries no username either. */}
+          <Link
+            href={`${ROUTES.profile}/${String(comment.author_id)}`}
+            className="truncate text-sm font-semibold text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            {displayName}
+          </Link>
 
           <span aria-hidden="true" className="text-xs text-muted-foreground">
             ·

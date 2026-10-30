@@ -47,7 +47,6 @@ export const queryKeys = {
     all: ['social', 'users'] as const,
     me: () => ['social', 'users', 'me'] as const,
     profile: (userId: number) => ['social', 'users', 'profile', userId] as const,
-    byUsername: (username: string) => ['social', 'users', 'by-username', username] as const,
     consents: () => ['social', 'users', 'consents'] as const,
     followCounts: (userId: number) => ['social', 'users', 'follow-counts', userId] as const,
     followStatus: (userId: number) => ['social', 'users', 'follow-status', userId] as const,

@@ -17,9 +17,9 @@ import { NotificationList } from './notification-list';
  * Three behaviours carry the design, and each one is a decision rather than an
  * accident:
  *
- *  - **Only `post` targets link.** A `comment` target carries the COMMENT id
- *    (linking it opens the wrong post) and a `user` target would need a username
- *    the contract does not expose. Those rows render unlinked on purpose.
+ *  - **`post` and `user` targets link, `comment` does not.** A `comment` target
+ *    carries the COMMENT id and there is no comment route, so linking it opens
+ *    the wrong page. Only those rows render unlinked, on purpose.
  *  - **Marking one row read patches the cache**; it must NOT invalidate the list,
  *    because a refetch would drop every page the user has scrolled back to the
  *    top. The badge query is invalidated instead — that count is not derivable
@@ -27,7 +27,7 @@ import { NotificationList } from './notification-list';
  *  - **A failed next page is not a page-level error.** Rows already read stay on
  *    screen; only "nothing loaded at all" earns the full-page alert.
  *
- * (শুধু পোস্ট-টার্গেট লিঙ্ক হয়; এক সারি পঠিত করলে তালিকা রিফেচ হয় না।)
+ * (পোস্ট ও ব্যবহারকারী-টার্গেট লিঙ্ক হয়, কমেন্ট নয়; এক সারি পঠিত করলে তালিকা রিফেচ হয় না।)
  */
 
 const LIST_PATH = '/api/v1/notifications';
@@ -88,20 +88,28 @@ describe('NotificationList', () => {
     expect(screen.getAllByText('Unread')).toHaveLength(3);
   });
 
-  it('links post targets only, leaving comment and user targets unlinked', async () => {
+  it('links post and user targets, leaving comment targets unlinked', async () => {
     renderWithProviders(<NotificationList />);
 
     await screen.findByText('Alice Rahman liked your post');
 
     // 301 (like_post) and 303 (comment_post) both target post 101.
-    const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(2);
-    for (const link of links) expect(link).toHaveAttribute('href', '/posts/101');
+    const postLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('href') === '/posts/101');
+    expect(postLinks).toHaveLength(2);
+
+    // 302 (follow) targets the follower, which is a real user id — `/profile`
+    // is keyed by id, so the row is a link rather than dead text.
+    expect(screen.getByText('Bashir Hossain started following you').closest('a')).toHaveAttribute(
+      'href',
+      '/profile/23',
+    );
 
     // A comment target holds the COMMENT id; linking it would open the wrong
     // post, so the row is deliberately not an anchor.
     expect(screen.getByText('Alice Rahman liked your comment').closest('a')).toBeNull();
-    expect(screen.getByText('Bashir Hossain started following you').closest('a')).toBeNull();
+    expect(screen.getAllByRole('link')).toHaveLength(3);
   });
 
   it('marks one row read in place instead of refetching the inbox', async () => {

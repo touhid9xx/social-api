@@ -38,7 +38,7 @@ describe('queryKeys hierarchy', () => {
 
   it('keeps ids distinct so two entities never share a cache entry', () => {
     expect(queryKeys.posts.detail(1)).not.toEqual(queryKeys.posts.detail(2));
-    expect(queryKeys.users.byUsername('a')).not.toEqual(queryKeys.users.byUsername('b'));
+    expect(queryKeys.users.profile(1)).not.toEqual(queryKeys.users.profile(2));
     expect(queryKeys.chat.messages(1)).not.toEqual(queryKeys.chat.members(1));
   });
 });

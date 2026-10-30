@@ -52,11 +52,15 @@ export function PostCard({ post }: { post: FeedPost }) {
 
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {/* Not a link yet: `/profile/[username]` is keyed by username and
-                the contract exposes no username, only `user_id`. Author links
-                land with the profile milestone (F11) rather than shipping a
-                link that resolves to the wrong URL. */}
-            <span className="truncate text-sm font-semibold text-foreground">{displayName}</span>
+            {/* Keyed by `author_id` — the public profile route is
+                `/users/{id}`, so this is a link the backend can actually
+                resolve. */}
+            <Link
+              href={`${ROUTES.profile}/${String(post.author_id)}`}
+              className="truncate text-sm font-semibold text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              {displayName}
+            </Link>
 
             <span className="text-xs text-muted-foreground">·</span>
 

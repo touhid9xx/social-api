@@ -1,6 +1,9 @@
 import type {
   AuthTokens,
   CommentView,
+  FollowCounts,
+  FollowStatus,
+  FollowUserView,
   NotificationView,
   PostView,
   ProfilePublic,
@@ -279,9 +282,9 @@ export const exploreFeedPosts: PostView[] = [
  *
  * Every `type` in `NOTIFICATION_TYPES` except `comment_reply` appears, and the
  * rows deliberately vary in two ways that the UI must handle:
- *  - `target_type` is `post` for some rows (linkable, `/posts/{id}`) and
- *    `comment`/`user` for others (NOT linkable: a comment id is not a post id,
- *    and `/profile` is keyed by username while the contract exposes `user_id`);
+ *  - `target_type` is `post` (linkable, `/posts/{id}`), `user` (linkable,
+ *    `/profile/{id}`) and `comment` (NOT linkable: a comment id is not a post
+ *    id and there is no comment route);
  *  - `actor_id` 24 has a null display name, so the row must fall back to
  *    "User {id}" rather than render an empty name.
  */
@@ -334,3 +337,163 @@ export const notifications: NotificationView[] = [
 
 /** Three of the four rows above are unread — see the note on `notifications`. */
 export const unreadNotificationCount = { unread: 3 };
+
+/**
+ * Follow status, VIEWER-RELATIVE to the signed-in admin (user 21).
+ *
+ * `GET /users/{id}/follow-status` answers for the caller, so a shared value
+ * would be a lie: this map is only meaningful while the session is `adminUser`.
+ * The four entries give the profile screen one of each state it must render,
+ * which is the whole reason they exist:
+ *
+ *  21 — the viewer themself: the button must not appear at all (`CANNOT_FOLLOW_SELF`);
+ *  22 — not followed yet: the button reads "Follow";
+ *  23 — already followed: "Following";
+ *  24 — THEY blocked the viewer: every follow would be rejected, so the control
+ *       becomes copy (`profile.blockedByThem`) instead of a button that cannot work.
+ *
+ * The one state missing here is `is_blocked_by_me`, which hides the control; it
+ * is rarer and asserted by overriding this handler in the test rather than by
+ * inventing a fifth user no post or list refers to.
+ */
+export const followStatus: Record<number, FollowStatus> = {
+  21: {
+    is_following: false,
+    is_followed_by: false,
+    is_blocked_by_me: false,
+    has_blocked_me: false,
+    is_muted_by_me: false,
+  },
+  22: {
+    is_following: false,
+    is_followed_by: true,
+    is_blocked_by_me: false,
+    has_blocked_me: false,
+    is_muted_by_me: false,
+  },
+  23: {
+    is_following: true,
+    is_followed_by: false,
+    is_blocked_by_me: false,
+    has_blocked_me: false,
+    is_muted_by_me: true,
+  },
+  24: {
+    is_following: false,
+    is_followed_by: false,
+    is_blocked_by_me: false,
+    has_blocked_me: true,
+    is_muted_by_me: false,
+  },
+};
+
+/**
+ * Public follower/following totals. Separate from `followStatus` because the
+ * backend serves them from a different endpoint with a different cache lifetime
+ * — public and slow-changing versus private and instant.
+ */
+export const followCounts: Record<number, FollowCounts> = {
+  21: { followers: 12, following: 5 },
+  22: { followers: 3, following: 7 },
+  23: { followers: 8, following: 2 },
+  24: { followers: 0, following: 0 },
+};
+
+/**
+ * The two ends of Alice's (user 22) follow graph.
+ *
+ * `FollowUserView` carries `display_name` and `avatar_url` inline, so these rows
+ * deliberately do NOT need `authorProfiles` to render — that is the contract
+ * detail `follow-list.tsx` is built on. Row 24 has a null name so the list must
+ * fall back to "User {id}" rather than render a blank line.
+ */
+export const followersOf22: FollowUserView[] = [
+  {
+    user_id: 21,
+    display_name: 'Admin',
+    avatar_url: null,
+    followed_at: '2026-01-14T09:00:00.000Z',
+  },
+  {
+    user_id: 23,
+    display_name: 'Bashir Hossain',
+    avatar_url: null,
+    followed_at: '2026-01-13T09:00:00.000Z',
+  },
+  {
+    user_id: 24,
+    display_name: null,
+    avatar_url: null,
+    followed_at: '2026-01-12T09:00:00.000Z',
+  },
+];
+
+export const followingOf22: FollowUserView[] = [
+  {
+    user_id: 23,
+    display_name: 'Bashir Hossain',
+    avatar_url: null,
+    followed_at: '2026-01-11T09:00:00.000Z',
+  },
+];
+
+/**
+ * Posts per author — the profile's feed.
+ *
+ * Ids start at 401, disjoint from the home feed (101–103) and explore (201–203)
+ * for the same reason those two are disjoint from each other: a test that reads
+ * a post on a profile must be able to prove it came from
+ * `GET /posts/by-author/{id}` and not from a list that happened to be cached.
+ *
+ * An author with no entry has simply never posted, which is a real 200 with an
+ * empty page — not a 404. Only an unknown *user* is a 404, and the profile
+ * request answers that before the posts are ever asked for.
+ */
+export const authorPosts: Record<number, PostView[]> = {
+  22: [
+    {
+      id: 401,
+      author_id: 22,
+      body: 'Every milestone so far has been a small contract change.',
+      visibility: 'public',
+      like_count: 5,
+      comment_count: 0,
+      media_count: 0,
+      version: 1,
+      created_at: '2026-01-15T08:30:00.000Z',
+      updated_at: '2026-01-15T08:30:00.000Z',
+      is_liked_by_me: false,
+      is_edited: false,
+    },
+    {
+      id: 402,
+      author_id: 22,
+      body: 'Pagination is an API design problem, not a UI one.',
+      visibility: 'public',
+      like_count: 2,
+      comment_count: 1,
+      media_count: 0,
+      version: 1,
+      created_at: '2026-01-15T08:10:00.000Z',
+      updated_at: '2026-01-15T08:10:00.000Z',
+      is_liked_by_me: true,
+      is_edited: false,
+    },
+  ],
+  23: [
+    {
+      id: 403,
+      author_id: 23,
+      body: 'The follow graph is the part nobody tests enough.',
+      visibility: 'public',
+      like_count: 1,
+      comment_count: 0,
+      media_count: 0,
+      version: 1,
+      created_at: '2026-01-15T07:45:00.000Z',
+      updated_at: '2026-01-15T07:45:00.000Z',
+      is_liked_by_me: false,
+      is_edited: false,
+    },
+  ],
+};

@@ -1,3 +1,4 @@
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { components } from '@/types/api';
 
 import { apiClient, apiRequest } from './client';
@@ -30,10 +31,39 @@ export type PostCreateBody = components['schemas']['PostCreate'];
 
 export type PostVisibility = PostCreateBody['visibility'];
 
+/** One page of `GET /api/v1/posts/by-author/{author_id}`. */
+export type PostPage = components['schemas']['PostPage'];
+
+export type AuthorPostQuery = {
+  /** Opaque cursor from the previous page. `null`/omitted asks for the first. */
+  cursor?: string | null;
+  /** Backend caps this at 100 (`le=100`); the contract wins, not the UI. */
+  limit?: number;
+};
+
 export async function getPost(postId: number): Promise<PostView> {
   return apiRequest(() =>
     apiClient.GET('/api/v1/posts/{post_id}', {
       params: { path: { post_id: postId } },
+    }),
+  );
+}
+
+/**
+ * `GET /api/v1/posts/by-author/{author_id}` — the profile's post list.
+ *
+ * Returns the same `PostView` the feeds do, so `PostFeed` renders it unchanged:
+ * `PostPage` and `FeedPage` are structurally identical (`items` + `next_cursor`).
+ * Visibility is enforced server-side, so a stranger's private posts simply are
+ * not in the page rather than being filtered here.
+ */
+export async function getAuthorPosts(
+  authorId: number,
+  { cursor = null, limit = DEFAULT_PAGE_SIZE }: AuthorPostQuery = {},
+): Promise<PostPage> {
+  return apiRequest(() =>
+    apiClient.GET('/api/v1/posts/by-author/{author_id}', {
+      params: { path: { author_id: authorId }, query: { cursor, limit } },
     }),
   );
 }

@@ -31,11 +31,11 @@ import { cn } from '@/lib/utils';
  * compile error here, never a blank line.
  *
  * Where a row links is deliberately narrow. `target_type` says what was acted
- * on, but only `post` gives an id the app has a route for (`/posts/{id}`);
- * a `comment` target carries the COMMENT id, so linking it would open the wrong
- * post, and `/profile/[username]` is keyed by username while the contract
- * exposes only `user_id`. Those rows render without a link rather than shipping
- * one that resolves to the wrong page.
+ * on: `post` gives `/posts/{id}` and `user` gives `/profile/{id}` — a follow
+ * notification sets `target_id` to the follower, which is a real user id. A
+ * `comment` target carries the COMMENT id and the app has no comment route, so
+ * linking it would open the wrong post. Those rows render without a link rather
+ * than shipping one that resolves to the wrong page.
  */
 
 const TYPE_COPY: Record<NotificationType, string> = {
@@ -47,9 +47,16 @@ const TYPE_COPY: Record<NotificationType, string> = {
 };
 
 function targetHref(notification: NotificationView): string | null {
-  return notification.target_type === 'post'
-    ? `${ROUTES.posts}/${String(notification.target_id)}`
-    : null;
+  switch (notification.target_type) {
+    case 'post':
+      return `${ROUTES.posts}/${String(notification.target_id)}`;
+    case 'user':
+      return `${ROUTES.profile}/${String(notification.target_id)}`;
+    case 'comment':
+      // A comment target holds the COMMENT id and there is no comment route;
+      // linking it would open a post that may not even exist.
+      return null;
+  }
 }
 
 function NotificationSkeleton() {

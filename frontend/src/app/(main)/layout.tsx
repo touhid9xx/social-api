@@ -4,7 +4,7 @@ import { AppShell } from '@/components/shared/app-shell';
 
 /**
  * Layout for the signed-in app (`home`, `explore`, `notifications`, `messages`,
- * `search`, `settings`, `posts/[id]`, `profile/[username]`).
+ * `search`, `settings`, `posts/[id]`, `profile/[id]`).
  *
  * Thin on purpose: all of the shell and the session guard lives in `AppShell`
  * so the `(admin)` group can reuse it byte for byte and the two can never drift.

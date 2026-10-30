@@ -427,6 +427,46 @@
       "commentReply": "{name} আপনার কমেন্টের উত্তর দিয়েছেন"
     }
   },
+  "profile": {
+    "follow": "ফলো করুন",
+    "following": "ফলো করছেন",
+    "followAction": "{name}-কে ফলো করুন",
+    "unfollowAction": "{name}-কে আনফলো করুন",
+    "blockedByThem": "এই অ্যাকাউন্টকে ফলো করা যাবে না।",
+    "privateBadge": "এই প্রোফাইলটি প্রাইভেট।",
+    "followersLabel": "ফলোয়ার",
+    "followingLabel": "ফলো করছেন",
+    "postsTitle": "পোস্ট",
+    "emptyPostsTitle": "এখনও কোনো পোস্ট নেই",
+    "emptyPostsBody": "তিনি পোস্ট করলে এখানে দেখা যাবে।",
+    "loadingProfile": "প্রোফাইল লোড হচ্ছে…",
+    "loadingPosts": "তার পোস্টগুলো লোড হচ্ছে…",
+    "notFoundTitle": "প্রোফাইল পাওয়া যায়নি",
+    "notFoundBody": "অ্যাকাউন্টটি মুছে ফেলা হতে পারে, অথবা লিঙ্কটি ভুল।",
+    "restrictedTitle": "এই প্রোফাইলটি প্রাইভেট",
+    "restrictedBody": "শুধু এই অ্যাকাউন্টের ফলোয়াররা এটি দেখতে পারেন।",
+    "errorTitle": "প্রোফাইল লোড করা যায়নি",
+    "errorBody": "প্রোফাইল আসেনি। সংযোগ দেখে আবার চেষ্টা করুন।",
+    "followList": {
+      "followersTitle": "ফলোয়ার",
+      "followingTitle": "ফলো করছেন",
+      "loading": "তালিকা লোড হচ্ছে…",
+      "loadMore": "আরও দেখুন",
+      "loadingMore": "আরও লোড হচ্ছে…",
+      "loadMoreFailed": "আরও মানুষ লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "endOfList": "সবাইকে দেখে ফেলেছেন।",
+      "emptyFollowersTitle": "এখনও কোনো ফলোয়ার নেই",
+      "emptyFollowingTitle": "কাউকে ফলো করছেন না",
+      "emptyBody": "এখন দেখানোর মতো কেউ নেই।",
+      "followedAt": "ফলো করেছেন {time}",
+      "backToProfile": "প্রোফাইলে ফিরে যান",
+      "restrictedTitle": "এই তালিকাটি প্রাইভেট",
+      "restrictedBody": "শুধু এই অ্যাকাউন্টের ফলোয়াররা দেখতে পারেন কে কাকে ফলো করেন।",
+      "errorTitle": "তালিকা লোড করা যায়নি",
+      "errorBody": "তালিকা আসেনি। সংযোগ দেখে আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন"
+    }
+  },
   "pages": {
     "verifyEmail": {
       "title": "ইমেইল যাচাই",
@@ -467,10 +507,6 @@
     "adminAudit": {
       "title": "অ্যাডমিন · অডিট লগ",
       "description": "অডিট লগ এক্সপ্লোরার F21-এ আসবে।"
-    },
-    "profile": {
-      "title": "প্রোফাইল",
-      "description": "{username}-এর পাবলিক প্রোফাইল F11-এ আসবে।"
     }
   }
 }

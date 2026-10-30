@@ -427,6 +427,46 @@
       "commentReply": "{name} replied to your comment"
     }
   },
+  "profile": {
+    "follow": "Follow",
+    "following": "Following",
+    "followAction": "Follow {name}",
+    "unfollowAction": "Unfollow {name}",
+    "blockedByThem": "You can't follow this account.",
+    "privateBadge": "This profile is private.",
+    "followersLabel": "Followers",
+    "followingLabel": "Following",
+    "postsTitle": "Posts",
+    "emptyPostsTitle": "No posts yet",
+    "emptyPostsBody": "When they post, it'll show up here.",
+    "loadingProfile": "Loading this profile…",
+    "loadingPosts": "Loading their posts…",
+    "notFoundTitle": "Profile not found",
+    "notFoundBody": "This account may have been deleted, or the link may be wrong.",
+    "restrictedTitle": "This profile is private",
+    "restrictedBody": "Only this account's followers can see it.",
+    "errorTitle": "Couldn't load this profile",
+    "errorBody": "The profile didn't come back. Check your connection and try again.",
+    "followList": {
+      "followersTitle": "Followers",
+      "followingTitle": "Following",
+      "loading": "Loading this list…",
+      "loadMore": "Load more",
+      "loadingMore": "Loading more…",
+      "loadMoreFailed": "Couldn't load more people. Try again.",
+      "endOfList": "That's everyone.",
+      "emptyFollowersTitle": "No followers yet",
+      "emptyFollowingTitle": "Not following anyone yet",
+      "emptyBody": "There's nobody to show here right now.",
+      "followedAt": "Followed {time}",
+      "backToProfile": "Back to profile",
+      "restrictedTitle": "This list is private",
+      "restrictedBody": "Only this account's followers can see who follows them.",
+      "errorTitle": "Couldn't load this list",
+      "errorBody": "The list didn't come back. Check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
   "pages": {
     "verifyEmail": {
       "title": "Verify email",
@@ -467,10 +507,6 @@
     "adminAudit": {
       "title": "Admin · audit log",
       "description": "The audit log explorer arrives in F21."
-    },
-    "profile": {
-      "title": "Profile",
-      "description": "The public profile for {username} arrives in F11."
     }
   }
 }

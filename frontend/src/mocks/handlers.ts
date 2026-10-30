@@ -7,6 +7,9 @@ import type {
   CommentPage,
   CommentView,
   ExploreFeedPage,
+  FollowCounts,
+  FollowListPage,
+  FollowStatus,
   HomeFeedPage,
   LoginRequest,
   LoginResponse,
@@ -14,6 +17,7 @@ import type {
   NotificationPage,
   NotificationView,
   PostCreate,
+  PostPage,
   PostView,
   RegisterRequest,
   RegisterResponse,
@@ -24,11 +28,16 @@ import {
   adminProfile,
   adminTokens,
   adminUser,
+  authorPosts,
   authorProfiles,
   DEMO_ADMIN_EMAIL,
   DEMO_PASSWORD,
   exploreFeedPosts,
   FIXTURE_NOW,
+  followCounts,
+  followersOf22,
+  followingOf22,
+  followStatus,
   homeFeedPosts,
   notifications,
   postComments,
@@ -136,6 +145,125 @@ export const handlers = [
     }
 
     return HttpResponse.json(profile);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Follow graph (F11). Four reads under `/users/{id}/…` plus two writes under
+  // `/follows/{id}`.
+  //
+  // `follow-status` is viewer-relative, so it is served from a fixture map keyed
+  // by TARGET id and only ever means "as the signed-in admin". An unknown target
+  // is a real 404 `PROFILE_NOT_FOUND`, the same answer `GET /users/{id}` gives —
+  // the status endpoint must not invent a user the profile endpoint denies.
+  // ---------------------------------------------------------------------------
+  http.get('*/api/v1/users/:user_id/follow-status', ({ params }) => {
+    const raw = String(params.user_id);
+    const status = followStatus[Number(raw)];
+
+    if (!status) {
+      return HttpResponse.json(
+        errorBody(
+          'PROFILE_NOT_FOUND',
+          404,
+          `/api/v1/users/${raw}/follow-status`,
+          'Profile not found',
+        ),
+        { status: 404 },
+      );
+    }
+
+    const payload: FollowStatus = status;
+    return HttpResponse.json(payload);
+  }),
+
+  // Public and slow-changing: zero is a real answer, never a 404.
+  http.get('*/api/v1/users/:user_id/follow-counts', ({ params }) => {
+    const raw = String(params.user_id);
+    const profile = authorProfiles[Number(raw)];
+
+    if (!profile) {
+      return HttpResponse.json(
+        errorBody(
+          'PROFILE_NOT_FOUND',
+          404,
+          `/api/v1/users/${raw}/follow-counts`,
+          'Profile not found',
+        ),
+        { status: 404 },
+      );
+    }
+
+    const payload: FollowCounts = followCounts[Number(raw)] ?? { followers: 0, following: 0 };
+    return HttpResponse.json(payload);
+  }),
+
+  // Cursor paginated like every other list. Only Alice (22) has a seeded graph;
+  // everyone else genuinely has an empty one, which is a 200 rather than a 404.
+  http.get('*/api/v1/users/:user_id/followers', ({ request, params }) => {
+    const raw = String(params.user_id);
+    const all = Number(raw) === 22 ? followersOf22 : [];
+
+    const url = new URL(request.url);
+    const requested = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number.isFinite(requested) && requested > 0 ? requested : 20;
+    const start = Number(url.searchParams.get('cursor') ?? '0');
+
+    const payload: FollowListPage = {
+      items: all.slice(start, start + limit),
+      next_cursor: start + limit < all.length ? String(start + limit) : null,
+    };
+    return HttpResponse.json(payload);
+  }),
+
+  http.get('*/api/v1/users/:user_id/following', ({ request, params }) => {
+    const raw = String(params.user_id);
+    const all = Number(raw) === 22 ? followingOf22 : [];
+
+    const url = new URL(request.url);
+    const requested = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number.isFinite(requested) && requested > 0 ? requested : 20;
+    const start = Number(url.searchParams.get('cursor') ?? '0');
+
+    const payload: FollowListPage = {
+      items: all.slice(start, start + limit),
+      next_cursor: start + limit < all.length ? String(start + limit) : null,
+    };
+    return HttpResponse.json(payload);
+  }),
+
+  // Both writes answer 204 with no body, exactly like the real endpoints: the
+  // client patches `is_following` and the follower total optimistically, so
+  // there is nothing here to merge back.
+  http.post('*/api/v1/follows/:user_id', () => new HttpResponse(null, { status: 204 })),
+
+  http.delete('*/api/v1/follows/:user_id', () => new HttpResponse(null, { status: 204 })),
+
+  // One author's posts (F11). Same envelope as the feeds, so it feeds `PostFeed`
+  // unchanged. An author with no posts is an empty page, NOT a 404 — only an
+  // unknown user is a 404, and the profile request answers that first.
+  http.get('*/api/v1/posts/by-author/:author_id', ({ request, params }) => {
+    const raw = String(params.author_id);
+    const userId = Number(raw);
+
+    if (!authorProfiles[userId]) {
+      return HttpResponse.json(
+        errorBody('PROFILE_NOT_FOUND', 404, `/api/v1/posts/by-author/${raw}`, 'Profile not found'),
+        { status: 404 },
+      );
+    }
+
+    const all = authorPosts[userId] ?? [];
+
+    const url = new URL(request.url);
+    const requested = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number.isFinite(requested) && requested > 0 ? requested : 20;
+    const start = Number(url.searchParams.get('cursor') ?? '0');
+
+    const payload: PostPage = {
+      items: all.slice(start, start + limit),
+      next_cursor: start + limit < all.length ? String(start + limit) : null,
+    };
+    return HttpResponse.json(payload);
   }),
 
   // Cursor paginated: opaque `next_cursor`, never an offset.
