@@ -15,6 +15,7 @@ import {
   adminProfile,
   adminTokens,
   adminUser,
+  authorProfiles,
   DEMO_ADMIN_EMAIL,
   DEMO_PASSWORD,
   homeFeedPosts,
@@ -94,6 +95,26 @@ export const handlers = [
   http.post('*/api/auth/logout', () => new HttpResponse(null, { status: 204 })),
 
   http.get('*/api/v1/users/me', () => HttpResponse.json(adminProfile)),
+
+  // `PostView` carries `author_id` only, so every feed card resolves its author
+  // here. Registered AFTER `/users/me` on purpose: MSW takes the first match, so
+  // the literal route has to win over `:user_id`.
+  //
+  // Unknown ids are a real 404 (`PROFILE_NOT_FOUND`), not a made-up profile —
+  // a test that asks for an author nobody seeded must fail loudly.
+  http.get('*/api/v1/users/:user_id', ({ params }) => {
+    const raw = String(params.user_id);
+    const profile = authorProfiles[Number(raw)];
+
+    if (!profile) {
+      return HttpResponse.json(
+        errorBody('PROFILE_NOT_FOUND', 404, `/api/v1/users/${raw}`, 'Profile not found'),
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json(profile);
+  }),
 
   // Cursor paginated: opaque `next_cursor`, never an offset.
   http.get('*/api/v1/feed/home', ({ request }) => {

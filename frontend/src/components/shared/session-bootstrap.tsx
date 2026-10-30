@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { restoreSession, useSessionStore } from '@/lib/api';
+import { getAccessToken, markBootstrapped, restoreSession } from '@/lib/api';
 
 /**
  * Reload bootstrap.
@@ -13,17 +13,32 @@ import { restoreSession, useSessionStore } from '@/lib/api';
  * readable `sf_session` hint says a refresh cookie exists, so anonymous
  * visitors never pay for a guaranteed-401 round trip.
  *
+ * Whatever the outcome, it then marks the store `bootstrapped` so the session
+ * guard can stop waiting and make a decision. Without that flag the guard
+ * cannot distinguish "not restored yet" from "restored, nobody there".
+ *
  * Renders nothing; resident in the root layout.
  *
- * (রিলোডে টোকেন মেমোরি থেকে মুছে যায় — এই কম্পোনেন্টটা কুকি থেকে সেশন ফিরিয়ে আনে।)
+ * (রিলোডে টোকেন মেমোরি থেকে মুছে যায় — এই কম্পোনেন্টটা কুকি থেকে সেশন ফিরিয়ে আনে,
+ *  আর শেষে `bootstrapped` সেট করে যাতে গার্ড সিদ্ধান্ত নিতে পারে।)
  */
 export function SessionBootstrap() {
-  const accessToken = useSessionStore((state) => state.accessToken);
+  // Mount-only. Sign-out clears the token on purpose, and re-running the
+  // bootstrap at that moment would re-mint it from a cookie the logout route
+  // has not necessarily cleared yet — silently undoing the sign-out.
+  const started = useRef(false);
 
   useEffect(() => {
-    if (accessToken) return;
-    void restoreSession();
-  }, [accessToken]);
+    if (started.current) return;
+    started.current = true;
+
+    if (getAccessToken()) {
+      markBootstrapped();
+      return;
+    }
+
+    void restoreSession().finally(markBootstrapped);
+  }, []);
 
   return null;
 }

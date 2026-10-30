@@ -11,6 +11,7 @@ import { Field, fieldMessageId } from '@/components/shared/field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiClient, apiRequest, errorMessageKey, startSession } from '@/lib/api';
+import { postSignInPath } from '@/lib/auth-routes';
 import { ROUTES } from '@/lib/constants';
 import {
   type FieldErrors,
@@ -21,6 +22,20 @@ import {
 
 const EMAIL_ID = 'login-email';
 const PASSWORD_ID = 'login-password';
+
+/**
+ * Read `?next=` from the address bar.
+ *
+ * Deliberately not `useSearchParams()`: that would force this page under a
+ * `Suspense` boundary for static rendering, and the value is only needed at
+ * submission time anyway. The result is passed through `postSignInPath`, which
+ * rejects anything that is not a safe internal path — `router.replace()` would
+ * otherwise follow `/login?next=https://evil.example` straight off the origin.
+ */
+function readNextParam(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('next');
+}
 
 /**
  * Sign-in form.
@@ -51,9 +66,14 @@ export function LoginForm() {
       // hands the refresh token to the httpOnly cookie route, so the session
       // survives a reload without a JS-readable credential.
       await startSession(data.tokens);
-      // `replace`, not `push`: the browser back button must not return to a
-      // form that has already been submitted.
-      router.replace(ROUTES.home);
+      // Honour a `?next=` set by the session guard (a reload on a protected page
+      // whose refresh cookie had expired), validated so this screen can never
+      // become an open redirect. Falls back to home, and refuses auth pages so
+      // the user cannot be bounced back into a form they just completed.
+      //
+      // `replace`, not `push`: the browser back button must not return to a form
+      // that has already been submitted.
+      router.replace(postSignInPath(readNextParam()));
       router.refresh();
     },
   });

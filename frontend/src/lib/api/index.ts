@@ -24,6 +24,8 @@ export {
   clearTokens,
   getAccessToken,
   getTokens,
+  markBootstrapped,
+  resetBootstrap,
   setAccessToken,
   useSessionStore,
   type AuthTokens,

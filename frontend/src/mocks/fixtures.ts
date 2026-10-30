@@ -1,4 +1,10 @@
-import type { AuthTokens, PostView, ProfileSelf, UserPublic } from '../../contracts/types';
+import type {
+  AuthTokens,
+  PostView,
+  ProfilePublic,
+  ProfileSelf,
+  UserPublic,
+} from '../../contracts/types';
 
 /**
  * Contract-accurate fixtures for tests and MSW. Types come straight from the
@@ -63,6 +69,54 @@ export const adminProfile: ProfileSelf = {
   version: 1,
   created_at: '2026-01-01T09:00:00.000Z',
   updated_at: '2026-01-01T09:00:00.000Z',
+};
+
+/**
+ * Authors of the feed fixtures, keyed by `user_id`.
+ *
+ * `PostView` carries only `author_id`, so the feed UI resolves each author from
+ * `GET /api/v1/users/{user_id}`. Keeping them in one map means the mock server
+ * answers exactly the ids the fixtures reference — anything else is a genuine
+ * 404, and a test that asks for a missing author fails loudly instead of
+ * rendering a name that does not exist.
+ */
+export const authorProfiles: Record<number, ProfilePublic> = {
+  21: {
+    user_id: 21,
+    display_name: 'Admin',
+    bio: 'Runs the place.',
+    avatar_url: null,
+    location: 'Dhaka',
+    website: null,
+    visibility: 'public',
+  },
+  22: {
+    user_id: 22,
+    display_name: 'Alice Rahman',
+    bio: 'Writes about feeds.',
+    avatar_url: null,
+    location: 'Chattogram',
+    website: null,
+    visibility: 'public',
+  },
+  23: {
+    user_id: 23,
+    display_name: 'Bashir Hossain',
+    bio: null,
+    avatar_url: null,
+    location: null,
+    website: null,
+    visibility: 'public',
+  },
+  24: {
+    user_id: 24,
+    display_name: null,
+    bio: null,
+    avatar_url: null,
+    location: null,
+    website: null,
+    visibility: 'followers',
+  },
 };
 
 export const homeFeedPosts: PostView[] = [

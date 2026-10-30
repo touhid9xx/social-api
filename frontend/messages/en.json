@@ -52,6 +52,11 @@
         "digit": "A number",
         "symbol": "A symbol"
       }
+    },
+    "session": {
+      "signOut": "Sign out",
+      "signingOut": "Signing out…",
+      "restoring": "Restoring your session…"
     }
   },
   "common": {
@@ -260,6 +265,31 @@
     "networkError": "Could not reach the server. Check your connection and try again.",
     "unexpectedError": "Something went wrong. Please try again."
   },
+  "feed": {
+    "title": "Home feed",
+    "subtitle": "The people you follow, plus what's worth ranking.",
+    "loadingFeed": "Loading your feed…",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more…",
+    "loadMoreFailed": "Couldn't load more posts. Try again.",
+    "endOfFeed": "You're all caught up.",
+    "emptyTitle": "Nothing here yet",
+    "emptyBody": "Follow a few people and their posts will show up here.",
+    "errorTitle": "Couldn't load your feed",
+    "errorBody": "The feed didn't come back. Check your connection and try again.",
+    "retry": "Try again",
+    "edited": "Edited",
+    "openPost": "Open post",
+    "authorFallback": "User {id}",
+    "commentCount": "{count, plural, one {# comment} other {# comments}}",
+    "likeCount": "{count, plural, one {# like} other {# likes}}",
+    "visibilityLabel": "Visibility: {visibility}",
+    "visibility": {
+      "public": "Public",
+      "followers": "Followers",
+      "private": "Private"
+    }
+  },
   "landing": {
     "brand": "Social",
     "nav": {
@@ -316,10 +346,6 @@
     "resetPassword": {
       "title": "Reset password",
       "description": "Password reset with token and fingerprint validation arrives in F5."
-    },
-    "home": {
-      "title": "Home feed",
-      "description": "The hybrid following plus ranked feed with cursor pagination arrives in F7."
     },
     "explore": {
       "title": "Explore",

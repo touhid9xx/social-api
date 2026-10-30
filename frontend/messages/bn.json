@@ -52,6 +52,11 @@
         "digit": "একটি সংখ্যা",
         "symbol": "একটি চিহ্ন"
       }
+    },
+    "session": {
+      "signOut": "সাইন আউট",
+      "signingOut": "সাইন আউট হচ্ছে…",
+      "restoring": "আপনার সেশন ফিরিয়ে আনা হচ্ছে…"
     }
   },
   "common": {
@@ -260,6 +265,31 @@
     "networkError": "সার্ভারে পৌঁছানো যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।",
     "unexpectedError": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"
   },
+  "feed": {
+    "title": "হোম ফিড",
+    "subtitle": "আপনি যাদের ফলো করেন, আর যা র‍্যাংক হওয়ার যোগ্য।",
+    "loadingFeed": "আপনার ফিড লোড হচ্ছে…",
+    "loadMore": "আরও দেখুন",
+    "loadingMore": "আরও লোড হচ্ছে…",
+    "loadMoreFailed": "আরও পোস্ট লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "endOfFeed": "সব দেখে ফেলেছেন।",
+    "emptyTitle": "এখনও কিছু নেই",
+    "emptyBody": "কয়েকজনকে ফলো করুন, তাদের পোস্ট এখানে দেখা যাবে।",
+    "errorTitle": "ফিড লোড করা যায়নি",
+    "errorBody": "ফিড আসেনি। সংযোগ দেখে আবার চেষ্টা করুন।",
+    "retry": "আবার চেষ্টা করুন",
+    "edited": "সম্পাদিত",
+    "openPost": "পোস্ট খুলুন",
+    "authorFallback": "ব্যবহারকারী {id}",
+    "commentCount": "{count, plural, one {#টি কমেন্ট} other {#টি কমেন্ট}}",
+    "likeCount": "{count, plural, one {#টি লাইক} other {#টি লাইক}}",
+    "visibilityLabel": "দৃশ্যমানতা: {visibility}",
+    "visibility": {
+      "public": "পাবলিক",
+      "followers": "ফলোয়ার",
+      "private": "প্রাইভেট"
+    }
+  },
   "landing": {
     "brand": "Social",
     "nav": {
@@ -316,10 +346,6 @@
     "resetPassword": {
       "title": "পাসওয়ার্ড রিসেট",
       "description": "টোকেন ও ফিঙ্গারপ্রিন্ট যাচাইসহ পাসওয়ার্ড রিসেট F5-এ আসবে।"
-    },
-    "home": {
-      "title": "হোম ফিড",
-      "description": "ফলোয়িং ও র‍্যাংকড মিশ্র ফিড, কার্সর পেজিনেশনসহ F7-এ আসবে।"
     },
     "explore": {
       "title": "এক্সপ্লোর",

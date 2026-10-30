@@ -29,6 +29,15 @@ export type SessionTokens = {
 
 type SessionState = {
   accessToken: string | null;
+  /**
+   * Whether the reload bootstrap has finished deciding. Without it a guard
+   * cannot tell "still restoring" (wait) from "restored, nobody there"
+   * (redirect) — and would bounce every reload of a signed-in page to /login.
+   *
+   * Deliberately NOT reset by `clearTokens`: signing out is a decision, not an
+   * un-decided state, so the guard must not fall back to "loading" afterwards.
+   */
+  bootstrapped: boolean;
 };
 
 /**
@@ -38,6 +47,7 @@ type SessionState = {
  */
 export const useSessionStore = create<SessionState>(() => ({
   accessToken: null,
+  bootstrapped: false,
 }));
 
 export function getAccessToken(): string | null {
@@ -56,4 +66,19 @@ export function setAccessToken(accessToken: string): void {
 
 export function clearTokens(): void {
   useSessionStore.setState({ accessToken: null });
+}
+
+/**
+ * Declare the reload bootstrap settled (token restored, or nobody to restore).
+ * Called once by `SessionBootstrap`; the guard waits for it before redirecting.
+ */
+export function markBootstrapped(): void {
+  if (!useSessionStore.getState().bootstrapped) {
+    useSessionStore.setState({ bootstrapped: true });
+  }
+}
+
+/** Test seam: return the store to its pre-bootstrap state. */
+export function resetBootstrap(): void {
+  useSessionStore.setState({ bootstrapped: false });
 }
