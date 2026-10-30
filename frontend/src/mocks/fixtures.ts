@@ -1,6 +1,7 @@
 import type {
   AuthTokens,
   CommentView,
+  NotificationView,
   PostView,
   ProfilePublic,
   ProfileSelf,
@@ -218,4 +219,118 @@ export const postComments: CommentView[] = [
   },
 ];
 
+/**
+ * The discovery corpus, deliberately DISJOINT from `homeFeedPosts`.
+ *
+ * Explore answers a different question than the home feed ("what is out there"
+ * versus "what did the people I follow say"), so sharing rows would make a test
+ * unable to tell which endpoint a page came from. Ids start at 201 for the same
+ * reason comment ids start at 501.
+ */
+export const exploreFeedPosts: PostView[] = [
+  {
+    id: 201,
+    author_id: 23,
+    body: 'Ranked discovery, so a post does not need a follower to be read.',
+    visibility: 'public',
+    like_count: 40,
+    comment_count: 0,
+    media_count: 0,
+    version: 1,
+    created_at: '2026-01-15T08:00:00.000Z',
+    updated_at: '2026-01-15T08:00:00.000Z',
+    is_liked_by_me: false,
+    is_edited: false,
+  },
+  {
+    id: 202,
+    author_id: 22,
+    body: 'Opaque cursors mean the client never learns how the ranking works.',
+    visibility: 'public',
+    like_count: 7,
+    comment_count: 0,
+    media_count: 0,
+    version: 1,
+    created_at: '2026-01-15T07:30:00.000Z',
+    updated_at: '2026-01-15T07:30:00.000Z',
+    is_liked_by_me: true,
+    is_edited: false,
+  },
+  {
+    id: 203,
+    author_id: 24,
+    body: 'A private post, visible here only because this viewer may see it.',
+    visibility: 'private',
+    like_count: 0,
+    comment_count: 0,
+    media_count: 0,
+    version: 1,
+    created_at: '2026-01-15T07:00:00.000Z',
+    updated_at: '2026-01-15T07:00:00.000Z',
+    is_liked_by_me: false,
+    is_edited: false,
+  },
+];
+
+/**
+ * The inbox: four rows, three of them unread — which is exactly what
+ * `unreadNotificationCount` above advertises, so a badge and the list it points
+ * at cannot disagree.
+ *
+ * Every `type` in `NOTIFICATION_TYPES` except `comment_reply` appears, and the
+ * rows deliberately vary in two ways that the UI must handle:
+ *  - `target_type` is `post` for some rows (linkable, `/posts/{id}`) and
+ *    `comment`/`user` for others (NOT linkable: a comment id is not a post id,
+ *    and `/profile` is keyed by username while the contract exposes `user_id`);
+ *  - `actor_id` 24 has a null display name, so the row must fall back to
+ *    "User {id}" rather than render an empty name.
+ */
+export const notifications: NotificationView[] = [
+  {
+    id: 301,
+    type: 'like_post',
+    target_type: 'post',
+    target_id: 101,
+    actor_id: 22,
+    is_read: false,
+    read_at: null,
+    preview: 'Cursor pagination means the list never jumps under your thumb.',
+    created_at: '2026-01-15T09:59:00.000Z',
+  },
+  {
+    id: 302,
+    type: 'follow',
+    target_type: 'user',
+    target_id: 23,
+    actor_id: 23,
+    is_read: false,
+    read_at: null,
+    preview: null,
+    created_at: '2026-01-15T09:55:00.000Z',
+  },
+  {
+    id: 303,
+    type: 'comment_post',
+    target_type: 'post',
+    target_id: 101,
+    actor_id: 24,
+    is_read: false,
+    read_at: null,
+    preview: 'Does this hold up on a slow connection?',
+    created_at: '2026-01-15T09:50:00.000Z',
+  },
+  {
+    id: 304,
+    type: 'like_comment',
+    target_type: 'comment',
+    target_id: 501,
+    actor_id: 22,
+    is_read: true,
+    read_at: '2026-01-15T09:45:00.000Z',
+    preview: 'This is exactly the problem I kept hitting.',
+    created_at: '2026-01-15T09:40:00.000Z',
+  },
+];
+
+/** Three of the four rows above are unread — see the note on `notifications`. */
 export const unreadNotificationCount = { unread: 3 };

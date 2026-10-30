@@ -80,7 +80,7 @@ export const queryKeys = {
 
   notifications: {
     all: ['social', 'notifications'] as const,
-    list: (filters: ListFilters = {}) =>
+    list: (filters: ListFilters & { unreadOnly?: boolean } = {}) =>
       ['social', 'notifications', 'list', listKey(filters)] as const,
     unreadCount: () => ['social', 'notifications', 'unread-count'] as const,
   },

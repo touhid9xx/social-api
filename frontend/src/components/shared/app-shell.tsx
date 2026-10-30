@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 
+import { AppNav } from '@/components/shared/app-nav';
 import { RequireSession } from '@/components/shared/require-session';
 import { SignOutButton } from '@/components/shared/sign-out-button';
 import { ThemeToggle } from '@/components/shared/theme-toggle';
@@ -29,15 +30,21 @@ export async function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col bg-muted/40">
       <header className="border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-6">
-          <Link href={ROUTES.home} className="flex items-center gap-2 font-semibold">
-            <span
-              aria-hidden="true"
-              className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground"
-            >
-              S
-            </span>
-            <span className="text-foreground">{t('name')}</span>
-          </Link>
+          <div className="flex min-w-0 items-center gap-4">
+            <Link href={ROUTES.home} className="flex items-center gap-2 font-semibold">
+              <span
+                aria-hidden="true"
+                className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground"
+              >
+                S
+              </span>
+              {/* The wordmark is the first thing to go on a narrow screen: the
+                  logo still links home, and the nav needs the room more. */}
+              <span className="hidden text-foreground sm:inline">{t('name')}</span>
+            </Link>
+
+            <AppNav />
+          </div>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />

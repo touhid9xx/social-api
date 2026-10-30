@@ -335,6 +335,12 @@
       "errorTitle": "Couldn't load this post",
       "errorBody": "The post didn't come back. Check your connection and try again."
     },
+    "explore": {
+      "title": "Explore",
+      "subtitle": "Posts from beyond the people you follow, ranked for you.",
+      "emptyTitle": "Nothing to explore yet",
+      "emptyBody": "When there are posts to discover, they'll show up here."
+    },
     "visibilityLabel": "Visibility: {visibility}",
     "visibility": {
       "public": "Public",
@@ -386,6 +392,41 @@
       "note": "Contract-driven. Types generated from the backend OpenAPI spec."
     }
   },
+  "nav": {
+    "label": "Primary",
+    "home": "Home",
+    "explore": "Explore",
+    "notifications": "Notifications",
+    "unreadCount": "{count, plural, one {# unread} other {# unread}}"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Everything that happened while you were away.",
+    "loading": "Loading your notifications…",
+    "emptyTitle": "Nothing to catch up on",
+    "emptyBody": "Likes, replies and new followers will show up here.",
+    "errorTitle": "Couldn't load your notifications",
+    "errorBody": "The inbox didn't come back. Check your connection and try again.",
+    "retry": "Try again",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more…",
+    "loadMoreFailed": "Couldn't load more notifications. Try again.",
+    "endOfList": "That's everything.",
+    "count": "{count, plural, one {# notification} other {# notifications}}",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "markingAllRead": "Marking…",
+    "deleteLabel": "Delete notification",
+    "unread": "Unread",
+    "actorFallback": "User {id}",
+    "types": {
+      "follow": "{name} started following you",
+      "likePost": "{name} liked your post",
+      "likeComment": "{name} liked your comment",
+      "commentPost": "{name} commented on your post",
+      "commentReply": "{name} replied to your comment"
+    }
+  },
   "pages": {
     "verifyEmail": {
       "title": "Verify email",
@@ -398,14 +439,6 @@
     "resetPassword": {
       "title": "Reset password",
       "description": "Password reset with token and fingerprint validation arrives in F5."
-    },
-    "explore": {
-      "title": "Explore",
-      "description": "Trending media grid and hashtag filters arrive in F12."
-    },
-    "notifications": {
-      "title": "Notifications",
-      "description": "The in-app inbox with unread badge arrives in F14, realtime delivery in F16."
     },
     "messages": {
       "title": "Messages",

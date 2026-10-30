@@ -6,9 +6,13 @@ import type {
   CommentCreate,
   CommentPage,
   CommentView,
+  ExploreFeedPage,
   HomeFeedPage,
   LoginRequest,
   LoginResponse,
+  MarkReadResponse,
+  NotificationPage,
+  NotificationView,
   PostCreate,
   PostView,
   RegisterRequest,
@@ -23,8 +27,10 @@ import {
   authorProfiles,
   DEMO_ADMIN_EMAIL,
   DEMO_PASSWORD,
+  exploreFeedPosts,
   FIXTURE_NOW,
   homeFeedPosts,
+  notifications,
   postComments,
   refreshedAccess,
   refreshedTokens,
@@ -202,10 +208,87 @@ export const handlers = [
     return HttpResponse.json(payload);
   }),
 
+  // Same envelope as the home feed; a different, non-overlapping corpus so a
+  // test can tell which endpoint produced a page.
+  http.get('*/api/v1/feed/explore', ({ request }) => {
+    const url = new URL(request.url);
+    const requested = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number.isFinite(requested) && requested > 0 ? requested : 20;
+    const cursor = url.searchParams.get('cursor');
+    const start = cursor ? Number(cursor) : 0;
+    const items = exploreFeedPosts.slice(start, start + limit);
+
+    const payload: ExploreFeedPage = {
+      items,
+      next_cursor: start + limit < exploreFeedPosts.length ? String(start + limit) : null,
+      cache_hit: false,
+    };
+    return HttpResponse.json(payload);
+  }),
+
+  // Registered BEFORE `GET /notifications` so the literal path wins over any
+  // `:id` route a later milestone adds — MSW takes the first match.
   http.get('*/api/v1/notifications/unread-count', () => {
     const payload: UnreadCount = unreadNotificationCount;
     return HttpResponse.json(payload);
   }),
+
+  // Cursor paginated, same opaque-cursor convention as the feeds.
+  // `unread_only` filters BEFORE slicing, because that is what the server does:
+  // filtering an already-sliced page would return short pages for the wrong
+  // reason and make `next_cursor` meaningless.
+  http.get('*/api/v1/notifications', ({ request }) => {
+    const url = new URL(request.url);
+    const requested = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number.isFinite(requested) && requested > 0 ? requested : 20;
+    const cursor = url.searchParams.get('cursor');
+    const start = cursor ? Number(cursor) : 0;
+    const unreadOnly = url.searchParams.get('unread_only') === 'true';
+
+    const rows = unreadOnly ? notifications.filter((row) => !row.is_read) : notifications;
+    const items = rows.slice(start, start + limit);
+
+    const payload: NotificationPage = {
+      items,
+      next_cursor: start + limit < rows.length ? String(start + limit) : null,
+    };
+    return HttpResponse.json(payload);
+  }),
+
+  // Returns the WHOLE updated row, which is what lets the client patch one cache
+  // entry instead of invalidating every loaded page. The shared fixture is not
+  // mutated — the same reason the post/comment create handlers stay read-only.
+  http.post('*/api/v1/notifications/:notif_id/read', ({ params }) => {
+    const raw = String(params.notif_id);
+    const row = notifications.find((item) => item.id === Number(raw));
+
+    if (!row) {
+      return HttpResponse.json(
+        errorBody(
+          'NOTIFICATION_NOT_FOUND',
+          404,
+          `/api/v1/notifications/${raw}/read`,
+          'Notification not found',
+        ),
+        { status: 404 },
+      );
+    }
+
+    const updated: NotificationView = { ...row, is_read: true, read_at: FIXTURE_NOW };
+    return HttpResponse.json(updated);
+  }),
+
+  // `{ updated }` is the number of rows actually flipped; 0 is a normal answer,
+  // so an already-read inbox is a 200 rather than an error or a 204.
+  http.post('*/api/v1/notifications/read-all', () => {
+    const payload: MarkReadResponse = {
+      updated: notifications.filter((row) => !row.is_read).length,
+    };
+    return HttpResponse.json(payload);
+  }),
+
+  // 204 with no body: the row is removed from the cache optimistically.
+  http.delete('*/api/v1/notifications/:notif_id', () => new HttpResponse(null, { status: 204 })),
 
   // ---------------------------------------------------------------------------
   // Writes (F8).

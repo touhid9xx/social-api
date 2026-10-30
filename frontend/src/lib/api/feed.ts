@@ -14,8 +14,26 @@ import { apiClient, apiRequest } from './client';
 
 export type HomeFeedPage = components['schemas']['HomeFeedPage'];
 
+/**
+ * `GET /api/v1/feed/explore` — the discovery feed.
+ *
+ * Same envelope as the home feed and the same `PostView` items; what differs is
+ * the backend's selection (ranked discovery instead of the follow graph), not the
+ * shape. That is why the UI shares one list component across both.
+ */
+export type ExploreFeedPage = components['schemas']['ExploreFeedPage'];
+
 /** One post as the feed serialises it. `author_id` is an id, not an author. */
 export type FeedPost = HomeFeedPage['items'][number];
+
+/**
+ * What every feed endpoint has in common: a page of posts plus an opaque cursor.
+ * The shared list component is written against this, so a feed is a feed.
+ */
+export type FeedPage = {
+  items: FeedPost[];
+  next_cursor?: string | null;
+};
 
 export type FeedQuery = {
   /** Opaque cursor from the previous page. `null`/omitted asks for the first. */
@@ -30,6 +48,26 @@ export async function getHomeFeed({
 }: FeedQuery = {}): Promise<HomeFeedPage> {
   return apiRequest(() =>
     apiClient.GET('/api/v1/feed/home', {
+      params: { query: { cursor, limit } },
+    }),
+  );
+}
+
+/**
+ * `GET /api/v1/feed/explore` — the discovery feed
+ * — [contracts/api_reference.md:1063].
+ *
+ * Same request shape as `getHomeFeed`: the viewer is the bearer token, not a
+ * query param, so there is nothing to pass but the cursor. The backend decides
+ * what "worth exploring" means (`FeedService.explore`), which is exactly why
+ * the client must not filter or reorder — it renders what comes back.
+ */
+export async function getExploreFeed({
+  cursor = null,
+  limit = DEFAULT_PAGE_SIZE,
+}: FeedQuery = {}): Promise<ExploreFeedPage> {
+  return apiRequest(() =>
+    apiClient.GET('/api/v1/feed/explore', {
       params: { query: { cursor, limit } },
     }),
   );
