@@ -203,9 +203,7 @@ async def seed(
         # Uses DEMO_EMAILS[0] so the guard tracks the domain automatically
         # if DEMO_EMAILS changes.
         existing = (
-            await session.execute(
-                select(User).where(User.email_hash == hash_email(DEMO_EMAILS[0]))
-            )
+            await session.execute(select(User).where(User.email_hash == hash_email(DEMO_EMAILS[0])))
         ).scalar_one_or_none()
         if existing is not None:
             print(">> [skip] demo data already present. Use --reset to re-seed.")
@@ -280,8 +278,7 @@ async def seed(
                 )
             else:
                 avatar_url_value = (
-                    "https://ui-avatars.com/api/"
-                    f"?name={name.replace(' ', '+')}&size=128"
+                    f"https://ui-avatars.com/api/?name={name.replace(' ', '+')}&size=128"
                 )
 
             profile = Profile(
@@ -291,9 +288,7 @@ async def seed(
                 avatar_url=avatar_url_value,
                 location=rng.choice(["Dhaka", "London", "Berlin", None]),
                 website=rng.choice(["https://example.com", None]),
-                visibility=rng.choice(
-                    [Visibility.PUBLIC, Visibility.PUBLIC, Visibility.FOLLOWERS]
-                ),
+                visibility=rng.choice([Visibility.PUBLIC, Visibility.PUBLIC, Visibility.FOLLOWERS]),
                 pii_visibility=Visibility.PRIVATE,
                 dob=rng.choice(["1990-05-15", None]),
                 phone=rng.choice(["+8801700000000", None]),
@@ -316,9 +311,7 @@ async def seed(
                     granted=granted,
                     granted_at=u.created_at,
                     revoked_at=(
-                        None
-                        if granted
-                        else u.created_at + timedelta(days=rng.randint(1, 10))
+                        None if granted else u.created_at + timedelta(days=rng.randint(1, 10))
                     ),
                     ip="127.0.0.1",
                     user_agent="seed-script",
@@ -614,9 +607,7 @@ async def seed(
             member_ids = (
                 (
                     await session.execute(
-                        select(ChatRoomMember.user_id).where(
-                            ChatRoomMember.room_id == room.id
-                        )
+                        select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == room.id)
                     )
                 )
                 .scalars()

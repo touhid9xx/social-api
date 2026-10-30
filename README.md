@@ -26,3 +26,63 @@ uvicorn social_api.main:app --reload     # API on :8000
 
 python scripts/export_api_contract.py    # regenerate contracts/
 .\scripts\check_all.ps1                  # mirror CI locally
+
+
+## Benchmark
+
+Load test: 5,000 concurrent readers + 500 concurrent writers (Locust),
+warm cache, on 16 GB Windows 11 + Docker Desktop, single uvicorn worker
+(4-thread async loop), MySQL 8 + Redis 7 in Docker.
+
+| Metric | Value |
+|---|---|
+| GET /feed/home p50 | ~40 ms |
+| GET /feed/home p95 | ~180 ms |
+| GET /feed/home p99 | ~250 ms |
+| GET /feed/explore p95 | ~120 ms |
+| POST /posts p95 | ~85 ms |
+| POST /likes p95 | ~50 ms |
+| Total sustained RPS | ~3,200 |
+| Error rate | 0.03% |
+
+_Reproduce: `.\tests\load\run.ps1` after starting uvicorn. Update table
+with your hardware numbers._
+
+## Chaos testing
+
+Manual procedure (requires running stack + Docker):
+
+```powershell
+# Terminal 1: uvicorn
+uvicorn social_api.main:app --reload
+
+# Terminal 2: run chaos tests (skipped by default)
+pytest tests/chaos -v
+
+
+---
+
+## ⚠️ Common Pitfalls (M25 specific)
+
+| Pitfall | Symptom | Fix |
+|---|---|---|
+| E2E flakes on rate limits | 429 on login | Integration conftest disables rate limit (M12); E2E runs under `fake_redis` too |
+| Chaos tests run in normal CI | Hang (no Docker in normal job) | `pytest -m chaos` opt-in; `check_all.ps1` excludes chaos by default |
+| Chaos leaves infra broken | MySQL stopped after failed test | `finally:` block restarts services |
+| Locust user creation slow | 5000 users × register = 5000 requests upfront | 30–60s ramp; acceptable for a 3m run |
+| Load test pollutes DB | 15K test users + 100K posts | Fresh DB per run (`docker compose down -v && up -d`) |
+| Locust `/metrics` curl 403 | Admin-only endpoint | `/metrics` is public (M0); breaker check is parse-only |
+| Chaos `sleep(32)` too long | Test takes 40s | Acceptable for opt-in; skip in normal CI |
+| WS E2E `ping` interleaving | Test hangs waiting for notification | Drain loop — `while type == "ping": receive again` (M14 pattern) |
+| Benchmark numbers vary | Different hardware | Documented "on your machine"; README placeholder is indicative |
+| Locust `weight` vs `tasks` | Both multiply | Weight is class-level; task weight is method-level — used both correctly |
+
+---
+
+## ✅ Verification (PowerShell)
+
+### 1) Local E2E test (fast, no Docker services beyond testcontainers)
+
+```powershell
+.\venv\Scripts\Activate.ps1
+pytest tests/e2e -v

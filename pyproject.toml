@@ -57,7 +57,6 @@ dependencies = [
     # Contract export
     "openpyxl>=3.1.5",
 
-
     # i18n
     "babel>=2.16.0",
 ]
@@ -80,9 +79,17 @@ dev = [
     "boto3>=1.35.0",
     "types-boto3>=1.35.0",
     "types-openpyxl>=3.1",
-
-
 ]
+
+# Production extras. `prod` intentionally EMPTY — uvicorn (already in base deps)
+# runs the ASGI server with --workers N. Gunicorn was removed because:
+#   - uvicorn.workers.UvicornWorker was removed in uvicorn 0.31 (2024-12)
+#   - uvicorn >= 0.32 (your pin) cannot use gunicorn's UvicornWorker
+#   - uvicorn --workers N provides identical supervision (fork, SIGTERM,
+#     graceful shutdown, worker recycling) with one less dependency
+# If you ever need to add real prod-only extras (e.g., sentry-sdk,
+# prometheus-client extras, geoip), append them here.
+prod = []
 
 [build-system]
 requires = ["setuptools>=75"]
@@ -113,11 +120,12 @@ ignore = [
     "S105",
 ]
 
-
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "PT011"]
 "alembic/**" = ["N999"]
 "scripts/**" = ["T201", "S603", "S607"]
+"tests/chaos/*.py" = ["S603", "S607"]
+"tests/load/*.py" = ["S311"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -154,7 +162,7 @@ module = [
     "kombu.*",
     "billiard.*",
     "amqp.*",
-    "filetype.*"
+    "filetype.*",
 ]
 ignore_missing_imports = true
 
@@ -175,6 +183,7 @@ markers = [
     "unit: fast unit tests",
     "integration: needs docker services",
     "e2e: end-to-end lifecycle",
+    "chaos: kills infrastructure — needs docker compose running",
     "slow: slow tests",
 ]
 

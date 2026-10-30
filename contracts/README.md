@@ -1,6 +1,6 @@
 # API Contract Bundle
 
-Auto-generated from commit `8522af2f43a3` at 2026-10-28T18:09:53.177569+00:00.
+Auto-generated from commit `9cea165cc249` at 2026-10-29T01:02:14.653825+00:00.
 
 **Do not edit these files by hand.** Regenerate with:
 

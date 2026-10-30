@@ -39,7 +39,7 @@ COPY pyproject.toml README.md /app/
 COPY src /app/src
 
 # ---- Install into /venv (production extras only, no [dev]) ----
-RUN pip install --upgrade pip && pip install ".[s3]"
+RUN pip install --upgrade pip && pip install ".[s3,prod]"
 
 # =============================================================================
 # Stage 2 — runtime

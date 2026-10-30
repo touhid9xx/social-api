@@ -85,3 +85,7 @@ logs/
 # Contracts — auto-generated but COMMITTED intentionally
 # (do NOT ignore contracts/)
 # ──────────────────────────────────────────────────────────────
+secrets/*.pem
+secrets/
+secrets/
+*.pem
