@@ -1889,6 +1889,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Version */
+            version: number;
         };
         /**
          * ResetPasswordRequest

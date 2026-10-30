@@ -1,4 +1,87 @@
 {
+  "admin": {
+    "reports": {
+      "title": "Moderation queue",
+      "subtitle": "Review what people reported, and decide what happens next.",
+      "loading": "Loading reports…",
+      "filterLabel": "Status",
+      "allStatuses": "All statuses",
+      "count": "{count} reports",
+      "emptyTitle": "Nothing to review",
+      "emptyBody": "No reports match this filter. Switch back to all statuses to see the whole queue.",
+      "errorTitle": "Couldn't load the queue",
+      "errorBody": "The report list didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "staffOnlyTitle": "Staff only",
+      "staffOnlyBody": "This queue is for moderators and admins. If you think you should have access, ask an administrator.",
+      "loadingMore": "Loading…",
+      "loadMore": "Load more",
+      "loadMoreFailed": "That page didn't load. Try again.",
+      "endOfList": "No more reports.",
+      "reporterFallback": "User {id}",
+      "reportedBy": "Reported by {name}",
+      "noDetails": "No extra details were given.",
+      "resolutionLabel": "Resolution note",
+      "resolvedAt": "Closed {time}",
+      "targetLine": "{target} #{id}",
+      "conflict": "Someone else reviewed this while you had it open.",
+      "reload": "Reload",
+      "locked": "This report is closed. Reopening is not supported.",
+      "noteLabel": "Resolution note (optional)",
+      "notePlaceholder": "What did you decide, and why?",
+      "status": {
+        "open": "Open",
+        "under_review": "Under review",
+        "resolved": "Resolved",
+        "dismissed": "Dismissed"
+      },
+      "reason": {
+        "spam": "Spam",
+        "abuse": "Abuse",
+        "harassment": "Harassment",
+        "other": "Other"
+      },
+      "target": {
+        "post": "Post",
+        "comment": "Comment",
+        "user": "User",
+        "message": "Message"
+      },
+      "transition": {
+        "under_review": "Start review",
+        "resolved": "Resolve",
+        "dismissed": "Dismiss"
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "subtitle": "Every privileged action in order, with any personal data already redacted.",
+      "loading": "Loading the audit log…",
+      "actionLabel": "Action",
+      "allActions": "All actions",
+      "entityLabel": "Entity",
+      "allEntities": "All entities",
+      "count": "{count} entries",
+      "emptyTitle": "No audit entries",
+      "emptyBody": "Nothing has been recorded for this filter yet.",
+      "errorTitle": "Couldn't load the audit log",
+      "errorBody": "The log didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "adminOnlyTitle": "Admins only",
+      "adminOnlyBody": "The audit trail is limited to administrators. If you think you should have access, ask an administrator.",
+      "loadingMore": "Loading…",
+      "loadMore": "Load more",
+      "loadMoreFailed": "That page didn't load. Try again.",
+      "systemActor": "System",
+      "actorFallback": "User {id}",
+      "actorLine": "By {name}",
+      "entityLine": "{entity} #{id}",
+      "ip": "IP {ip}",
+      "showDiff": "Show before and after",
+      "before": "Before",
+      "after": "After"
+    }
+  },
   "app": {
     "name": "Social",
     "tagline": "Where your people are."
@@ -568,14 +651,6 @@
     "adminUsers": {
       "title": "Admin · users",
       "description": "The paginated user table arrives in F21."
-    },
-    "adminReports": {
-      "title": "Admin · reports",
-      "description": "The moderation report queue arrives in F21."
-    },
-    "adminAudit": {
-      "title": "Admin · audit log",
-      "description": "The audit log explorer arrives in F21."
     }
   },
   "settings": {

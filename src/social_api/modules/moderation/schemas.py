@@ -41,6 +41,10 @@ class ReportView(BaseModel):
     resolved_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Row version for the optimistic lock in ReportUpdate. Without it the client
+    # has no way to learn the current version, and every PATCH would have to
+    # read `current_version` from a 409 detail and retry — a guessing loop.
+    version: int
 
 
 class ReportPage(BaseModel):

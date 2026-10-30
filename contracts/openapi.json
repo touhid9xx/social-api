@@ -2155,6 +2155,10 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -2169,7 +2173,8 @@
           "resolution_note",
           "resolved_at",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "version"
         ],
         "title": "ReportView",
         "type": "object"

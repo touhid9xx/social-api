@@ -116,7 +116,8 @@ export const queryKeys = {
   audit: {
     all: ['social', 'audit'] as const,
     mine: (filters: ListFilters = {}) => ['social', 'audit', 'me', listKey(filters)] as const,
-    list: (filters: ListFilters = {}) => ['social', 'audit', 'list', listKey(filters)] as const,
+    list: (filters: ListFilters & { action?: string; entity?: string } = {}) =>
+      ['social', 'audit', 'list', listKey(filters)] as const,
   },
 
   gdpr: {

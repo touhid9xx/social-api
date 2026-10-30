@@ -1,4 +1,5 @@
 import type {
+  AuditLogView,
   AuthTokens,
   CancelResponse,
   CommentView,
@@ -14,6 +15,7 @@ import type {
   PostView,
   ProfilePublic,
   ProfileSelf,
+  ReportView,
   RoomMembersList,
   RoomView,
   UnreadCount,
@@ -763,3 +765,109 @@ export const roomUnreadCounts: Record<number, UnreadCount> = {
   601: { unread: 0 },
   602: { unread: 2 },
 };
+
+// ---------------------------------------------------------------------------
+// Moderation + audit (F22).
+//
+// Ids start at 901 for reports and 951 for audit rows — clear of posts
+// (101–103, 201–203, 401–403), comments (501–503), rooms (601–602) and messages
+// (701–705, 801–803), so a rendered row always says which endpoint it came from.
+//
+// The two reports are deliberately the two shapes the queue has to survive:
+// one is still `open` (so the triage buttons and the note field are reachable)
+// and one is `resolved` (terminal, versioned, with a reviewer, a resolution
+// note and a `resolved_at`). The resolved one also has `details: null` so the
+// "no details" branch is reachable without inventing a third row.
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /moderation/reports` — newest first, which is the order the server
+ * returns and therefore the order the mock slices in.
+ */
+export const reports: ReportView[] = [
+  {
+    id: 901,
+    reporter_id: 22,
+    target_type: 'post',
+    target_id: 101,
+    reason: 'spam',
+    details: 'Same promotional link pasted under four different posts.',
+    status: 'open',
+    reviewer_id: null,
+    resolution_note: null,
+    resolved_at: null,
+    created_at: '2026-01-15T09:45:00.000Z',
+    updated_at: '2026-01-15T09:45:00.000Z',
+    version: 1,
+  },
+  {
+    id: 902,
+    reporter_id: 23,
+    target_type: 'comment',
+    target_id: 501,
+    reason: 'harassment',
+    details: null,
+    status: 'resolved',
+    reviewer_id: 21,
+    resolution_note: 'Removed the reply and warned the author.',
+    resolved_at: '2026-01-15T09:30:00.000Z',
+    created_at: '2026-01-15T09:00:00.000Z',
+    updated_at: '2026-01-15T09:30:00.000Z',
+    version: 2,
+  },
+];
+
+/**
+ * `GET /audit` — newest first, admin-only.
+ *
+ * Three rows, each carrying a different nullable combination on purpose:
+ *  - 953 has an actor (21, "Admin User"), an ip, a user agent and BOTH payloads;
+ *  - 952 has an actor whose profile resolves, no user agent and no request id;
+ *  - 951 has `actor_id: null`, which is the system-actor path, and only an
+ *    `after` payload — so the diff block shows one section, not two.
+ *
+ * The action/entity values are real enum members (`AUDIT_ACTIONS` /
+ * `AUDIT_ENTITIES`) because a fixture that invented its own would make the
+ * filter selects look exhaustive while proving nothing.
+ */
+export const auditLogs: AuditLogView[] = [
+  {
+    id: 953,
+    actor_id: 21,
+    action: 'MODERATION_STATUS_UPDATE',
+    entity: 'report',
+    entity_id: 902,
+    before: { status: 'under_review' },
+    after: { status: 'resolved' },
+    ip: '203.0.113.10',
+    user_agent: 'Mozilla/5.0 (test)',
+    request_id: 'req-audit-953',
+    created_at: '2026-01-15T09:30:00.000Z',
+  },
+  {
+    id: 952,
+    actor_id: 22,
+    action: 'PROFILE_UPDATE',
+    entity: 'profile',
+    entity_id: 22,
+    before: { bio: null },
+    after: { bio: 'Building things.' },
+    ip: '198.51.100.4',
+    user_agent: null,
+    request_id: null,
+    created_at: '2026-01-15T09:20:00.000Z',
+  },
+  {
+    id: 951,
+    actor_id: null,
+    action: 'DELETE_CHAT_MESSAGE',
+    entity: 'message',
+    entity_id: 801,
+    before: null,
+    after: { deleted: true },
+    ip: null,
+    user_agent: null,
+    request_id: null,
+    created_at: '2026-01-15T09:10:00.000Z',
+  },
+];

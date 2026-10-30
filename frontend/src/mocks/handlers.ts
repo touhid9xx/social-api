@@ -3,6 +3,8 @@ import { HttpResponse, http } from 'msw';
 import type { ApiErrorBody } from '@/types';
 
 import type {
+  AuditLogView,
+  AuditPage,
   CancelResponse,
   CommentCreate,
   CommentPage,
@@ -33,6 +35,9 @@ import type {
   ReadReceiptsList,
   RegisterRequest,
   RegisterResponse,
+  ReportPage,
+  ReportUpdate,
+  ReportView,
   ResetPasswordRequest,
   RoomMembersList,
   RoomView,
@@ -44,6 +49,7 @@ import {
   adminProfile,
   adminTokens,
   adminUser,
+  auditLogs,
   authorPosts,
   authorProfiles,
   cancelDeletionResponse,
@@ -66,6 +72,7 @@ import {
   postComments,
   refreshedAccess,
   refreshedTokens,
+  reports,
   RESET_PASSWORD_TOKEN,
   roomMembers,
   roomMessages,
@@ -919,6 +926,119 @@ export const handlers = [
   http.get('*/api/v1/chat/rooms/:room_id/unread-count', ({ params }) => {
     const roomId = Number(params.room_id);
     const payload: UnreadCount = roomUnreadCounts[roomId] ?? { unread: 0 };
+    return HttpResponse.json(payload);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Moderation + audit (F22).
+  //
+  // Both reads are staff-gated on the real server (`require_roles(MODERATOR,
+  // ADMIN)` and `require_roles(ADMIN)`), but the mock answers 200 by default:
+  // the signed-in fixture user IS an admin, and a test that wants the `403`
+  // branch overrides the handler with `server.use()` — the same way
+  // `VERSION_CONFLICT` is manufactured in `profile-form.test.tsx`. Encoding a
+  // role here would pretend the frontend knows the caller's role, which
+  // `ProfileSelf` does not expose.
+  //
+  // `PATCH` is stateless like every other write in this file: it validates the
+  // optimistic lock and the terminal-state lock against the fixture, then
+  // returns the updated view WITHOUT storing it. So a second PATCH still sees
+  // the seeded version — a test asserts the response, not a refetch.
+  // ---------------------------------------------------------------------------
+
+  // Opaque numeric-offset cursor, exactly like the chat message pager: the
+  // client only ever echoes `next_cursor` back.
+  http.get('*/api/v1/moderation/reports', ({ request }) => {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const rows = status === null ? reports : reports.filter((report) => report.status === status);
+
+    const rawCursor = url.searchParams.get('cursor');
+    const rawLimit = Number(url.searchParams.get('limit'));
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : rows.length;
+    const start = rawCursor === null ? 0 : Number(rawCursor);
+
+    const items = rows.slice(start, start + limit);
+    const end = start + items.length;
+    const payload: ReportPage = {
+      items,
+      next_cursor: end < rows.length ? String(end) : null,
+    };
+
+    return HttpResponse.json(payload);
+  }),
+
+  http.patch('*/api/v1/moderation/reports/:report_id', async ({ request, params }) => {
+    const reportId = Number(params.report_id);
+    const path = `/api/v1/moderation/reports/${String(reportId)}`;
+    const report = reports.find((candidate) => candidate.id === reportId);
+
+    if (!report) {
+      return HttpResponse.json(errorBody('REPORT_NOT_FOUND', 404, path, 'Report not found'), {
+        status: 404,
+      });
+    }
+
+    const body = (await request.json()) as ReportUpdate;
+
+    // The optimistic lock as the server implements it: a stale version is a 409,
+    // never a silent overwrite. The detail carries the current version so a
+    // client could retry deliberately.
+    if (body.version !== report.version) {
+      return HttpResponse.json(
+        errorBody('VERSION_CONFLICT', 409, path, { current_version: report.version }),
+        { status: 409 },
+      );
+    }
+
+    // Terminal states are locked: repeating the same status is an idempotent
+    // no-op, any other move raises `REPORT_LOCKED` (409, per
+    // `moderation/exceptions.py`).
+    const terminal = report.status === 'resolved' || report.status === 'dismissed';
+    if (terminal && body.status !== report.status) {
+      return HttpResponse.json(
+        errorBody('REPORT_LOCKED', 409, path, 'Report is already resolved/dismissed'),
+        { status: 409 },
+      );
+    }
+
+    const closed = body.status === 'resolved' || body.status === 'dismissed';
+    const updated: ReportView = {
+      ...report,
+      status: body.status,
+      reviewer_id: adminUser.id,
+      resolution_note: body.resolution_note ?? null,
+      resolved_at: closed ? FIXTURE_NOW : null,
+      updated_at: FIXTURE_NOW,
+      version: report.version + 1,
+    };
+
+    return HttpResponse.json(updated);
+  }),
+
+  // The admin-only audit trail: same offset cursor, plus the two enum filters.
+  http.get('*/api/v1/audit', ({ request }) => {
+    const url = new URL(request.url);
+    const action = url.searchParams.get('action');
+    const entity = url.searchParams.get('entity');
+
+    const rows = auditLogs.filter(
+      (log) =>
+        (action === null || log.action === action) && (entity === null || log.entity === entity),
+    );
+
+    const rawCursor = url.searchParams.get('cursor');
+    const rawLimit = Number(url.searchParams.get('limit'));
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : rows.length;
+    const start = rawCursor === null ? 0 : Number(rawCursor);
+
+    const items: AuditLogView[] = rows.slice(start, start + limit);
+    const end = start + items.length;
+    const payload: AuditPage = {
+      items,
+      next_cursor: end < rows.length ? String(end) : null,
+    };
+
     return HttpResponse.json(payload);
   }),
 ];

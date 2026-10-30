@@ -58,6 +58,7 @@ def _to_view(r: Report) -> ReportView:
         resolved_at=r.resolved_at,
         created_at=r.created_at,
         updated_at=r.updated_at,
+        version=r.version,
     )
 
 

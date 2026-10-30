@@ -387,6 +387,7 @@ export interface ReportView {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+  version: number;
 }
 
 export interface ResetPasswordRequest {
