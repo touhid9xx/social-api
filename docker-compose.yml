@@ -70,8 +70,12 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
+    # Host port 3030 (not 3000): 3000 is reserved for the Next.js frontend
+    # (`pnpm dev`), which the backend already expects via WEB_APP_URL and
+    # CORS_ORIGINS. 3030 also stays clear of Next's 3001/3002 auto-increment
+    # fallback, so a busy :3000 can never collide with Grafana again.
     ports:
-      - "3000:3000"
+      - "3030:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
