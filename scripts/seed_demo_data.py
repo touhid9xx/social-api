@@ -135,6 +135,15 @@ def _generate_png(seed: int, size: int = 128) -> bytes:
 
     Each seed produces a different color, so a gallery of images has
     visible variety.
+
+    The color alone is NOT unique per seed: ``seed * k % 256`` repeats
+    every 256 seeds, so two different seeds 256 apart render identical
+    pixels. The media table has a unique ``(owner_id, sha256)``
+    constraint, so the seed is also embedded verbatim in a ``tEXt``
+    chunk (ignored by renderers, part of the hashed bytes) to keep the
+    mapping seed -> bytes injective. Without this, a user owning media
+    from two seed ranges (e.g. a post image at seed 1000 and gallery
+    images at seed 4840) hits that constraint.
     """
     r = (seed * 67) % 256
     g = (seed * 131) % 256
@@ -146,9 +155,10 @@ def _generate_png(seed: int, size: int = 128) -> bytes:
 
     sig = b"\x89PNG\r\n\x1a\n"
     ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)  # 8-bit RGB
+    seed_text = _chunk(b"tEXt", b"Seed\x00" + str(seed).encode("ascii"))
     row = b"\x00" + bytes([r, g, b]) * size
     idat = zlib.compress(row * size, 9)
-    return sig + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
+    return sig + _chunk(b"IHDR", ihdr) + seed_text + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
 
 
 def _write_media_file(media_root: Path, storage_key: str, data: bytes) -> bool:
@@ -584,9 +594,10 @@ async def seed(
                 session.add(gallery_post)
                 posts.append(gallery_post)
                 bump("posts")
-                # Distinct seed per (user, photo) → distinct bytes → distinct
-                # sha256, which the media table's owner+sha unique constraint
-                # requires. Same colour for every user would collide.
+                # Distinct seed per (user, photo). _generate_png embeds the
+                # seed in the PNG so bytes (and therefore sha256) stay distinct
+                # — the media table has a unique (owner_id, sha256) constraint
+                # and a user can own media from several seed ranges.
                 png_bytes = _generate_png(seed=4000 + u.id * 10 + j, size=512)
                 gallery_specs.append((gallery_post, png_bytes))
         await session.flush()
