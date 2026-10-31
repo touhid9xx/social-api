@@ -25,10 +25,11 @@ from social_api.modules.media.exceptions import (
     MediaTooLargeError,
     UnsupportedMediaTypeError,
 )
-from social_api.modules.media.models import Media
+from social_api.modules.media.models import Media, MediaKind
 from social_api.modules.media.repository import MediaRepository
 from social_api.modules.media.schemas import MediaView
 from social_api.modules.posts.repository import PostsRepository
+from social_api.modules.users.repository import ProfileRepository
 
 logger = get_logger(__name__)
 
@@ -80,6 +81,7 @@ class MediaService:
         self._s = session
         self._repo = MediaRepository(session)
         self._posts = PostsRepository(session)
+        self._profiles = ProfileRepository(session)
         self._storage = storage
 
     # ---- Upload ----
@@ -174,6 +176,45 @@ class MediaService:
             )
 
         url = await self._storage.url_for(key=media.storage_key)
+        return _to_view(media, url=url)
+
+    # ---- Set as profile picture ----
+    async def set_avatar(self, *, actor: User, media_id: int) -> MediaView:
+        """Make an owned image the caller's profile picture.
+
+        This lives here rather than on `PATCH /users/me` because
+        `ProfileUpdate.avatar_url` is an `HttpUrl`: the profile endpoints are
+        for editing text the user typed, and a storage key is not that. Keeping
+        the write on the media module also means the only way to set a picture
+        is to upload one first, so `avatar_url` can never point at a URL the
+        user invented — which is what stops the avatar field becoming an
+        image-tracking beacon on every profile view.
+
+        The stored value is the backend-relative path from the storage backend
+        (`/static/media/...`), exactly like `MediaView.url`; the client resolves
+        it against the API origin, so the same row keeps working when the API
+        moves host.
+        """
+        media = await self._repo.get_by_id(media_id)
+        if media is None:
+            raise MediaNotFoundError()
+        if media.owner_id != actor.id:
+            raise MediaForbiddenError()
+        if media.kind is not MediaKind.IMAGE:
+            raise UnsupportedMediaTypeError("avatar must be an image")
+
+        url = await self._storage.url_for(key=media.storage_key)
+
+        profile = await self._profiles.get_by_user_id(actor.id)
+        if profile is None:
+            # Registration creates a profile, so this is only reachable for an
+            # account whose profile row was soft-deleted — re-create rather than
+            # fail the upload the user just paid for.
+            profile = await self._profiles.create_default(actor.id)
+        profile.avatar_url = url
+        await self._profiles.save(profile)
+
+        logger.info("media_avatar_set", media_id=media.id, actor_id=actor.id)
         return _to_view(media, url=url)
 
     # ---- Soft-delete ----

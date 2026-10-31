@@ -63,3 +63,23 @@ export async function attachMediaToPost(mediaId: number, postId: number): Promis
     }),
   );
 }
+
+/**
+ * `POST /api/v1/media/{media_id}/avatar` — promote an already-uploaded image to
+ * the caller's profile picture.
+ *
+ * Deliberately NOT `PATCH /users/me { avatar_url }`: that field is a free-text
+ * `HttpUrl`, so letting the client write an arbitrary URL would turn every
+ * profile view into an image-tracking beacon pointing wherever the client chose.
+ * The id of an owned upload cannot point anywhere but at this server.
+ *
+ * Returns the updated `MediaView`; the new `avatar_url` is on `GET /users/me`,
+ * which the caller invalidates.
+ */
+export async function setAvatar(mediaId: number): Promise<MediaView> {
+  return apiRequest(() =>
+    apiClient.POST('/api/v1/media/{media_id}/avatar', {
+      params: { path: { media_id: mediaId } },
+    }),
+  );
+}

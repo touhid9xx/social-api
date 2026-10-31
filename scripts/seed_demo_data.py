@@ -3,12 +3,19 @@
 Deterministic, idempotent, transactional. Writes real PNG bytes to
 MEDIA_ROOT so <img src> works without 404.
 
+Every demo user also gets their own photo posts (see
+`GALLERY_PHOTOS_PER_USER`), so a signed-in visitor who explores other
+people finds non-empty feeds AND non-empty galleries — an image-bearing
+post is what `/profile/{id}/gallery` derives its tiles from.
+
 Usage:
-    python scripts/seed_demo_data.py                 # ~215 records
-    python scripts/seed_demo_data.py --scale 2       # ~430 records
+    python scripts/seed_demo_data.py                 # seed everything
     python scripts/seed_demo_data.py --reset         # delete demo users first
     python scripts/seed_demo_data.py --dry-run       # count-only, no insert
     python scripts/seed_demo_data.py --seed 0        # non-deterministic
+
+Exact per-table totals are printed on completion — they are not duplicated in
+this docstring, where they would only ever drift.
 
 Avatar URL modes:
     --avatar local     (default) — writes data/media/avatars/{uid}.png and
@@ -89,6 +96,11 @@ DEMO_EMAILS = [
     "carol@example.com",
     *[f"user{i:02d}@example.com" for i in range(1, 16)],
 ]
+
+# Public image posts created per demo user. `/profile/{id}/gallery` derives its
+# tiles from the author's posts that carry media, so this is what keeps every
+# demo profile's gallery non-empty (and the explore feed image-rich).
+GALLERY_PHOTOS_PER_USER = 2
 
 
 # =============================================================================
@@ -210,7 +222,7 @@ async def seed(
             return counts
 
         if dry_run:
-            print(">> [dry-run] would insert ~215 records; no changes made.")
+            print(">> [dry-run] would seed users, galleries and media; no changes made.")
             return counts
 
         # =====================================================================
@@ -239,7 +251,7 @@ async def seed(
             users.append(u)
             bump("users")
         await session.flush()
-        print(f"[ 1/16] users: {len(users)}")
+        print(f"[ 1/17] users: {len(users)}")
 
         # =====================================================================
         # 2. Profiles (1 per user) — writes avatar PNGs (local mode)
@@ -299,7 +311,7 @@ async def seed(
             profiles.append(profile)
             bump("profiles")
         await session.flush()
-        print(f"[ 2/16] profiles: {counts['profiles']} (avatars written: {avatars_written})")
+        print(f"[ 2/17] profiles: {counts['profiles']} (avatars written: {avatars_written})")
 
         # =====================================================================
         # 3. Consents
@@ -322,7 +334,7 @@ async def seed(
                 session.add(consent)
                 bump("user_consent")
         await session.flush()
-        print(f"[ 3/16] user_consent: {counts['user_consent']}")
+        print(f"[ 3/17] user_consent: {counts['user_consent']}")
 
         # =====================================================================
         # 4. Follows (make alice a celebrity)
@@ -357,7 +369,7 @@ async def seed(
             for v in rng.sample(users, k=rng.randint(2, 5)):
                 follow(u, v)
         await session.flush()
-        print(f"[ 4/16] follows: {counts['follows']}")
+        print(f"[ 4/17] follows: {counts['follows']}")
 
         # =====================================================================
         # 5. Blocks + Mutes
@@ -374,7 +386,7 @@ async def seed(
             session.add(Mute(muter_id=muter_id, muted_id=muted_id, created_at=now))
             bump("mutes")
         await session.flush()
-        print(f"[ 5/16] blocks+mutes: {counts['blocks']}+{counts['mutes']}")
+        print(f"[ 5/17] blocks+mutes: {counts['blocks']}+{counts['mutes']}")
 
         # =====================================================================
         # 6. Posts (40)
@@ -415,7 +427,7 @@ async def seed(
         # Soft-delete one post (frontend can test "deleted" rendering)
         posts[5].deleted_at = now - timedelta(days=3)
         await session.flush()
-        print(f"[ 6/16] posts: {counts['posts']}")
+        print(f"[ 6/17] posts: {counts['posts']}")
 
         # =====================================================================
         # 7. Comments (30; 20 top-level + 10 nested depth-2)
@@ -449,7 +461,7 @@ async def seed(
             session.add(reply)
             bump("comments")
         await session.flush()
-        print(f"[ 7/16] comments: {counts['comments']}")
+        print(f"[ 7/17] comments: {counts['comments']}")
 
         # =====================================================================
         # 8. Likes (30 on posts + 10 on comments)
@@ -480,7 +492,7 @@ async def seed(
                 rng.choice(top_comments).id,
             )
         await session.flush()
-        print(f"[ 8/16] likes: {counts['likes']}")
+        print(f"[ 8/17] likes: {counts['likes']}")
 
         # =====================================================================
         # 9. Media (10 post-attached + 5 orphan) — real PNG bytes on disk
@@ -530,7 +542,7 @@ async def seed(
             medias.append(orphan_media)
             bump("media")
         await session.flush()
-        print(f"[ 9/16] media: {counts['media']}")
+        print(f"[ 9/17] media: {counts['media']}")
 
         # Set post.media_count from real associations
         post_media_count: dict[int, int] = {}
@@ -542,7 +554,67 @@ async def seed(
         await session.flush()
 
         # =====================================================================
-        # 10. Chat rooms (3 direct + 3 group)
+        # 10. Galleries — every demo user gets public image posts
+        # =====================================================================
+        # `/profile/{id}/gallery` derives its tiles from the author's posts that
+        # carry media, so a demo account without image posts has an empty
+        # gallery and the screen looks broken to whoever signed in to explore.
+        # Public visibility is deliberate: these are the images a signed-in
+        # visitor is supposed to discover in the explore feed.
+        gallery_captions = [
+            "golden hour",
+            "street lights",
+            "new lens test",
+            "rooftop view",
+            "morning fog",
+            "coffee and code",
+            "film grain",
+            "city walk",
+        ]
+        gallery_specs: list[tuple[Post, bytes]] = []
+        for u in users:
+            for j in range(GALLERY_PHOTOS_PER_USER):
+                gallery_post = Post(
+                    author_id=u.id,
+                    body=f"{rng.choice(gallery_captions)} #{u.id:02d}-{j + 1}",
+                    visibility=Visibility.PUBLIC,
+                    created_at=_rand_dt(now, 60, rng),
+                    media_count=1,
+                )
+                session.add(gallery_post)
+                posts.append(gallery_post)
+                bump("posts")
+                # Distinct seed per (user, photo) → distinct bytes → distinct
+                # sha256, which the media table's owner+sha unique constraint
+                # requires. Same colour for every user would collide.
+                png_bytes = _generate_png(seed=4000 + u.id * 10 + j, size=512)
+                gallery_specs.append((gallery_post, png_bytes))
+        await session.flush()
+
+        for gallery_post, png_bytes in gallery_specs:
+            sha = hashlib.sha256(png_bytes).hexdigest()
+            storage_key = f"gallery/{sha[:16]}.png"
+            _write_media_file(media_root, storage_key, png_bytes)
+            session.add(
+                Media(
+                    owner_id=gallery_post.author_id,
+                    post_id=gallery_post.id,
+                    message_id=None,
+                    sha256=sha,
+                    mime="image/png",
+                    kind=MediaKind.IMAGE,
+                    size_bytes=len(png_bytes),
+                    storage_key=storage_key,
+                    original_name=f"gallery-{gallery_post.id}.png",
+                    created_at=gallery_post.created_at,
+                )
+            )
+            bump("media")
+        await session.flush()
+        print(f"[10/17] galleries: {len(gallery_specs)} images for {len(users)} users")
+
+        # =====================================================================
+        # 11. Chat rooms (3 direct + 3 group)
         # =====================================================================
         rooms: list[ChatRoom] = []
 
@@ -573,10 +645,10 @@ async def seed(
             rooms.append(group_room)
             bump("chat_rooms")
         await session.flush()
-        print(f"[10/16] chat_rooms: {counts['chat_rooms']}")
+        print(f"[11/17] chat_rooms: {counts['chat_rooms']}")
 
         # =====================================================================
-        # 11. Chat room members
+        # 12. Chat room members
         # =====================================================================
         for room in rooms:
             if room.type == RoomType.DIRECT:
@@ -597,10 +669,10 @@ async def seed(
                 )
                 bump("chat_room_members")
         await session.flush()
-        print(f"[11/16] chat_room_members: {counts['chat_room_members']}")
+        print(f"[12/17] chat_room_members: {counts['chat_room_members']}")
 
         # =====================================================================
-        # 12. Messages (25) — some with real media bytes
+        # 13. Messages (25) — some with real media bytes
         # =====================================================================
         msgs: list[Message] = []
         message_media: list[Media] = []
@@ -676,10 +748,10 @@ async def seed(
                 if idx % 2 == 0:
                     member.last_read_message_id = latest.id
         await session.flush()
-        print(f"[12/16] messages: {counts['messages']}")
+        print(f"[13/17] messages: {counts['messages']}")
 
         # =====================================================================
-        # 13. Notifications (30)
+        # 14. Notifications (30)
         # =====================================================================
         seen_n: set[tuple[int, int, str, str, int, date]] = set()
         notifications: list[Notification] = []
@@ -749,10 +821,10 @@ async def seed(
                 is_read=rng.random() < 0.5,
             )
         await session.flush()
-        print(f"[13/16] notifications: {counts['notifications']}")
+        print(f"[14/17] notifications: {counts['notifications']}")
 
         # =====================================================================
-        # 14. Reports (5 — one per status)
+        # 15. Reports (5 — one per status)
         # =====================================================================
         status_cycle = [
             ReportStatus.OPEN,
@@ -792,10 +864,10 @@ async def seed(
             reports.append(report)
             bump("reports")
         await session.flush()
-        print(f"[14/16] reports: {counts['reports']}")
+        print(f"[15/17] reports: {counts['reports']}")
 
         # =====================================================================
-        # 15. Audit log (one row per canonical action)
+        # 16. Audit log (one row per canonical action)
         # =====================================================================
         # Only canonical actions. The admin audit trail filters by a closed
         # server-side set (modules/audit/router.py::AuditActionLiteral), so a
@@ -910,13 +982,13 @@ async def seed(
             session.add(audit)
             bump("audit_log")
         await session.flush()
-        print(f"[15/16] audit_log: {counts['audit_log']}")
+        print(f"[16/17] audit_log: {counts['audit_log']}")
 
         # =====================================================================
-        # 16. Commit
+        # 17. Commit
         # =====================================================================
         await session.commit()
-        print(f"[16/16] committed. total records: {sum(counts.values())}")
+        print(f"[17/17] committed. total records: {sum(counts.values())}")
 
     return counts
 
@@ -948,7 +1020,10 @@ def main(argv: list[str] | None = None) -> int:
         "--scale",
         type=int,
         default=1,
-        help="Multiplier for record counts (default 1 = ~215 records).",
+        help=(
+            "Accepted for compatibility; current record counts are fixed "
+            "(the seeded totals are printed on completion)."
+        ),
     )
     parser.add_argument(
         "--reset",

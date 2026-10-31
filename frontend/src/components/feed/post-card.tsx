@@ -50,7 +50,7 @@ export function PostCard({ post }: { post: FeedPost }) {
     <article className="rounded-xl border border-border bg-card p-4 shadow-sm transition-colors focus-within:border-ring sm:p-5">
       <header className="flex items-start gap-3">
         <Avatar size="default">
-          {author?.avatar_url ? <AvatarImage src={author.avatar_url} alt="" /> : null}
+          {author?.avatar_url ? <AvatarImage src={mediaUrl(author.avatar_url)} alt="" /> : null}
           <AvatarFallback aria-hidden="true">{initial}</AvatarFallback>
         </Avatar>
 

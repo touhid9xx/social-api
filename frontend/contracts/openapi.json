@@ -4754,6 +4754,54 @@
         ]
       }
     },
+    "/api/v1/media/{media_id}/avatar": {
+      "post": {
+        "description": "Promote an uploaded image to the caller's profile picture.",
+        "operationId": "set_avatar_api_v1_media__media_id__avatar_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "title": "Media Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Avatar",
+        "tags": [
+          "media"
+        ]
+      }
+    },
     "/api/v1/moderation/reports": {
       "get": {
         "operationId": "list_reports_api_v1_moderation_reports_get",

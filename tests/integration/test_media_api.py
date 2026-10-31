@@ -98,6 +98,44 @@ async def test_upload_unsupported_type_415(
     assert r.json()["error"] == "UNSUPPORTED_MEDIA_TYPE"
 
 
+async def test_set_avatar_from_owned_upload(
+    uc: tuple[AsyncClient, InMemoryStorage],
+) -> None:
+    """An upload becomes the profile picture, and only the owner can do it."""
+    client, _ = uc
+    a = await _login(client, "avatar-a@example.com")
+    b = await _login(client, "avatar-b@example.com")
+    ha = {"Authorization": f"Bearer {a['access']}"}
+    hb = {"Authorization": f"Bearer {b['access']}"}
+
+    files = {"file": ("me.png", PNG_BYTES, "image/png")}
+    r = await client.post("/api/v1/media", headers=ha, files=files)
+    assert r.status_code == 201, r.text
+    media = r.json()
+
+    # The profile starts without a picture, so the assertion below can only pass
+    # because of the call under test.
+    r = await client.get("/api/v1/users/me", headers=ha)
+    assert r.status_code == 200
+    assert r.json()["avatar_url"] is None
+
+    r = await client.post(f"/api/v1/media/{media['id']}/avatar", headers=ha)
+    assert r.status_code == 200, r.text
+    assert r.json()["url"] == media["url"]
+
+    r = await client.get("/api/v1/users/me", headers=ha)
+    assert r.json()["avatar_url"] == media["url"]
+
+    # Someone else cannot promote A's image onto their own profile.
+    r = await client.post(f"/api/v1/media/{media['id']}/avatar", headers=hb)
+    assert r.status_code == 403
+    assert r.json()["error"] == "MEDIA_FORBIDDEN"
+
+    # And B's profile was not touched by the failed attempt.
+    r = await client.get("/api/v1/users/me", headers=hb)
+    assert r.json()["avatar_url"] is None
+
+
 async def test_attach_foreign_media_forbidden(
     uc: tuple[AsyncClient, InMemoryStorage],
 ) -> None:

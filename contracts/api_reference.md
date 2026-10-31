@@ -2,7 +2,7 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `b3fca9b6f387`
+**Generated from commit:** `8cb4765477e9`
 
 ---
 
@@ -1896,6 +1896,39 @@ curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TO
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
      http://localhost:8000/api/v1/media/{media_id}/attach/{post_id}
+```
+
+---
+
+### `POST` /api/v1/media/{media_id}/avatar
+
+**Summary:** Set Avatar
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| media_id | path | True | `{"type": "integer", "title": "Media Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/media/{media_id}/avatar
 ```
 
 ---

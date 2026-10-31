@@ -1,6 +1,6 @@
 'use client';
 
-import { Link2, MapPin } from 'lucide-react';
+import { Images, Link2, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 
@@ -8,8 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buttonVariants } from '@/components/ui/button';
 import { useFollowCounts } from '@/hooks/use-follow-counts';
 import { useMe } from '@/hooks/use-me';
+import { mediaUrl } from '@/lib/api/media';
 import type { PublicProfile } from '@/lib/api/users';
-import { ROUTES } from '@/lib/constants';
+import { profileGalleryPath, ROUTES } from '@/lib/constants';
 import { formatCount } from '@/lib/format';
 
 import { FollowButton } from './follow-button';
@@ -55,7 +56,7 @@ export function ProfileHeader({ profile }: { profile: PublicProfile }) {
     <header className="space-y-4 rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex items-start gap-4">
         <Avatar size="lg">
-          {profile.avatar_url ? <AvatarImage src={profile.avatar_url} alt="" /> : null}
+          {profile.avatar_url ? <AvatarImage src={mediaUrl(profile.avatar_url)} alt="" /> : null}
           <AvatarFallback aria-hidden="true">{initial}</AvatarFallback>
         </Avatar>
 
@@ -93,6 +94,17 @@ export function ProfileHeader({ profile }: { profile: PublicProfile }) {
               </dd>
             </div>
           </dl>
+
+          {/* Galleries are derived from posts, so there is no count to show and
+              no reason to hide the link on an empty one: the page explains
+              "nothing here yet", which is more useful than a missing door. */}
+          <Link
+            href={profileGalleryPath(profile.user_id)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Images aria-hidden="true" className="size-3.5" />
+            {t('galleryLink')}
+          </Link>
         </div>
 
         {/* Your own profile has no follow control (`CANNOT_FOLLOW_SELF`), so the

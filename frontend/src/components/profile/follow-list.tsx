@@ -10,6 +10,7 @@ import { type FollowListKind, useFollowList } from '@/hooks/use-follow-list';
 import { useInView } from '@/hooks/use-in-view';
 import { isAppApiError } from '@/lib/api';
 import type { FollowUser } from '@/lib/api/follows';
+import { mediaUrl } from '@/lib/api/media';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 
@@ -180,7 +181,7 @@ function FollowRow({ user }: { user: FollowUser }) {
       className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       <Avatar size="default">
-        {user.avatar_url ? <AvatarImage src={user.avatar_url} alt="" /> : null}
+        {user.avatar_url ? <AvatarImage src={mediaUrl(user.avatar_url)} alt="" /> : null}
         <AvatarFallback aria-hidden="true">{initial}</AvatarFallback>
       </Avatar>
 

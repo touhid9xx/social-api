@@ -23,3 +23,13 @@ export const ROUTES = {
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
+
+/** `/profile/{id}` — built in one place so a route rename cannot half-land. */
+export function profilePath(userId: number): string {
+  return `${ROUTES.profile}/${String(userId)}`;
+}
+
+/** `/profile/{id}/gallery` — a user's image gallery, derived from their posts. */
+export function profileGalleryPath(userId: number): string {
+  return `${profilePath(userId)}/gallery`;
+}

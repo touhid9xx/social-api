@@ -14,13 +14,27 @@ type ThemeChoice = (typeof ORDER)[number];
 const ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
 
 /**
- * Cycles light -> dark -> system. Server-rendered markup must not depend on the
- * resolved theme, so the label renders only after mount (hydration safety).
+ * Theme mode picker — icon buttons only, no visible text.
  *
- * (mounted guard ছাড়া server আর client আলাদা icon রেন্ডার করে hydration error
- *  দেয়।)
+ * A cycling button was the previous shape, and it made the *current* mode the
+ * only thing on screen: the other two were reachable but invisible, so choosing
+ * "dark" from "light" meant guessing how many presses it took. Three always-
+ * visible icon buttons make every mode one press away.
+ *
+ * With the words gone, the accessible name carries the whole meaning, so each
+ * button is labelled `Theme: Light` / `Theme: Dark` / `Theme: System` and marked
+ * with `aria-pressed`. The group itself is labelled so a screen reader announces
+ * "Theme, group" before reading three identical-looking icon buttons.
+ *
+ * Server-rendered markup must not depend on the resolved theme: `useTheme()`
+ * returns `undefined` on the server, so the pressed state renders only after
+ * mount. Without the guard the server would emit a different `aria-pressed` than
+ * the client and React would warn about a hydration mismatch.
+ *
+ * (থিম মোড এখন শুধু আইকন বাটন — লেখা নেই। তাই প্রতিটি বাটনের accessible name-ই
+ *  একমাত্র অর্থ বহন করে, আর `aria-pressed` দিয়ে বর্তমান মোড বোঝা যায়।)
  */
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const t = useTranslations('common');
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -30,33 +44,48 @@ export function ThemeToggle() {
   }, []);
 
   const active: ThemeChoice = mounted && isThemeChoice(theme) ? theme : 'system';
-  const Icon = ICONS[active];
-
-  const label =
-    active === 'light' ? t('themeLight') : active === 'dark' ? t('themeDark') : t('themeSystem');
-
-  function cycle() {
-    const next = ORDER[(ORDER.indexOf(active) + 1) % ORDER.length];
-    if (next) {
-      setTheme(next);
-    }
-  }
 
   return (
-    <button
-      type="button"
-      onClick={cycle}
-      aria-label={`${t('theme')}: ${label}`}
-      title={`${t('theme')}: ${label}`}
+    <div
+      role="group"
+      aria-label={t('theme')}
       className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground shadow-xs transition-colors',
-        'hover:bg-accent hover:text-accent-foreground',
-        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
+        'inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5',
+        className,
       )}
     >
-      <Icon aria-hidden="true" className="size-4" />
-      <span className="hidden sm:inline">{label}</span>
-    </button>
+      {ORDER.map((choice) => {
+        const Icon = ICONS[choice];
+        const label =
+          choice === 'light'
+            ? t('themeLight')
+            : choice === 'dark'
+              ? t('themeDark')
+              : t('themeSystem');
+
+        return (
+          <button
+            key={choice}
+            type="button"
+            onClick={() => {
+              setTheme(choice);
+            }}
+            aria-label={`${t('theme')}: ${label}`}
+            aria-pressed={active === choice}
+            title={`${t('theme')}: ${label}`}
+            className={cn(
+              'inline-flex size-8 items-center justify-center rounded-[5px] transition-colors',
+              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+              active === choice
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
+          >
+            <Icon aria-hidden="true" className="size-4" />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

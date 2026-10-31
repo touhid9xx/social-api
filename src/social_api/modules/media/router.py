@@ -80,6 +80,22 @@ async def attach_to_post(
     return result
 
 
+@router.post(
+    "/{media_id}/avatar",
+    response_model=MediaView,
+)
+async def set_avatar(
+    media_id: int,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage_backend),
+) -> MediaView:
+    """Promote an uploaded image to the caller's profile picture."""
+    result = await _svc(session, storage).set_avatar(actor=user.user, media_id=media_id)
+    await session.commit()
+    return result
+
+
 @router.delete(
     "/{media_id}",
     status_code=status.HTTP_204_NO_CONTENT,

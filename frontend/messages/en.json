@@ -581,9 +581,18 @@
     "explore": "Explore",
     "messages": "Messages",
     "notifications": "Notifications",
-    "profile": "Profile",
-    "settings": "Settings",
-    "unreadCount": "{count, plural, one {# unread} other {# unread}}"
+    "unreadCount": "{count, plural, one {# unread} other {# unread}}",
+    "userMenu": {
+      "label": "Account menu",
+      "signedInAs": "Signed in",
+      "signedOut": "Not signed in",
+      "signedOutHelp": "Sign in to post, chat and follow people.",
+      "unnamed": "Your account",
+      "profile": "Your profile",
+      "gallery": "Your gallery",
+      "settings": "Settings",
+      "signOut": "Sign out"
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -620,6 +629,7 @@
     "unfollowAction": "Unfollow {name}",
     "blockedByThem": "You can't follow this account.",
     "editProfile": "Edit profile",
+    "galleryLink": "Gallery",
     "privateBadge": "This profile is private.",
     "followersLabel": "Followers",
     "followingLabel": "Following",
@@ -652,6 +662,26 @@
       "errorTitle": "Couldn't load this list",
       "errorBody": "The list didn't come back. Check your connection and try again.",
       "retry": "Try again"
+    },
+    "gallery": {
+      "title": "Gallery",
+      "subtitle": "Photos they've shared, newest first.",
+      "loading": "Loading this gallery…",
+      "errorTitle": "Couldn't load this gallery",
+      "errorBody": "The gallery didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "emptyTitle": "No photos yet",
+      "emptyBody": "When they share a photo, it'll show up here.",
+      "emptyBodySelf": "Photos you attach to a post will show up here.",
+      "emptyAction": "Share a photo",
+      "gridLabel": "{count, plural, one {# photo} other {# photos}}",
+      "openPost": "Open the post with photo {index}",
+      "imageAlt": "Photo {index}",
+      "loadMore": "Load more",
+      "loadingMore": "Loading more…",
+      "loadMoreFailed": "Couldn't load more photos. Try again.",
+      "endOfGallery": "That's every photo.",
+      "backToProfile": "Back to profile"
     }
   },
   "pages": {
@@ -705,7 +735,16 @@
         "private": "Only me"
       },
       "saving": "Saving…",
-      "save": "Save changes"
+      "save": "Save changes",
+      "avatar": {
+        "label": "Profile picture",
+        "help": "JPG, PNG, WebP or GIF. The image is checked again on the server.",
+        "action": "Upload picture",
+        "uploading": "Uploading…",
+        "wrongType": "That file isn't an image. Pick a JPG, PNG, WebP or GIF.",
+        "tooLarge": "That image is larger than {megabytes} MB. Pick a smaller one.",
+        "success": "Profile picture updated"
+      }
     },
     "consent": {
       "title": "Consent",

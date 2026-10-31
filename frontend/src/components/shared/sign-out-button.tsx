@@ -1,50 +1,21 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, LogOut } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { endSession } from '@/lib/api';
-import { ROUTES } from '@/lib/constants';
+import { useSignOut } from '@/hooks/use-sign-out';
 
 /**
- * Sign-out control for the app shell.
+ * Standalone sign-out control.
  *
- * `endSession()` clears the in-memory token FIRST, then revokes server-side on a
- * best-effort basis and drops both cookies — so the local session is gone even
- * if the network is down. Nothing here can throw, which is why there is no
- * error state: a user who asks to sign out must never stay signed in because an
- * API call failed.
- *
- * The React Query cache is cleared before navigating. It is keyed by resource,
- * not by user, so leaving it populated would show the next account on this
- * device the previous account's cached feed.
- *
- * (সাইন আউট সবসময় সফল হয় — নেটওয়ার্ক ব্যর্থ হলেও লোকাল সেশন মুছে যায়;
- *  ক্যাশও পরিষ্কার করা হয় যাতে পরের অ্যাকাউন্ট আগের ডেটা না দেখে।)
+ * The behaviour lives in `useSignOut` — see that hook for why the local token is
+ * cleared before the network call, and why the query cache is emptied first.
+ * This component is only the button.
  */
 export function SignOutButton() {
   const t = useTranslations('auth.session');
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [pending, setPending] = useState(false);
-
-  async function handleSignOut() {
-    setPending(true);
-    try {
-      await endSession();
-      queryClient.clear();
-      // `replace`, not `push`: the signed-in page must not remain in history.
-      router.replace(ROUTES.login);
-      // Drop the server-rendered output too — it was produced with the cookie.
-      router.refresh();
-    } finally {
-      setPending(false);
-    }
-  }
+  const { signOut, pending } = useSignOut();
 
   const label = pending ? t('signingOut') : t('signOut');
 
@@ -52,7 +23,9 @@ export function SignOutButton() {
     <Button
       type="button"
       variant="outline"
-      onClick={handleSignOut}
+      onClick={() => {
+        void signOut();
+      }}
       disabled={pending}
       aria-label={label}
     >

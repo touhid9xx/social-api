@@ -4,8 +4,7 @@ import type { ReactNode } from 'react';
 
 import { AppNav } from '@/components/shared/app-nav';
 import { RequireSession } from '@/components/shared/require-session';
-import { SignOutButton } from '@/components/shared/sign-out-button';
-import { ThemeToggle } from '@/components/shared/theme-toggle';
+import { UserMenu } from '@/components/shared/user-menu';
 import { ROUTES } from '@/lib/constants';
 
 /**
@@ -46,10 +45,10 @@ export async function AppShell({ children }: { children: ReactNode }) {
             <AppNav />
           </div>
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <SignOutButton />
-          </div>
+          {/* Account actions live behind one avatar trigger. Theme, settings,
+              profile, gallery and sign-out are all "about me" and do not belong
+              in a row of primary destinations; see `user-menu.tsx`. */}
+          <UserMenu />
         </div>
       </header>
 

@@ -17,6 +17,7 @@ import {
 import { useNotifications } from '@/hooks/use-notifications';
 import { useInView } from '@/hooks/use-in-view';
 import { errorMessageKey } from '@/lib/api';
+import { mediaUrl } from '@/lib/api/media';
 import type { NotificationType, NotificationView } from '@/lib/api/notifications';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
@@ -141,7 +142,7 @@ function NotificationRow({ notification }: { notification: NotificationView }) {
       )}
     >
       <Avatar size="default">
-        {author?.avatar_url ? <AvatarImage src={author.avatar_url} alt="" /> : null}
+        {author?.avatar_url ? <AvatarImage src={mediaUrl(author.avatar_url)} alt="" /> : null}
         <AvatarFallback aria-hidden="true">{initial}</AvatarFallback>
       </Avatar>
 

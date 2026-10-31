@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
+import { AvatarUpload } from '@/components/settings/avatar-upload';
 import { Field, fieldMessageId } from '@/components/shared/field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,6 +144,11 @@ function ProfileFields({ profile, onReload }: { profile: SelfProfile; onReload: 
           ) : null}
         </div>
       ) : null}
+
+      {/* Above the field list and outside the submit flow: the avatar is its own
+          write (upload bytes → promote by id) and saves the moment a file is
+          picked, so it must not sit behind the form's Save button. */}
+      <AvatarUpload avatarUrl={profile.avatar_url} displayName={values.display_name} />
 
       <Field
         label={t('displayName')}

@@ -663,6 +663,27 @@ export const handlers = [
     return HttpResponse.json(attached);
   }),
 
+  // Promotes an owned upload to the caller's profile picture. Answers with the
+  // bare `MediaView` the backend returns; the profile itself is re-read by the
+  // `users.me` invalidation, which is what the UI actually renders, so this mock
+  // does not try to mutate `adminProfile` (shared across tests — see the note on
+  // `POST /posts`).
+  http.post('*/api/v1/media/:media_id/avatar', ({ params }) => {
+    const mediaId = Number(params.media_id);
+    const avatar: MediaView = {
+      id: mediaId,
+      owner_id: adminUser.id,
+      post_id: null,
+      kind: 'image',
+      mime: 'image/png',
+      size_bytes: 1024,
+      url: `/static/media/mock/${mediaId}`,
+      created_at: FIXTURE_NOW,
+    };
+
+    return HttpResponse.json(avatar);
+  }),
+
   // Both answer 204 with no body: the UI updates optimistically.
   http.post(
     '*/api/v1/likes/:target_type/:target_id',

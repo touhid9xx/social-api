@@ -16,6 +16,7 @@ import { useRoomMessages } from '@/hooks/use-room-messages';
 import { useRoom, useRoomMembers } from '@/hooks/use-rooms';
 import { errorMessageKey, isAppApiError } from '@/lib/api';
 import type { MessageView } from '@/lib/api/chat';
+import { mediaUrl } from '@/lib/api/media';
 import { flattenNewestFirst, peerIdOf, toChronological } from '@/lib/chat';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
@@ -265,7 +266,7 @@ function MessageRow({
     <li className={cn('flex items-end gap-2', mine ? 'flex-row-reverse' : 'flex-row')}>
       {mine ? null : (
         <Avatar size="sm">
-          {sender?.avatar_url ? <AvatarImage src={sender.avatar_url} alt="" /> : null}
+          {sender?.avatar_url ? <AvatarImage src={mediaUrl(sender.avatar_url)} alt="" /> : null}
           <AvatarFallback aria-hidden="true">{senderName.slice(0, 1).toUpperCase()}</AvatarFallback>
         </Avatar>
       )}

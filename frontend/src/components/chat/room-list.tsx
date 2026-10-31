@@ -11,6 +11,7 @@ import { useAuthor } from '@/hooks/use-author';
 import { useMe } from '@/hooks/use-me';
 import { useRoomMembers, useRooms } from '@/hooks/use-rooms';
 import type { RoomView } from '@/lib/api/chat';
+import { mediaUrl } from '@/lib/api/media';
 import { peerIdOf } from '@/lib/chat';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
@@ -78,7 +79,7 @@ function RoomRow({ room }: { room: RoomView }) {
         className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <Avatar size="default">
-          {peer?.avatar_url ? <AvatarImage src={peer.avatar_url} alt="" /> : null}
+          {peer?.avatar_url ? <AvatarImage src={mediaUrl(peer.avatar_url)} alt="" /> : null}
           <AvatarFallback aria-hidden="true">
             {isDirect ? initial : <Users aria-hidden="true" className="size-4" />}
           </AvatarFallback>

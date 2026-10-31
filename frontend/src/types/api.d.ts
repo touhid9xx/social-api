@@ -682,6 +682,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/media/{media_id}/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Avatar
+         * @description Promote an uploaded image to the caller's profile picture.
+         */
+        post: operations["set_avatar_api_v1_media__media_id__avatar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moderation/reports": {
         parameters: {
             query?: never;
@@ -3343,6 +3363,37 @@ export interface operations {
             path: {
                 media_id: number;
                 post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_avatar_api_v1_media__media_id__avatar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: number;
             };
             cookie?: never;
         };

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearTokens, setAccessToken } from '@/lib/api';
 import { renderWithProviders } from '@/lib/testing/render';
-import { adminProfile } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
 import { AppNav } from './app-nav';
@@ -50,24 +49,21 @@ describe('AppNav', () => {
       'href',
       '/notifications',
     );
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
-
     // Milestones that have not shipped (`/search`, the admin pages) must not
     // appear: a nav item leading to "arrives later" is the one control a user is
     // guaranteed to press.
-    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getAllByRole('link')).toHaveLength(4);
   });
 
-  it('links to the caller’s own profile once their id is known', async () => {
-    // The nav renders outside `RequireSession`, so the profile link waits for a
-    // token AND for `GET /users/me` — a link to `/profile` alone is a 404.
+  it('leaves account controls to the user menu', () => {
+    // Profile / Gallery / Settings / Sign out moved into `UserMenu` in the shell's
+    // top-right corner. The primary nav only carries destinations.
     setAccessToken('test-access-token');
     renderWithProviders(<AppNav />);
 
-    expect(await screen.findByRole('link', { name: 'Profile' })).toHaveAttribute(
-      'href',
-      `/profile/${String(adminProfile.user_id)}`,
-    );
+    expect(screen.queryByRole('link', { name: 'Profile' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull();
   });
 
   it('marks only the current route as the current page', () => {

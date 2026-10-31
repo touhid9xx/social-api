@@ -581,9 +581,18 @@
     "explore": "এক্সপ্লোর",
     "messages": "মেসেজ",
     "notifications": "নোটিফিকেশন",
-    "profile": "প্রোফাইল",
-    "settings": "সেটিংস",
-    "unreadCount": "{count, plural, one {#টি অপঠিত} other {#টি অপঠিত}}"
+    "unreadCount": "{count, plural, one {#টি অপঠিত} other {#টি অপঠিত}}",
+    "userMenu": {
+      "label": "অ্যাকাউন্ট মেনু",
+      "signedInAs": "সাইন ইন করা আছে",
+      "signedOut": "সাইন ইন করা নেই",
+      "signedOutHelp": "পোস্ট করতে, চ্যাট করতে আর মানুষকে ফলো করতে সাইন ইন করুন।",
+      "unnamed": "আপনার অ্যাকাউন্ট",
+      "profile": "আপনার প্রোফাইল",
+      "gallery": "আপনার গ্যালারি",
+      "settings": "সেটিংস",
+      "signOut": "সাইন আউট"
+    }
   },
   "notifications": {
     "title": "নোটিফিকেশন",
@@ -620,6 +629,7 @@
     "unfollowAction": "{name}-কে আনফলো করুন",
     "blockedByThem": "এই অ্যাকাউন্টকে ফলো করা যাবে না।",
     "editProfile": "প্রোফাইল সম্পাদনা করুন",
+    "galleryLink": "গ্যালারি",
     "privateBadge": "এই প্রোফাইলটি প্রাইভেট।",
     "followersLabel": "ফলোয়ার",
     "followingLabel": "ফলো করছেন",
@@ -652,6 +662,26 @@
       "errorTitle": "তালিকা লোড করা যায়নি",
       "errorBody": "তালিকা আসেনি। সংযোগ দেখে আবার চেষ্টা করুন।",
       "retry": "আবার চেষ্টা করুন"
+    },
+    "gallery": {
+      "title": "গ্যালারি",
+      "subtitle": "তিনি যেসব ছবি শেয়ার করেছেন, নতুনটি আগে।",
+      "loading": "গ্যালারি লোড হচ্ছে…",
+      "errorTitle": "গ্যালারি লোড করা যায়নি",
+      "errorBody": "গ্যালারি আসেনি। সংযোগ দেখে আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন",
+      "emptyTitle": "এখনও কোনো ছবি নেই",
+      "emptyBody": "তিনি ছবি শেয়ার করলে এখানে দেখা যাবে।",
+      "emptyBodySelf": "আপনি পোস্টে যে ছবি যোগ করবেন তা এখানে দেখা যাবে।",
+      "emptyAction": "ছবি শেয়ার করুন",
+      "gridLabel": "{count, plural, one {#টি ছবি} other {#টি ছবি}}",
+      "openPost": "{index} নম্বর ছবিসহ পোস্টটি খুলুন",
+      "imageAlt": "{index} নম্বর ছবি",
+      "loadMore": "আরও দেখুন",
+      "loadingMore": "আরও লোড হচ্ছে…",
+      "loadMoreFailed": "আরও ছবি লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "endOfGallery": "সব ছবি দেখে ফেলেছেন।",
+      "backToProfile": "প্রোফাইলে ফিরে যান"
     }
   },
   "pages": {
@@ -705,7 +735,16 @@
         "private": "শুধু আমি"
       },
       "saving": "সংরক্ষণ হচ্ছে…",
-      "save": "পরিবর্তন সংরক্ষণ করুন"
+      "save": "পরিবর্তন সংরক্ষণ করুন",
+      "avatar": {
+        "label": "প্রোফাইল ছবি",
+        "help": "JPG, PNG, WebP বা GIF। সার্ভারে ছবিটি আবার যাচাই করা হয়।",
+        "action": "ছবি আপলোড করুন",
+        "uploading": "আপলোড হচ্ছে…",
+        "wrongType": "ফাইলটি কোনো ছবি নয়। JPG, PNG, WebP বা GIF বেছে নিন।",
+        "tooLarge": "ছবিটি {megabytes} MB-এর চেয়ে বড়। ছোট একটি ছবি বেছে নিন।",
+        "success": "প্রোফাইল ছবি হালনাগাদ হয়েছে"
+      }
     },
     "consent": {
       "title": "সম্মতি",

@@ -1,43 +1,41 @@
 'use client';
 
-import { Bell, Compass, Home, MessageSquare, Settings as SettingsIcon, User } from 'lucide-react';
+import { Bell, Compass, Home, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
-import { useMe } from '@/hooks/use-me';
 import { useUnreadCount } from '@/hooks/use-unread-count';
 import { ROUTES } from '@/lib/constants';
-import { useSessionStore } from '@/lib/api/tokens';
 import { formatCount } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 /**
  * Primary navigation for the signed-in shell.
  *
+ * Destination links only: the four places in the app a user navigates *to*.
+ * Everything that is about the signed-in person — their profile, their gallery,
+ * settings, theme, sign-out — lives in `UserMenu` at the far right. Keeping
+ * them here made six equally weighted links compete for one glance and left the
+ * header with two different "you" entry points.
+ *
  * Only the routes that exist are linked. `/search` and the admin pages are still
  * `Placeholder`s, and a nav item that leads to "arrives in a later milestone" is
  * worse than no nav item: it is the one control a user is guaranteed to press.
- * `/messages`, `/settings` and `/profile/[id]` are no longer placeholders, so
- * they belong here — a shipped screen with no way in is the same dead end from
- * the user's side.
  *
- * Three details that are load-bearing:
+ * Two details that are load-bearing:
  *  - `aria-current="page"` on the active link, not just a colour, so the current
  *    screen is announced rather than merely visible;
  *  - the unread badge is `aria-hidden` and its meaning lives in the link's
  *    `aria-label`, because "3" read aloud between "Notifications" and "link"
- *    is noise unless you already know what it counts;
- *  - the badge and the profile link are both gated on an access token inside
- *    their hooks, since the nav renders outside `RequireSession`.
+ *    is noise unless you already know what it counts.
  */
 const LINKS = [
   { href: ROUTES.home, key: 'home', Icon: Home },
   { href: ROUTES.explore, key: 'explore', Icon: Compass },
   { href: ROUTES.messages, key: 'messages', Icon: MessageSquare },
   { href: ROUTES.notifications, key: 'notifications', Icon: Bell },
-  { href: ROUTES.settings, key: 'settings', Icon: SettingsIcon },
 ] as const;
 
 type NavLinkProps = {
@@ -74,14 +72,9 @@ export function AppNav() {
   const t = useTranslations('nav');
   const locale = useLocale();
   const pathname = usePathname();
-  const accessToken = useSessionStore((state) => state.accessToken);
   const { data: unread } = useUnreadCount();
-  // `GET /users/me` is the only way to know the caller's own id — `ProfilePublic`
-  // carries no "is this me" flag and the session store holds tokens, not a user.
-  const { data: me } = useMe({ enabled: Boolean(accessToken) });
 
   const unreadCount = unread?.unread ?? 0;
-  const profileHref = me ? `${ROUTES.profile}/${String(me.user_id)}` : null;
 
   // `/posts/101` is not `/home`, so only the exact route (or its sub-paths)
   // counts as current. Prefix matching is what makes `/posts/[id]` highlight
@@ -117,18 +110,6 @@ export function AppNav() {
           />
         );
       })}
-
-      {/* Rendered only once the caller's id is known: a link to `/profile` alone
-          is not a page, and a placeholder href would be a 404 on the one control
-          that answers "where is my profile". */}
-      {profileHref ? (
-        <NavLink
-          href={profileHref}
-          label={t('profile')}
-          isCurrent={isCurrent(profileHref)}
-          Icon={User}
-        />
-      ) : null}
     </nav>
   );
 }
