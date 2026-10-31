@@ -110,7 +110,13 @@ class Settings(BaseSettings):
     ff_sms_enabled: bool = False
 
     # --- CORS ---
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    # Both loopback spellings are listed for the dev frontend: `localhost` and
+    # `127.0.0.1` are different origins to a browser, so a page opened as one of
+    # them cannot call an API that only allows the other (the preflight fails and
+    # the client surfaces it as a network error, not a CORS message).
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+    )
 
     # --- GDPR / retention ---
     gdpr_deletion_window_days: int = 30

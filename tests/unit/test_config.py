@@ -38,6 +38,18 @@ def test_cors_origins_list() -> None:
     assert s.cors_origins_list == ["http://a", "http://b"]
 
 
+def test_default_cors_origins_cover_both_loopback_spellings() -> None:
+    """`localhost` and `127.0.0.1` are distinct browser origins.
+
+    Allowing only one of them makes a dev frontend that is opened as the other
+    fail its preflight, which surfaces in the client as a network error rather
+    than as anything naming CORS.
+    """
+    origins = Settings(_env_file=None).cors_origins_list
+    assert "http://localhost:3000" in origins
+    assert "http://127.0.0.1:3000" in origins
+
+
 def test_is_production() -> None:
     assert Settings(_env_file=None, app_env="production").is_production
     assert not Settings(_env_file=None, app_env="development").is_production

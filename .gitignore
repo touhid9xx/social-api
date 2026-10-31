@@ -104,6 +104,20 @@ er.name
 # ──────────────────────────────────────────────────────────────
 bitnitenPmd
 
+# Throwaway diagnostics / codegen helpers dropped at the repo root
+# (`_db_state.py`, `_login.json`, `_f2_*.ps1`, `_f1stage/`, ...).
+# NOTE: anchored with a leading `/` so these can only ever match at the
+# root - a bare `_*` would also swallow nested `__init__.py`. Listed by
+# extension rather than a blanket `/_*` so a genuine root-level file such
+# as `_redirects` is not silently ignored.
+/_*.ps1
+/_*.py
+/_*.json
+/_*.txt
+/_*.log
+/_f1stage/
+/_f2/
+
 # ──────────────────────────────────────────────────────────────
 # Contracts — auto-generated but COMMITTED intentionally
 # (do NOT ignore contracts/)

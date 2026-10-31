@@ -24,12 +24,38 @@ $statePath = Join-Path $repo ".dev-servers.json"
 # not be tree-killed.
 $script:expectedNames = @("python", "python3", "python3.12", "py", "cmd", "node", "pnpm")
 
-function Stop-ProcessTree {
+# The process *name* alone is not proof of ownership. A recycled slot very often
+# holds another `node` or `python` - a test runner, an editor extension host, a
+# different project's dev server - and `taskkill /T` would take out that whole
+# tree. Require the command line to still look like one of the two servers
+# dev-up.ps1 starts: `python -m uvicorn social_api.main:app ...` or
+# `cmd /c pnpm dev --port N` (whose child is `node ... next dev --port N`).
+$script:serverSignature = '(?i)(pnpm\s+dev|next\s+dev|uvicorn.*social_api\.main:app)'
+
+function Get-CommandLine {
+    param([int]$ProcessId)
+    try {
+        return (Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop).CommandLine
+    } catch {
+        # Access denied / process exited between the two lookups: treat as unknown.
+        return $null
+    }
+}
+
+function Test-DevServer {
     param([int]$ProcessId)
     $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     if (-not $process) { return $false }
-    if ($script:expectedNames -notcontains $process.ProcessName.ToLowerInvariant()) {
-        Write-Host "   pid $ProcessId is now '$($process.ProcessName)', not a dev server - not killing it." -ForegroundColor DarkYellow
+    if ($script:expectedNames -notcontains $process.ProcessName.ToLowerInvariant()) { return $false }
+    $commandLine = Get-CommandLine -ProcessId $ProcessId
+    return [bool]($commandLine -and $commandLine -match $script:serverSignature)
+}
+
+function Stop-ProcessTree {
+    param([int]$ProcessId)
+    if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) { return $false }
+    if (-not (Test-DevServer -ProcessId $ProcessId)) {
+        Write-Host "   pid $ProcessId no longer looks like a dev server - not killing it." -ForegroundColor DarkYellow
         return $false
     }
     & taskkill /T /F /PID $ProcessId 2>&1 | Out-Null

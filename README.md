@@ -18,16 +18,22 @@ worker and scheduler, migrations, container images, contracts, ADRs and runbook 
 all in place and gated by CI.
 
 **Frontend: in progress.** The Next.js app in [`frontend/`](frontend/README.md)
-covers the landing page, auth (sign in / sign up), home and explore feeds, post
-detail, notifications, and profiles including the follow graph. Still placeholder
-screens: `/verify-email`, `/forgot-password`, `/reset-password`, `/search`,
-`/messages`, `/settings`, and the four `/admin/*` staff screens. There is no
-WebSocket client, media-upload UI or moderation UI yet.
+covers the landing page; auth (sign in, sign up, verify email, forgot and reset
+password); home and explore feeds; post detail with comments; notifications; chat
+room list and message threads; profiles with the follow graph, followers/following
+lists and a photo gallery; settings (profile, avatar, consent, GDPR export and
+account deletion); and the `/admin/reports` moderation queue and `/admin/audit`
+trail. Media upload ships in the post composer and the avatar uploader.
+
+Still placeholder screens: `/search`, `/admin` (the stat-card landing) and
+`/admin/users`. There is no WebSocket client yet, so chat and notifications read
+on demand and refetch rather than streaming.
 
 > **Note:** the API surface is complete for the social features above, but not every
-> planned screen has a backend endpoint behind it. Search, the admin user list and
-> the admin stat cards still need endpoints; everything else the placeholder screens
-> need is already served and covered by integration tests.
+> planned screen has a backend endpoint behind it. Those three remaining placeholders
+> — search, the admin user list and the admin stat cards — are exactly the routes
+> still missing endpoints; everything else the client renders is already served and
+> covered by integration tests.
 
 ## Repository layout
 

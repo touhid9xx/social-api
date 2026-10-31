@@ -543,7 +543,7 @@
       "body": "A fast, private, real-time social network. Feeds that respect your attention, chat that feels instant, and controls that are actually in your hands.",
       "primaryCta": "Get started",
       "secondaryCta": "See the design system",
-      "note": "F0 bootstrap · design tokens, theming and i18n wired · auth lands in F4"
+      "note": "Runs end to end — auth, feeds, chat, notifications and moderation on a live API."
     },
     "mock": {
       "author": "Alice Rahman",
@@ -564,7 +564,7 @@
       },
       "people": {
         "title": "People you know",
-        "body": "Follow graphs, suggestions and search across users, posts and hashtags."
+        "body": "Follow graphs with follower and following lists, profile pages and a per-user photo gallery."
       },
       "privacy": {
         "title": "Privacy first",
@@ -572,7 +572,8 @@
       }
     },
     "footer": {
-      "note": "Contract-driven. Types generated from the backend OpenAPI spec."
+      "note": "Contract-driven. Types generated from the backend OpenAPI spec.",
+      "badge": "Live demo · seeded with sample data"
     }
   },
   "nav": {
@@ -687,15 +688,15 @@
   "pages": {
     "search": {
       "title": "Search",
-      "description": "Debounced search across users, posts and hashtags arrives in F13."
+      "description": "Debounced search across users, posts and hashtags."
     },
     "admin": {
       "title": "Admin dashboard",
-      "description": "RBAC-protected stat cards and charts arrive in F21."
+      "description": "RBAC-protected stat cards and charts."
     },
     "adminUsers": {
       "title": "Admin · users",
-      "description": "The paginated user table arrives in F21."
+      "description": "A paginated table of every user, with role and status."
     }
   },
   "settings": {

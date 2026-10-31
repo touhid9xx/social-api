@@ -14,7 +14,6 @@ const FEATURES = [
 
 export default async function LandingPage() {
   const t = await getTranslations('landing');
-  const c = await getTranslations('common');
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -144,7 +143,7 @@ export default async function LandingPage() {
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-6 py-6 text-xs text-muted-foreground sm:flex-row">
           <p>{t('footer.note')}</p>
-          <p>{c('milestoneBadge')}</p>
+          <p>{t('footer.badge')}</p>
         </div>
       </footer>
     </div>
