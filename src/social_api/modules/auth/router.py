@@ -11,6 +11,7 @@ from social_api.deps import CurrentUser, get_current_user
 from social_api.i18n import t
 from social_api.modules.auth.schemas import (
     AuthTokens,
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
     LoginResponse,
@@ -100,6 +101,40 @@ async def logout(
     await _service(session).logout(user_id=user.user.id, access_token=user.raw_token)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/change-password", response_model=MessageResponse)
+@limiter.limit("5/hour", key_func=_key_by_user_or_ip)
+async def change_password(
+    request: Request,
+    response: Response,
+    payload: ChangePasswordRequest,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    """Change the caller's own password, given the current one."""
+    # Authenticated (not token-bearing) on purpose: this is the flow for a
+    # signed-in user who still knows their password. Someone who does *not*
+    # know it must go through `forgot-password` -> `reset-password`.
+    #
+    # Capped at 5/hour per authenticated user — `current_password` is a
+    # guessable secret, so the endpoint needs the same brute-force ceiling
+    # as login, not a permissive one.
+    #
+    # Answers a `MessageResponse` and no tokens: the service blacklists the
+    # access token this request arrived on, so the client is expected to
+    # sign in again. `session.commit()` runs before the response is sent
+    # for the same reason as `register`/`login` — the new hash must be
+    # visible to the implicit re-login that follows.
+    result = await _service(session).change_password(
+        user=user.user,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+        access_token=user.raw_token,
+        locale=request.headers.get("accept-language"),
+    )
+    await session.commit()
+    return result
 
 
 @router.get("/me", response_model=UserPublic)

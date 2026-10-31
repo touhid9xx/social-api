@@ -31,6 +31,8 @@ Demo credentials (all users, password `DemoPass123!`):
     bob@example.com
     carol@example.com
     ... (15 more regular users)
+    tushar@tushar.com     (admin) — non-@example.com account, so the seeded
+                                    domain is not assumed to be uniform
 """
 
 from __future__ import annotations
@@ -95,7 +97,15 @@ DEMO_EMAILS = [
     "bob@example.com",
     "carol@example.com",
     *[f"user{i:02d}@example.com" for i in range(1, 16)],
+    # Appended, never inserted: fixtures below address demo users positionally
+    # (`users[:15]`, `_admin, mod, alice, bob, carol = users[:5]`), so a new
+    # account must go last or every one of those indices shifts.
+    "tushar@tushar.com",
 ]
+
+# Additional admin accounts, listed by address rather than by index so that
+# appending to DEMO_EMAILS above stays safe.
+EXTRA_ADMIN_EMAILS = frozenset({"tushar@tushar.com"})
 
 # Public image posts created per demo user. `/profile/{id}/gallery` derives its
 # tiles from the author's posts that carry media, so this is what keeps every
@@ -236,7 +246,7 @@ async def seed(
             return counts
 
         # =====================================================================
-        # 1. Users (20)
+        # 1. Users (21)
         # =====================================================================
         pw_hash = hash_password(DEMO_PASSWORD)
         users: list[User] = []
@@ -244,7 +254,10 @@ async def seed(
         role_map = [
             (DEMO_EMAILS[0], UserRole.ADMIN),
             (DEMO_EMAILS[1], UserRole.MODERATOR),
-            *[(e, UserRole.USER) for e in DEMO_EMAILS[2:]],
+            *[
+                (e, UserRole.ADMIN if e in EXTRA_ADMIN_EMAILS else UserRole.USER)
+                for e in DEMO_EMAILS[2:]
+            ],
         ]
 
         for email, role in role_map:
@@ -273,6 +286,7 @@ async def seed(
             "Bob",
             "Carol",
             *[f"User {i:02d}" for i in range(1, 16)],
+            "Tushar",  # must stay index-aligned with DEMO_EMAILS (zip strict=True)
         ]
         bios = [
             "Building social things.",
@@ -916,6 +930,7 @@ async def seed(
             ("LOGOUT", "user", None, None),
             ("PASSWORD_RESET_REQUESTED", "user", None, None),
             ("PASSWORD_RESET_COMPLETED", "user", None, None),
+            ("PASSWORD_CHANGED", "user", None, None),
             ("PROFILE_UPDATE", "profile", None, {"fields_changed": ["bio", "location"]}),
             ("CONSENT_GRANTED", "user", None, {"channel": "analytics"}),
             ("CONSENT_REVOKED", "user", None, {"channel": "marketing"}),
@@ -1021,7 +1036,11 @@ def _summarize(counts: dict[str, int], scale: int, media_root: Path) -> None:
     print("Demo credentials (password: DemoPass123!):")
     for e in DEMO_EMAILS[:5]:
         print(f"  {e}")
-    print(f"  ... + {len(DEMO_EMAILS) - 5} more users at *@example.com")
+    for e in DEMO_EMAILS[5:]:
+        if not e.endswith("@example.com"):
+            print(f"  {e}")
+    at_example = sum(1 for e in DEMO_EMAILS if e.endswith("@example.com"))
+    print(f"  ... + {at_example - 5} more users at *@example.com")
     print()
 
 

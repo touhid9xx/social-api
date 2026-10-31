@@ -72,6 +72,35 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
+class ChangePasswordRequest(BaseModel):
+    """Authenticated password change, proven with the current password."""
+
+    # Distinct from `ResetPasswordRequest` in exactly two ways: the proof
+    # of identity is the caller's bearer token (so no `token` field) plus
+    # the *current* password, and `new_password` therefore needs the same
+    # `Field(12..128)` bounds + policy validator as registration rather
+    # than being a blind reset.
+    #
+    # `current_password` is bounded at 1 like `LoginRequest.password`: it
+    # is only ever compared, never stored, so a short value must reach the
+    # service and fail as `INVALID_CREDENTIALS` instead of bouncing as a
+    # 422 that would tell an attacker the guess had the wrong *shape*.
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def _validate_password(cls, v: str) -> str:
+        try:
+            validate_password_policy(v)
+        except WeakPasswordError as exc:
+            raise ValueError(str(exc)) from exc
+        return v
+
+
 # ---- Responses ----
 class UserPublic(BaseModel):
     """Response-safe user view. NO PII beyond id/role/is_active/is_verified/created_at."""

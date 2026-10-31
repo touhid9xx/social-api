@@ -19,7 +19,8 @@
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "baseUrl": ".",
+    // No `baseUrl`: it is deprecated and stops working in TypeScript 7.0.
+    // `paths` alone resolves `@/*` relative to this file.
     "paths": {
       "@/*": ["./src/*"]
     }

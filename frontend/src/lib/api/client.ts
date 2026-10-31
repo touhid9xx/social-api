@@ -37,6 +37,10 @@ const NO_RETRY_PATHS = new Set([
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
   '/api/v1/auth/verify-email',
+  // Changing a password re-checks `current_password`, so a 401 here means
+  // "wrong current password" (`INVALID_CREDENTIALS`), not an expired session.
+  // A refresh + replay would burn a token rotation and hide the real error.
+  '/api/v1/auth/change-password',
 ]);
 
 /**

@@ -156,6 +156,7 @@ describe('filter tuples', () => {
       'VERIFY_EMAIL',
       'PASSWORD_RESET_REQUESTED',
       'PASSWORD_RESET_COMPLETED',
+      'PASSWORD_CHANGED',
     ]) {
       expect(AUDIT_ACTIONS).toContain(action);
     }

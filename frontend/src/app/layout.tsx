@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { QueryProvider } from '@/components/shared/query-provider';
 import { SessionBootstrap } from '@/components/shared/session-bootstrap';
 import { ThemeProvider } from '@/components/shared/theme-provider';
+import { WebSocketProvider } from '@/components/shared/websocket-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { env } from '@/lib/env';
 
@@ -43,14 +44,21 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <NextIntlClientProvider locale={locale} messages={messages}>
             <QueryProvider>
               <SessionBootstrap />
-              <a
-                href="#main"
-                className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
-              >
-                {t('skipToContent')}
-              </a>
-              {children}
-              <Toaster position="top-right" closeButton richColors />
+              {/*
+                Inside `QueryProvider` (F16 will invalidate the query cache from
+                socket events) and around the tree, so every route — main, admin
+                and auth — shares one socket per tab.
+              */}
+              <WebSocketProvider>
+                <a
+                  href="#main"
+                  className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+                >
+                  {t('skipToContent')}
+                </a>
+                {children}
+                <Toaster position="top-right" closeButton richColors />
+              </WebSocketProvider>
             </QueryProvider>
           </NextIntlClientProvider>
         </ThemeProvider>

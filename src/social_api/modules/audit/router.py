@@ -34,6 +34,7 @@ AuditActionLiteral = Literal[
     "VERIFY_EMAIL",
     "PASSWORD_RESET_REQUESTED",
     "PASSWORD_RESET_COMPLETED",
+    "PASSWORD_CHANGED",
     # users
     "PROFILE_UPDATE",
     "CONSENT_GRANTED",

@@ -314,3 +314,49 @@ class AuthService:
         )
         logger.info("password_reset_completed", user_id=user.id)
         return MessageResponse(message=t("auth.reset.success", locale=locale))
+
+    async def change_password(
+        self,
+        *,
+        user: User,
+        current_password: str,
+        new_password: str,
+        access_token: str,
+        locale: str | None = None,
+    ) -> MessageResponse:
+        """Rotate the password of an already-authenticated caller.
+
+        The bearer token proves *who* is calling; `current_password` proves
+        the caller is the account's owner rather than someone who walked up
+        to an unlocked device. A wrong value answers the same
+        `INVALID_CREDENTIALS` a failed login does — a distinct
+        "wrong current password" code would be a free oracle for confirming
+        a password guess against a stolen token.
+
+        Nothing here mints a token: the caller is expected to sign in again
+        (the route blacklists the token this request arrived on). Other
+        sessions are NOT revoked — refresh/access tokens carry no password
+        binding, so they stay valid until they expire. The exception is any
+        outstanding *reset* link, which embeds `password_fingerprint` and so
+        stops matching the moment the hash changes.
+        """
+        if not verify_password(current_password, user.password_hash):
+            raise InvalidCredentialsError()
+
+        user.password_hash = hash_password(new_password)
+        await self._repo.save(user)
+
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="PASSWORD_CHANGED",
+            entity="user",
+            entity_id=user.id,
+        )
+
+        # Kill the credential that performed the change: leaving it alive
+        # would let a stolen token keep acting after the owner rotated the
+        # password it was issued under.
+        await revoke_token(access_token, expected_type=ACCESS)
+
+        logger.info("password_changed", user_id=user.id)
+        return MessageResponse(message=t("auth.password.changed", locale=locale))

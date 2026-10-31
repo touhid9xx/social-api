@@ -2,24 +2,25 @@
 
 import { useTranslations } from 'next-intl';
 
+import { ChangePasswordForm } from '@/components/settings/change-password-form';
 import { ConsentPanel } from '@/components/settings/consent-panel';
 import { DataPrivacyPanel } from '@/components/settings/data-privacy-panel';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const TAB_VALUES = ['profile', 'consent', 'privacy'] as const;
+const TAB_VALUES = ['profile', 'consent', 'privacy', 'security'] as const;
 
 type TabValue = (typeof TAB_VALUES)[number];
 
 /**
- * The settings screen's three sections.
+ * The settings screen's four sections.
  *
  * A client component only because Radix tabs are: the page shell stays a server
  * component so the heading is translated before hydration. Each panel owns its
- * own query (`useMe`, `useConsents`, the deletion status), so switching tabs is
- * the only thing that decides which of them gets fetched — the profile tab does
- * not block the privacy tab from rendering.
+ * own query (`useMe`, `useConsents`, the deletion status) or mutation, so
+ * switching tabs is the only thing that decides which of them gets fetched — the
+ * profile tab does not block the privacy tab from rendering.
  */
 export function SettingsTabs() {
   const t = useTranslations('settings');
@@ -44,6 +45,7 @@ export function SettingsTabs() {
               {tab === 'profile' ? <ProfileForm /> : null}
               {tab === 'consent' ? <ConsentPanel /> : null}
               {tab === 'privacy' ? <DataPrivacyPanel /> : null}
+              {tab === 'security' ? <ChangePasswordForm /> : null}
             </CardContent>
           </Card>
         </TabsContent>

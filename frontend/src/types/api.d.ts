@@ -51,6 +51,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Password */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -1237,6 +1254,16 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * ChangePasswordRequest
+         * @description Authenticated password change, proven with the current password.
+         */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /** CommentCreate */
         CommentCreate: {
             /** Body */
@@ -2034,7 +2061,7 @@ export interface operations {
         parameters: {
             query?: {
                 actor_id?: number | null;
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
                 entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
@@ -2069,7 +2096,7 @@ export interface operations {
     my_audit_api_v1_audit_me_get: {
         parameters: {
             query?: {
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
                 entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
@@ -2088,6 +2115,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
                 };
             };
             /** @description Validation Error */

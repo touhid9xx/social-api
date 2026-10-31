@@ -176,10 +176,10 @@ Seeded and idempotent — no manual user creation needed:
 ```powershell
 .\scripts\dev-up.ps1
 alembic upgrade head
-python scripts/seed_demo_data.py         # ~215 records
+python scripts/seed_demo_data.py         # ~490 records (exact total is printed)
 
 python scripts/seed_demo_data.py --reset # clear demo users first
-python scripts/seed_demo_data.py --scale 2   # ~430 records
+python scripts/seed_demo_data.py --scale 2   # accepted, but counts are fixed
 python scripts/seed_demo_data.py --dry-run   # count only
 ```
 
@@ -188,6 +188,7 @@ Every seeded account uses the password **`DemoPass123!`**:
 | Email | Role |
 |---|---|
 | `admin@example.com` | admin |
+| `tushar@tushar.com` | admin (second admin; deliberately not `@example.com`) |
 | `mod@example.com` | moderator |
 | `alice@example.com` | celebrity — everyone follows her |
 | `bob@example.com`, `carol@example.com` | regular users |
@@ -257,6 +258,8 @@ default, because they stop and restart MySQL/Redis mid-run.
 | Pitfall | Symptom | Fix |
 |---|---|---|
 | Nothing is serving :3000 | `ERR_CONNECTION_REFUSED` at `localhost:3000` | `dev-up.ps1` only starts Docker; the app servers are separate. Run `.\scripts\dev-up.ps1 -WithApi -WithFrontend` |
+| Bare `Internal Server Error` on every frontend route | Plain black-on-white text, no styling, no dev overlay; `logs\frontend.err.log` shows `ENOENT ... .next\routes-manifest.json` | `frontend\.next` was deleted while `next dev` was still running — the server never rewrites its manifests. Re-run `.\scripts\dev-up.ps1 -WithFrontend`; it health-probes :3000, stops the stale server and starts from a clean `.next`. Never delete `.next` while the dev server is up |
+| Page renders grey skeleton blocks that never go away | Console shows `GET http://localhost:3000/_next/static/chunks/app/(auth)/layout.js net::ERR_ABORTED 404`; the route-group files are absent from `frontend\.next\static\chunks\app\` | Same root cause as above, one stage later: `frontend\.next` was truncated (not deleted) under a running `next dev`, so the HTML still 200s while its JS chunks 404 and nothing hydrates. Re-run `.\scripts\dev-up.ps1 -WithFrontend` — its probe now also fetches a chunk referenced by the page (`-VerifyAssets`), so it detects this, stops the stale server and rebuilds `.next` |
 | E2E flakes on rate limits | 429 on login | Integration conftest disables the limiter; E2E runs under `fake_redis` too |
 | Chaos tests run in normal CI | Hang (no Docker in the job) | `pytest -m chaos` is opt-in; `check_all.ps1` excludes chaos |
 | Chaos leaves infra broken | MySQL stopped after a failed test | `finally:` block restarts services |

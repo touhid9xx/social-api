@@ -30,7 +30,13 @@ $script:expectedNames = @("python", "python3", "python3.12", "py", "cmd", "node"
 # tree. Require the command line to still look like one of the two servers
 # dev-up.ps1 starts: `python -m uvicorn social_api.main:app ...` or
 # `cmd /c pnpm dev --port N` (whose child is `node ... next dev --port N`).
-$script:serverSignature = '(?i)(pnpm\s+dev|next\s+dev|uvicorn.*social_api\.main:app)'
+#
+# Keep this identical to dev-up.ps1's signature: the `next dev` CLI is launched
+# as `node ...\next\dist\bin\next" dev`, so a closing quote - not whitespace -
+# separates the two words (`next\s+dev` alone never matches), and the process
+# actually holding the port is the `...\next\...\start-server.js` child, which
+# carries neither word in its own command line.
+$script:serverSignature = '(?i)(pnpm\s+dev|next["'']?\s+dev|node_modules[\\/]next[\\/].*start-server\.js|uvicorn.*social_api\.main:app)'
 
 function Get-CommandLine {
     param([int]$ProcessId)

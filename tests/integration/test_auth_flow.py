@@ -93,3 +93,59 @@ async def test_weak_password_rejected(auth_client: AsyncClient) -> None:
 async def test_me_without_token(auth_client: AsyncClient) -> None:
     r = await auth_client.get("/api/v1/auth/me")
     assert r.status_code == 401
+
+
+async def test_change_password_requires_current_password(auth_client: AsyncClient) -> None:
+    """`POST /auth/change-password` rotates the password and kills the caller's token."""
+    email = "carol@example.com"
+    password = "Str0ng!Passw0rd"
+    new_password = "An0ther!Passw0rd"
+
+    r = await auth_client.post("/api/v1/auth/register", json={"email": email, "password": password})
+    assert r.status_code == 201, r.text
+
+    r = await auth_client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    access = r.json()["tokens"]["access_token"]
+    auth = {"Authorization": f"Bearer {access}"}
+    body = {"current_password": password, "new_password": new_password}
+
+    # 1. No bearer token -> 401. The endpoint needs a session, not just a password.
+    r = await auth_client.post("/api/v1/auth/change-password", json=body)
+    assert r.status_code == 401
+
+    # 2. A weak new password is refused by the shared policy validator.
+    r = await auth_client.post(
+        "/api/v1/auth/change-password",
+        headers=auth,
+        json={"current_password": password, "new_password": "short"},
+    )
+    assert r.status_code == 422
+    assert r.json()["error"] == "VALIDATION_ERROR"
+
+    # 3. Wrong current password -> the same INVALID_CREDENTIALS a failed login gives.
+    r = await auth_client.post(
+        "/api/v1/auth/change-password",
+        headers=auth,
+        json={"current_password": "Wr0ng!Passw0rd", "new_password": new_password},
+    )
+    assert r.status_code == 401
+    assert r.json()["error"] == "INVALID_CREDENTIALS"
+
+    # 4. Correct current password -> 200, message only (no tokens are minted).
+    r = await auth_client.post("/api/v1/auth/change-password", headers=auth, json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["message"]
+    assert "access_token" not in r.json()
+
+    # 5. The credential that performed the change is blacklisted.
+    r = await auth_client.get("/api/v1/auth/me", headers=auth)
+    assert r.status_code == 401
+
+    # 6. The old password no longer signs in; the new one does.
+    r = await auth_client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 401
+    r = await auth_client.post(
+        "/api/v1/auth/login", json={"email": email, "password": new_password}
+    )
+    assert r.status_code == 200, r.text

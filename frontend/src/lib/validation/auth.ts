@@ -101,6 +101,28 @@ export const resetPasswordSchema = z.object({ password: strongPasswordField });
 
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
+/**
+ * The two halves of `ChangePasswordRequest`.
+ *
+ * `new_password` gets the SAME `strongPasswordField` as registration and reset —
+ * the backend runs `validate_password_policy` on it identically — while
+ * `current_password` is only bounded like `LoginRequest.password` (1..128): it is
+ * compared, never stored, and over-validating it would turn a wrong-password
+ * guess into a 422 that leaks the expected shape.
+ *
+ * No "must differ from the current one" rule: the backend does not enforce it, so
+ * a schema that rejected it would refuse input the API accepts.
+ */
+export const changePasswordSchema = z.object({
+  currentPassword: z
+    .string()
+    .min(1, { message: 'passwordRequired' })
+    .max(PASSWORD_MAX_LENGTH, { message: 'passwordTooLong' }),
+  newPassword: strongPasswordField,
+});
+
+export type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
+
 export type FieldErrors<TValues> = Partial<Record<keyof TValues & string, string>>;
 
 /** First issue per field, keyed by field name — enough to render one message each. */

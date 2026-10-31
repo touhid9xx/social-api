@@ -705,7 +705,8 @@
     "tabs": {
       "profile": "Profile",
       "consent": "Consent",
-      "privacy": "Data & privacy"
+      "privacy": "Data & privacy",
+      "security": "Security"
     },
     "profile": {
       "title": "Your profile",
@@ -798,6 +799,21 @@
       "cancelAction": "Cancel deletion",
       "cancelling": "Cancelling…",
       "cancelledToast": "Deletion cancelled"
+    },
+    "security": {
+      "title": "Password",
+      "intro": "Change the password you use to sign in. You'll be signed out on this device once it's changed.",
+      "currentPassword": "Current password",
+      "currentPasswordPlaceholder": "Your current password",
+      "newPassword": "New password",
+      "newPasswordPlaceholder": "At least {min} characters",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "wrongCurrentPassword": "That current password is not right.",
+      "signOutNotice": "Other devices stay signed in until their own tokens expire.",
+      "submit": "Change password",
+      "submitting": "Changing…",
+      "success": "Password changed. Please sign in again."
     },
     "validation": {
       "displayNameTooLong": "That name is too long.",

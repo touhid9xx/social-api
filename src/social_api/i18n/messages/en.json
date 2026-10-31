@@ -21,6 +21,7 @@
   "auth.verify.success": "Email verified successfully",
   "auth.reset.sent": "If that email is registered, a reset link is on its way",
   "auth.reset.success": "Password updated successfully",
+  "auth.password.changed": "Password changed successfully, please sign in again",
   "email.verify.subject": "Verify your email address",
   "email.verify.greeting": "Hi,",
   "email.verify.body": "Confirm your email address to finish setting up your account.",
