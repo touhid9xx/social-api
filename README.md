@@ -98,6 +98,19 @@ python scripts/export_api_contract.py    # regenerate contracts/
 when services are healthy — read it from there rather than from this file, since the
 host ports are set in `docker-compose.yml`.
 
+It can also start the app servers for you, detached, and wait until each answers:
+
+```powershell
+.\scripts\dev-up.ps1 -WithApi -WithFrontend   # docker + API :8000 + frontend :3000
+.\scripts\dev-down.ps1                        # stops all three, in that order
+```
+
+Both run in the background and log to `logs\api.log` / `logs\frontend.log`, so
+`dev-up.ps1` can return while they keep serving. `dev-down.ps1` force-stops the whole
+process tree (`uvicorn --reload` and `next dev` both spawn children that would
+otherwise keep holding their port). Ports are `-ApiPort` / `-FrontendPort` if the
+defaults clash.
+
 Interactive API docs: <http://localhost:8000/docs>. Probes: `/health` (liveness),
 `/health/db`, `/health/redis`, `/health/ready` (aggregate), and `/metrics`;
 `/health/circuit-breakers` is an admin-only snapshot.
@@ -237,6 +250,7 @@ default, because they stop and restart MySQL/Redis mid-run.
 
 | Pitfall | Symptom | Fix |
 |---|---|---|
+| Nothing is serving :3000 | `ERR_CONNECTION_REFUSED` at `localhost:3000` | `dev-up.ps1` only starts Docker; the app servers are separate. Run `.\scripts\dev-up.ps1 -WithApi -WithFrontend` |
 | E2E flakes on rate limits | 429 on login | Integration conftest disables the limiter; E2E runs under `fake_redis` too |
 | Chaos tests run in normal CI | Hang (no Docker in the job) | `pytest -m chaos` is opt-in; `check_all.ps1` excludes chaos |
 | Chaos leaves infra broken | MySQL stopped after a failed test | `finally:` block restarts services |

@@ -90,6 +90,8 @@ logs/
 celerybeat-schedule*
 gdpr-export*.json
 er.name
+# PIDs of the dev servers started by scripts/dev-up.ps1 (machine-specific)
+.dev-servers.json
 
 # ──────────────────────────────────────────────────────────────
 # Keys / certificates
