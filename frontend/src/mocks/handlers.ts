@@ -5,6 +5,8 @@ import type { ApiErrorBody } from '@/types';
 import { uploadedFile } from './multipart';
 
 import type {
+  AdminUserPage,
+  AdminUserView,
   AuditLogView,
   AuditPage,
   CancelResponse,
@@ -47,11 +49,13 @@ import type {
   ResetPasswordRequest,
   RoomMembersList,
   RoomView,
+  SearchResults,
   UnreadCount,
   VerifyEmailRequest,
 } from '../../contracts/types';
 
 import {
+  adminDirectory,
   adminProfile,
   adminTokens,
   adminUser,
@@ -87,6 +91,7 @@ import {
   roomMessages,
   roomReadState,
   roomUnreadCounts,
+  searchResults,
   unreadNotificationCount,
   VERIFY_EMAIL_TOKEN,
 } from './fixtures';
@@ -159,6 +164,14 @@ function applyProfileUpdate(base: ProfileSelf, patch: ProfileUpdate): ProfileSel
 
   return next;
 }
+
+/**
+ * The shortest term the real service accepts (`MIN_TERM_LENGTH` in
+ * `modules/search/service.py`). Kept as a literal on purpose: importing it from
+ * `@/lib/api/search` would drag the whole HTTP client and the token store into
+ * the mock layer, which every test loads.
+ */
+const MIN_SEARCH_TERM = 2;
 
 export const handlers = [
   // Public. Returns the NESTED envelope: { user, tokens }.
@@ -1186,6 +1199,30 @@ export const handlers = [
     return HttpResponse.json(payload);
   }),
 
+  // The admin-only user directory (`GET /users`). Offset cursor, exactly like the
+  // audit trail above, so `next_cursor` is a stringified offset a test can echo
+  // back to reach page 2. Ordered newest-first by the real query, so the fixture
+  // is served as-is rather than re-sorted here — a mock that re-orders rows would
+  // hide a backend ordering bug instead of surfacing it.
+  http.get('*/api/v1/users', ({ request }) => {
+    const url = new URL(request.url);
+    const rows = adminDirectory.items;
+
+    const rawCursor = url.searchParams.get('cursor');
+    const rawLimit = Number(url.searchParams.get('limit'));
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : rows.length;
+    const start = rawCursor === null ? 0 : Number(rawCursor);
+
+    const items: AdminUserView[] = rows.slice(start, start + limit);
+    const end = start + items.length;
+    const payload: AdminUserPage = {
+      items,
+      next_cursor: end < rows.length ? String(end) : null,
+    };
+
+    return HttpResponse.json(payload);
+  }),
+
   // ---------------------------------------------------------------------------
   // Feature flags — the admin console (`src/social_api/api/v1/flags.py`).
   //
@@ -1238,6 +1275,57 @@ export const handlers = [
       user_id: body.user_id,
       enabled,
       action: enabled === null ? 'cleared' : 'set',
+    };
+
+    return HttpResponse.json(payload);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Search — `GET /v1/search` (`src/social_api/modules/search/router.py`).
+  //
+  // The one endpoint whose envelope is NOT `{ items, next_cursor }`: two result
+  // kinds travel together, and `next_cursor` pages `posts` only. `users` is a
+  // shortlist the service caps at ten and REPEATS on every page
+  // (`service.py:79-120`, `schemas.py:24-35`), so it is echoed unchanged even
+  // when a cursor is supplied — a mock that dropped it on page 2 would hide the
+  // duplication the UI has to tolerate.
+  //
+  // A term below the service floor is a real `400 QUERY_TOO_SHORT` whose
+  // `detail.code` the client reads, which is why `useSearch` refuses to fire
+  // below it rather than catching the error.
+  // ---------------------------------------------------------------------------
+
+  http.get('*/api/v1/search', ({ request }) => {
+    const url = new URL(request.url);
+    const term = (url.searchParams.get('q') ?? '').trim();
+
+    if (term.length < MIN_SEARCH_TERM) {
+      return HttpResponse.json(
+        errorBody('BAD_REQUEST', 400, '/api/v1/search', {
+          code: 'QUERY_TOO_SHORT',
+          min_length: MIN_SEARCH_TERM,
+        }),
+        { status: 400 },
+      );
+    }
+
+    // Offset cursor, exactly like the audit trail and the user directory above,
+    // so `next_cursor` is a stringified offset a test can echo back.
+    const rows = searchResults.posts;
+
+    const rawCursor = url.searchParams.get('cursor');
+    const rawLimit = Number(url.searchParams.get('limit'));
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : rows.length;
+    const start = rawCursor === null ? 0 : Number(rawCursor);
+
+    const posts: PostView[] = rows.slice(start, start + limit);
+    const end = start + posts.length;
+
+    const payload: SearchResults = {
+      query: term,
+      users: searchResults.users,
+      posts,
+      next_cursor: end < rows.length ? String(end) : null,
     };
 
     return HttpResponse.json(payload);

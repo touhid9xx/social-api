@@ -1,5 +1,7 @@
 import type { components } from '@/types/api';
 
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+
 import { apiClient, apiRequest } from './client';
 
 /**
@@ -127,4 +129,42 @@ export async function revokeConsent(channel: ConsentChannel): Promise<void> {
  */
 export async function deleteMe(): Promise<DeleteMeResponse> {
   return apiRequest(() => apiClient.DELETE('/api/v1/users/me'));
+}
+
+/** One row of the staff-only directory. Same PII posture as `UserPublic`. */
+export type AdminUserView = components['schemas']['AdminUserView'];
+
+export type AdminUserPage = components['schemas']['AdminUserPage'];
+
+export type AdminUserQuery = {
+  /** Opaque cursor from the previous page. `null`/omitted asks for the first. */
+  cursor?: string | null;
+  limit?: number;
+};
+
+/**
+ * `GET /api/v1/users` — the staff-only account directory.
+ *
+ * Three things make this a different call from `getProfile`:
+ *
+ *  1. It is admin-only (`require_roles(ADMIN)`), so a non-admin gets a plain
+ *     `403 FORBIDDEN`. That is a normal outcome, not a bug: the client cannot
+ *     pre-check the role (the role arrives with the token, and the server stays
+ *     the authority), so the caller must render 403 as "admins only" rather
+ *     than as an empty directory.
+ *  2. It carries `display_name` and `avatar_url` itself — the same convenience
+ *     `FollowUserView` offers — so a row must NOT resolve an author through
+ *     `/users/{id}`. That would be one request per row for data already in hand.
+ *  3. It exposes no email and no phone: the encrypted columns stay encrypted and
+ *     unexposed, exactly like `UserPublic`.
+ *
+ * Keyset-paginated on `(created_at DESC, id DESC)` server-side, so a page is
+ * stable for the caller but may shift under it when someone signs up — the list
+ * dedupes by `id`, same as the follow lists.
+ */
+export async function getAdminUsers({
+  cursor = null,
+  limit = DEFAULT_PAGE_SIZE,
+}: AdminUserQuery = {}): Promise<AdminUserPage> {
+  return apiRequest(() => apiClient.GET('/api/v1/users', { params: { query: { cursor, limit } } }));
 }

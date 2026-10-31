@@ -945,6 +945,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search
+         * @description Search people and posts. Read-only — no commit.
+         *
+         *     `q` is trimmed by the service, which enforces the real 2-character floor
+         *     (`QUERY_TOO_SHORT`); the `min_length=1` here only stops an empty string
+         *     from reaching it.
+         */
+        get: operations["search_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description Admin-only: cursor-paginated directory of non-deleted accounts.
+         *
+         *     `_admin` is deliberately unused in the body — it is the RBAC gate, and
+         *     the dependency raises 403 before the handler runs. Declared above
+         *     `/{user_id}` so the literal path wins over the parameterised one.
+         *
+         *     Read-only, so no `session.commit()` — unlike the `/me` routes this
+         *     handler never creates or mutates a row.
+         */
+        get: operations["list_users_api_v1_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -1186,6 +1237,41 @@ export interface components {
         AddMemberRequest: {
             /** User Id */
             user_id: number;
+        };
+        /** AdminUserPage */
+        AdminUserPage: {
+            /** Items */
+            items: components["schemas"]["AdminUserView"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /**
+         * AdminUserView
+         * @description One row of the staff-only user directory.
+         *
+         *     Field-for-field the same PII posture as `UserPublic` (no email, no
+         *     phone — the encrypted columns stay encrypted and unexposed), plus the
+         *     display name/avatar so the console doesn't need a per-row
+         *     `/users/{id}` fetch.
+         */
+        AdminUserView: {
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name?: string | null;
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Is Verified */
+            is_verified: boolean;
+            /** Role */
+            role: "user" | "moderator" | "admin";
         };
         /**
          * AuditLogView
@@ -1999,6 +2085,32 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** SearchResults */
+        SearchResults: {
+            /** Query */
+            query: string;
+            /** Users */
+            users: components["schemas"]["SearchUserHit"][];
+            /** Posts */
+            posts: components["schemas"]["PostView"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /**
+         * SearchUserHit
+         * @description One person in the search results.
+         *
+         *     Mirrors `FollowUserView`: id, name, avatar and nothing else. No email,
+         *     no phone, no verification flags — search is not an admin surface.
+         */
+        SearchUserHit: {
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** User Id */
+            user_id: number;
         };
         /** UnreadCount */
         UnreadCount: {
@@ -4020,6 +4132,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PresenceView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_api_v1_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                cursor?: string | null;
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserPage"];
                 };
             };
             /** @description Validation Error */

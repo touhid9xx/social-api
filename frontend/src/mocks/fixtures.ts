@@ -1,4 +1,5 @@
 import type {
+  AdminUserPage,
   AuditLogView,
   AuthTokens,
   CancelResponse,
@@ -21,6 +22,7 @@ import type {
   ReportView,
   RoomMembersList,
   RoomView,
+  SearchResults,
   UnreadCount,
   UserPublic,
 } from '../../contracts/types';
@@ -980,4 +982,84 @@ export const featureFlags: FlagList = {
     { name: 'email_enabled', env_value: true, builtin_value: true },
     { name: 'sms_enabled', env_value: false, builtin_value: false },
   ],
+};
+
+/**
+ * One page of the staff-only directory (`GET /api/v1/users`).
+ *
+ * Three roles and two states on purpose: the console's entire job is showing
+ * that `role` differs between rows, so an all-admin fixture would let a
+ * component that hardcodes "Admin" pass. The `user` row is also unverified and
+ * deactivated, and carries no `display_name` — that exercises the name fallback
+ * instead of letting it go untested.
+ *
+ * `next_cursor` is `null` because these three rows are the whole directory; the
+ * mock handler recomputes an offset cursor from `limit`, so paging is still
+ * available to tests that ask for a smaller page.
+ */
+export const adminDirectory: AdminUserPage = {
+  items: [
+    {
+      id: 21,
+      role: 'admin',
+      is_active: true,
+      is_verified: true,
+      created_at: '2025-11-02T08:15:00.000Z',
+      display_name: 'Ayesha Rahman',
+      avatar_url: null,
+    },
+    {
+      id: 24,
+      role: 'moderator',
+      is_active: true,
+      is_verified: true,
+      created_at: '2025-12-14T17:40:00.000Z',
+      display_name: 'Tanvir Ahmed',
+      avatar_url: null,
+    },
+    {
+      id: 31,
+      role: 'user',
+      is_active: false,
+      is_verified: false,
+      created_at: '2026-01-09T12:05:00.000Z',
+      display_name: null,
+      avatar_url: null,
+    },
+  ],
+  next_cursor: null,
+};
+
+/**
+ * One page of `GET /api/v1/search` — the only envelope in the contract that is
+ * not `{ items, next_cursor }`.
+ *
+ * The people ids (41–43) deliberately do NOT overlap the post authors (22–24),
+ * because the "no fan-out" rule that `SearchUserHit` exists to guarantee is only
+ * observable when a people hit is a user nothing else on the screen needs. One
+ * hit has `display_name: null`, exactly like the backend, which copies the
+ * profile's name without inventing a fallback — so the UI is the only place that
+ * can name them.
+ *
+ * `posts` reuses `homeFeedPosts` rather than duplicating them: the contract says
+ * search returns plain `PostView`s identical to the feed's, so a second fixture
+ * would let the two drift into different shapes.
+ *
+ * `next_cursor` is `null` because those three posts are the whole result set; the
+ * mock handler recomputes an offset cursor from `limit`, so paging is still
+ * available to a test that asks for a smaller page.
+ */
+export const searchResults: SearchResults = {
+  query: 'cursor',
+  users: [
+    { user_id: 41, display_name: 'Ayesha Rahman', avatar_url: null },
+    { user_id: 42, display_name: null, avatar_url: null },
+    {
+      user_id: 43,
+      display_name: 'Tanvir Ahmed',
+      avatar_url: 'https://cdn.example.com/avatars/43.png',
+    },
+  ],
+  posts: homeFeedPosts,
+  next_cursor: null,
 };

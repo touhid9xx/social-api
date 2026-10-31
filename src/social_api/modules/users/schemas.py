@@ -8,6 +8,10 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 VisibilityLiteral = Literal["public", "followers", "private"]
+# Mirrors UserPublic.role and auth.models.UserRole exactly — declared as a
+# Literal (not the enum) so FastAPI emits the same inline string schema
+# the rest of the auth surface already uses.
+UserRoleLiteral = Literal["user", "moderator", "admin"]
 ConsentChannelLiteral = Literal["email_marketing", "sms_marketing", "analytics", "product_updates"]
 
 
@@ -105,3 +109,29 @@ class ConsentList(BaseModel):
 class DeleteMeResponse(BaseModel):
     message: str
     hard_delete_after: datetime
+
+
+# ---- Admin directory ----
+class AdminUserView(BaseModel):
+    """One row of the staff-only user directory.
+
+    Field-for-field the same PII posture as `UserPublic` (no email, no
+    phone — the encrypted columns stay encrypted and unexposed), plus the
+    display name/avatar so the console doesn't need a per-row
+    `/users/{id}` fetch.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: UserRoleLiteral
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    display_name: str | None = None
+    avatar_url: str | None = None
+
+
+class AdminUserPage(BaseModel):
+    items: list[AdminUserView]
+    next_cursor: str | None = None

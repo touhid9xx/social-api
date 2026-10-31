@@ -62,6 +62,13 @@ export const queryKeys = {
     following: (userId: number, filters: ListFilters = {}) =>
       ['social', 'users', 'following', userId, listKey(filters)] as const,
     presence: (userId: number) => ['social', 'users', 'presence', userId] as const,
+    /**
+     * The staff-only directory. Nested under `users` on purpose so the existing
+     * `queryKeys.users.all` prefix already invalidates it — a new account
+     * appearing in the console is the same event as a profile changing.
+     */
+    directory: (filters: ListFilters = {}) =>
+      ['social', 'users', 'directory', listKey(filters)] as const,
   },
 
   posts: {
@@ -133,6 +140,13 @@ export const queryKeys = {
 
   search: {
     all: ['social', 'search'] as const,
-    query: (term: string) => ['social', 'search', term] as const,
+    /**
+     * The term IS the identity of a search, so it sits in the key — that is what
+     * makes typing "bang" then "bangladesh" two cached results instead of one
+     * overwritten entry. The cursor still goes through `listKey()`: one infinite
+     * query owns every page of a single term.
+     */
+    query: (term: string, filters: ListFilters = {}) =>
+      ['social', 'search', term, listKey(filters)] as const,
   },
 } as const;

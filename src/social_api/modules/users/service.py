@@ -6,6 +6,13 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from social_api.core.pagination import (
+    PaginationError,
+    clamp_limit,
+    decode_cursor,
+    encode_cursor,
+)
+from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
 from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User
@@ -22,10 +29,14 @@ from social_api.modules.users.models import (
     Visibility,
 )
 from social_api.modules.users.repository import (
+    AdminUserRow,
     ConsentRepository,
     ProfileRepository,
+    UserDirectoryRepository,
 )
 from social_api.modules.users.schemas import (
+    AdminUserPage,
+    AdminUserView,
     ConsentRecord,
     DeleteMeResponse,
     ProfilePublic,
@@ -36,6 +47,47 @@ from social_api.modules.users.schemas import (
 logger = get_logger(__name__)
 
 _SOFT_DELETE_HARD_DELETE_DAYS = 30
+
+
+def _decode_user_cursor(cursor: str) -> tuple[datetime, int]:
+    """Parse cursor payload '[ISO8601, user_id]' into (created_at, id).
+
+    A malformed or tampered cursor is a client mistake, not a server fault,
+    so it becomes a 400 with the same `INVALID_CURSOR` code every other
+    cursor endpoint (likes, audit, follows) emits. `PaginationError` is a
+    bare `ValueError` subclass with no registered handler — letting it
+    escape would reach `unhandled_exception_handler` and surface as a 500.
+    """
+    try:
+        vals = decode_cursor(cursor)
+        return datetime.fromisoformat(vals[0]), int(vals[1])
+    except (PaginationError, ValueError, IndexError):
+        raise BadRequestError("Invalid cursor", detail={"code": "INVALID_CURSOR"}) from None
+
+
+def _build_user_page(rows: list[AdminUserRow], limit: int) -> AdminUserPage:
+    """Trim to `limit`, emit next_cursor when the repository over-fetched."""
+    next_cursor: str | None = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        last = rows[-1]
+        next_cursor = encode_cursor([last.created_at, last.id])
+
+    return AdminUserPage(
+        items=[
+            AdminUserView(
+                id=r.id,
+                role=r.role.value,
+                is_active=r.is_active,
+                is_verified=r.is_verified,
+                created_at=r.created_at,
+                display_name=r.display_name,
+                avatar_url=r.avatar_url,
+            )
+            for r in rows
+        ],
+        next_cursor=next_cursor,
+    )
 
 
 def _to_public(profile: Profile) -> ProfilePublic:
@@ -76,6 +128,7 @@ class UsersService:
         self._consents = ConsentRepository(session)
         self._users = UserRepository(session)
         self._follows = FollowsRepository(session)
+        self._directory = UserDirectoryRepository(session)
 
     async def _audit(
         self,
@@ -149,6 +202,32 @@ class UsersService:
                 raise ProfileVisibilityError()
 
         return _to_public(profile)
+
+    # ---- Read (admin directory) ----
+    async def list_users(
+        self, *, cursor: str | None, limit: int | None
+    ) -> AdminUserPage:
+        """Admin-only directory of non-deleted accounts, newest first.
+
+        Same cursor contract as every other list endpoint: clamp the
+        client's limit, decode the opaque cursor, let the repository
+        over-fetch by one, then trim. `next_cursor` is emitted only when
+        a further page genuinely exists, so the client's "end of list"
+        state is driven by data rather than by a short page.
+        """
+        lmt = clamp_limit(limit)
+
+        cursor_ts: datetime | None = None
+        cursor_id: int | None = None
+        if cursor:
+            cursor_ts, cursor_id = _decode_user_cursor(cursor)
+
+        rows = await self._directory.list_users(
+            cursor_ts=cursor_ts,
+            cursor_id=cursor_id,
+            limit=lmt,
+        )
+        return _build_user_page(rows, lmt)
 
     # ---- Update ----
     async def update_profile(

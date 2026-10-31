@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import contextlib
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.db.session import get_db
-from social_api.deps import CurrentUser, get_current_user
+from social_api.deps import CurrentUser, get_current_user, require_roles
+from social_api.modules.auth.models import UserRole
 from social_api.modules.gdpr.exceptions import AlreadyScheduledForDeletionError
 from social_api.modules.gdpr.service import GdprService
 from social_api.modules.users.schemas import (
+    AdminUserPage,
     ConsentGrantRequest,
     ConsentList,
     DeleteMeResponse,
@@ -107,6 +109,31 @@ async def delete_me(
 
     await session.commit()
     return result
+
+
+# NOTE: empty-string route "" — NOT "/".
+# With prefix="/users", "" resolves to GET /api/v1/users (direct match).
+# A "/" here would resolve to /api/v1/users/ and cause FastAPI's default
+# redirect_slashes to answer with a 307. httpx clients don't follow
+# redirects by default, so the 307 would surface as the final response.
+# Same trap the audit router hit.
+@router.get("", response_model=AdminUserPage)
+async def list_users(
+    cursor: str | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=100),
+    _admin: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+) -> AdminUserPage:
+    """Admin-only: cursor-paginated directory of non-deleted accounts.
+
+    `_admin` is deliberately unused in the body — it is the RBAC gate, and
+    the dependency raises 403 before the handler runs. Declared above
+    `/{user_id}` so the literal path wins over the parameterised one.
+
+    Read-only, so no `session.commit()` — unlike the `/me` routes this
+    handler never creates or mutates a row.
+    """
+    return await _svc(session).list_users(cursor=cursor, limit=limit)
 
 
 @router.get("/{user_id}", response_model=ProfilePublic)

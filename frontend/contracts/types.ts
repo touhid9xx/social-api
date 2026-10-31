@@ -6,6 +6,21 @@ export interface AddMemberRequest {
   user_id: number;
 }
 
+export interface AdminUserView {
+  id: number;
+  role: string;
+  is_active: boolean;
+  is_verified: boolean;
+  created_at: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface AdminUserPage {
+  items: AdminUserView[];
+  next_cursor?: string | null;
+}
+
 export interface AuditLogView {
   id: number;
   actor_id: number | null;
@@ -422,6 +437,19 @@ export interface RoomView {
   title: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SearchResults {
+  query: string;
+  users: SearchUserHit[];
+  posts: PostView[];
+  next_cursor?: string | null;
+}
+
+export interface SearchUserHit {
+  user_id: number;
+  display_name?: string | null;
+  avatar_url?: string | null;
 }
 
 export interface UnreadCount {

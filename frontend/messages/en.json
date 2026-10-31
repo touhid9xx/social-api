@@ -114,6 +114,34 @@
       "savedOn": "{flag} is now on for user {id}.",
       "savedOff": "{flag} is now off for user {id}.",
       "savedCleared": "{flag} went back to its environment default for user {id}."
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Every account on this instance, newest first, with its role and status.",
+      "loading": "Loading accounts…",
+      "count": "{count} accounts",
+      "emptyTitle": "No accounts",
+      "emptyBody": "The directory came back empty.",
+      "errorTitle": "Couldn't load the directory",
+      "errorBody": "The account list didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "adminOnlyTitle": "Admins only",
+      "adminOnlyBody": "The user directory is limited to administrators. If you think you should have access, ask an administrator.",
+      "loadingMore": "Loading…",
+      "loadMore": "Load more",
+      "loadMoreFailed": "That page didn't load. Try again.",
+      "endOfList": "No more accounts.",
+      "nameFallback": "User {id}",
+      "joined": "Joined {time}",
+      "verified": "Verified",
+      "unverified": "Unverified",
+      "active": "Active",
+      "deactivated": "Deactivated",
+      "role": {
+        "user": "User",
+        "moderator": "Moderator",
+        "admin": "Admin"
+      }
     }
   },
   "app": {
@@ -748,6 +776,21 @@
       "endOfGallery": "That's every photo.",
       "backToProfile": "Back to profile"
     }
+  },
+  "search": {
+    "title": "Search",
+    "subtitle": "Find people and posts across the network.",
+    "label": "Search",
+    "placeholder": "Search people and posts…",
+    "submit": "Search",
+    "peopleTitle": "People",
+    "postsTitle": "Posts",
+    "emptyTitle": "No posts match “{term}”",
+    "emptyBody": "Try a different word, or check the spelling.",
+    "loading": "Searching…",
+    "tooShortTitle": "Keep typing",
+    "tooShortBody": "Type at least {count} characters to search.",
+    "openProfile": "View the profile of {name}"
   },
   "pages": {
     "search": {

@@ -1,18 +1,36 @@
-"""Users repository: profiles + consent."""
+"""Users repository: profiles + consent + staff directory."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import NamedTuple
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from social_api.modules.auth.models import User, UserRole
 from social_api.modules.users.models import (
     ConsentChannel,
     Profile,
     UserConsent,
     Visibility,
 )
+
+
+class AdminUserRow(NamedTuple):
+    """One `users` LEFT JOIN `profiles` row for the staff directory.
+
+    Flattened at the repository boundary so the service never needs a
+    second query per row (same shape as `FollowEdge`).
+    """
+
+    id: int
+    role: UserRole
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    display_name: str | None
+    avatar_url: str | None
 
 
 class ProfileRepository:
@@ -114,3 +132,54 @@ class ConsentRepository:
     async def revoke(self, row: UserConsent) -> None:
         row.revoked_at = datetime.now(UTC).replace(tzinfo=None)
         await self._s.flush()
+
+
+class UserDirectoryRepository:
+    """Read-only staff-directory queries across `users` + `profiles`."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+
+    async def list_users(
+        self,
+        *,
+        cursor_ts: datetime | None,
+        cursor_id: int | None,
+        limit: int,
+    ) -> list[AdminUserRow]:
+        """Newest-first page of non-deleted users, `limit` rows.
+
+        Uses the `(created_at DESC, id DESC)` keyset the cursor encodes,
+        with `id` as the tiebreaker so users created in the same second
+        can't be skipped or repeated across pages.
+        """
+        stmt = (
+            select(
+                User.id,
+                User.role,
+                User.is_active,
+                User.is_verified,
+                User.created_at,
+                Profile.display_name,
+                Profile.avatar_url,
+            )
+            .join(Profile, Profile.user_id == User.id, isouter=True)
+            .where(User.deleted_at.is_(None))
+        )
+        if cursor_ts is not None and cursor_id is not None:
+            stmt = stmt.where(
+                or_(
+                    User.created_at < cursor_ts,
+                    and_(
+                        User.created_at == cursor_ts,
+                        User.id < cursor_id,
+                    ),
+                )
+            )
+        # Over-fetch by one: the service trims back to `limit` and reads the
+        # extra row as proof a further page exists. Without the +1 the
+        # `len(rows) > limit` test can never fire and `next_cursor` would
+        # always be None — the directory would silently stop after page one.
+        stmt = stmt.order_by(User.created_at.desc(), User.id.desc()).limit(limit + 1)
+        res = await self._s.execute(stmt)
+        return [AdminUserRow(*row) for row in res.all()]
