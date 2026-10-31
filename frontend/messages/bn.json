@@ -568,7 +568,10 @@
     "label": "প্রধান নেভিগেশন",
     "home": "হোম",
     "explore": "এক্সপ্লোর",
+    "messages": "মেসেজ",
     "notifications": "নোটিফিকেশন",
+    "profile": "প্রোফাইল",
+    "settings": "সেটিংস",
     "unreadCount": "{count, plural, one {#টি অপঠিত} other {#টি অপঠিত}}"
   },
   "notifications": {
@@ -605,6 +608,7 @@
     "followAction": "{name}-কে ফলো করুন",
     "unfollowAction": "{name}-কে আনফলো করুন",
     "blockedByThem": "এই অ্যাকাউন্টকে ফলো করা যাবে না।",
+    "editProfile": "প্রোফাইল সম্পাদনা করুন",
     "privateBadge": "এই প্রোফাইলটি প্রাইভেট।",
     "followersLabel": "ফলোয়ার",
     "followingLabel": "ফলো করছেন",

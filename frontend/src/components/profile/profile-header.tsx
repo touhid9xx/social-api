@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { buttonVariants } from '@/components/ui/button';
 import { useFollowCounts } from '@/hooks/use-follow-counts';
+import { useMe } from '@/hooks/use-me';
 import type { PublicProfile } from '@/lib/api/users';
 import { ROUTES } from '@/lib/constants';
 import { formatCount } from '@/lib/format';
@@ -36,7 +38,11 @@ export function ProfileHeader({ profile }: { profile: PublicProfile }) {
   const tFeed = useTranslations('feed');
   const locale = useLocale();
   const { data: counts } = useFollowCounts(profile.user_id);
+  // Shares one cache entry with `FollowButton` (same `useMe` key), so asking
+  // "is this me?" costs no extra request on a profile that already asks it.
+  const { data: me } = useMe();
 
+  const isSelf = me?.user_id === profile.user_id;
   const displayName =
     profile.display_name?.trim() || tFeed('authorFallback', { id: profile.user_id });
   const initial = displayName.slice(0, 1).toUpperCase();
@@ -89,7 +95,18 @@ export function ProfileHeader({ profile }: { profile: PublicProfile }) {
           </dl>
         </div>
 
-        <FollowButton userId={profile.user_id} name={displayName} />
+        {/* Your own profile has no follow control (`CANNOT_FOLLOW_SELF`), so the
+            slot carries the one action that does apply here. */}
+        {isSelf ? (
+          <Link
+            href={ROUTES.settings}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            {t('editProfile')}
+          </Link>
+        ) : (
+          <FollowButton userId={profile.user_id} name={displayName} />
+        )}
       </div>
 
       {profile.bio?.trim() ? (

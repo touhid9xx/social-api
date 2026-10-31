@@ -18,10 +18,14 @@ import { getMe } from '@/lib/api/users';
  * live in different key families on purpose, so rendering a public profile can
  * never be served from the owner-only cache entry.
  */
-export function useMe() {
+export function useMe({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.users.me(),
     queryFn: getMe,
     staleTime: 5 * 60_000,
+    // The primary nav renders in the shell, outside `RequireSession`, so on the
+    // sign-in screens there is no token and this read would be a guaranteed 401.
+    // Callers that live behind the guard leave it at the default.
+    enabled,
   });
 }

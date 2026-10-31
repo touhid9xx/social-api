@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearTokens, setAccessToken } from '@/lib/api';
 import { renderWithProviders } from '@/lib/testing/render';
+import { adminProfile } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
 import { AppNav } from './app-nav';
@@ -38,20 +39,35 @@ beforeEach(() => {
 });
 
 describe('AppNav', () => {
-  it('renders the three routes that exist', () => {
+  it('renders the routes that exist', () => {
     renderWithProviders(<AppNav />);
 
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/home');
     expect(screen.getByRole('link', { name: 'Explore' })).toHaveAttribute('href', '/explore');
+    expect(screen.getByRole('link', { name: 'Messages' })).toHaveAttribute('href', '/messages');
     expect(screen.getByRole('link', { name: 'Notifications' })).toHaveAttribute(
       'href',
       '/notifications',
     );
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
 
-    // Milestones that have not shipped must not appear: a nav item leading to
-    // "arrives later" is the one control a user is guaranteed to press.
-    expect(screen.getAllByRole('link')).toHaveLength(3);
+    // Milestones that have not shipped (`/search`, the admin pages) must not
+    // appear: a nav item leading to "arrives later" is the one control a user is
+    // guaranteed to press.
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+  });
+
+  it('links to the caller’s own profile once their id is known', async () => {
+    // The nav renders outside `RequireSession`, so the profile link waits for a
+    // token AND for `GET /users/me` — a link to `/profile` alone is a 404.
+    setAccessToken('test-access-token');
+    renderWithProviders(<AppNav />);
+
+    expect(await screen.findByRole('link', { name: 'Profile' })).toHaveAttribute(
+      'href',
+      `/profile/${String(adminProfile.user_id)}`,
+    );
   });
 
   it('marks only the current route as the current page', () => {
