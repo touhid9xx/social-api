@@ -92,6 +92,13 @@ const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 /** `NotificationView` + the `unread_delta` hint `push_notification` appends. */
 const inboxNotificationSchema = z
   .object({
+    // The `kind`-tagged siblings below share this envelope type. Declaring `kind`
+    // as `undefined` here is what makes the union DISCRIMINATED: `.passthrough()`
+    // alone contributes a `[key: string]: unknown` index signature, so without
+    // this the inbox variant stays a candidate for `kind === "chat_message"` and
+    // every `data.room_id` below it widens to `unknown`. An inbox row carries no
+    // `kind` at all, which is exactly what this asserts.
+    kind: z.undefined().optional(),
     id: z.number().int(),
     type: notificationTypeSchema,
     target_type: z.enum(['user', 'post', 'comment']),

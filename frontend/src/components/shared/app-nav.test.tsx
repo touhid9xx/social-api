@@ -49,8 +49,9 @@ describe('AppNav', () => {
       'href',
       '/notifications',
     );
-    // Milestones that have not shipped (`/search`, the admin pages) must not
-    // appear: a nav item leading to "arrives later" is the one control a user is
+    // `/search` has not shipped, and `/admin/*` cannot be offered here because the
+    // signed-in profile carries no role. A nav item leading to "arrives later" —
+    // or to a 403 for everyone but staff — is the one control a user is
     // guaranteed to press.
     expect(screen.getAllByRole('link')).toHaveLength(4);
   });

@@ -20,9 +20,14 @@ import { cn } from '@/lib/utils';
  * them here made six equally weighted links compete for one glance and left the
  * header with two different "you" entry points.
  *
- * Only the routes that exist are linked. `/search` and the admin pages are still
- * `Placeholder`s, and a nav item that leads to "arrives in a later milestone" is
- * worse than no nav item: it is the one control a user is guaranteed to press.
+ * Only the routes that exist are linked. `/search` is still a `Placeholder`, so a
+ * link to it would be the one control a user is guaranteed to press. The staff
+ * console is deliberately absent too, but no longer because it cannot be gated:
+ * `useMyRole()` reads the role from `GET /auth/me`, so it could be. It lives in
+ * `UserMenu` instead — a staff console is an account capability rather than a
+ * social destination, and the four links here are the four places a user
+ * browses to. The endpoints behind the console enforce the role regardless of
+ * what any menu renders.
  *
  * Two details that are load-bearing:
  *  - `aria-current="page"` on the active link, not just a colour, so the current

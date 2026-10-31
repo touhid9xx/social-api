@@ -47,6 +47,23 @@ export const NOTIFICATION_TYPES = [
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
+/**
+ * The `notifications.types.*` key that says what each kind means, relative to
+ * the `notifications` namespace.
+ *
+ * Lives here rather than in a component because two places now render the same
+ * sentence — an inbox row, and the toast the WebSocket bridge fires when a row
+ * arrives while the user is elsewhere. A `Record` over the union keeps it total:
+ * a new server-side type breaks the build instead of toasting nothing.
+ */
+export const NOTIFICATION_COPY_KEYS: Record<NotificationType, string> = {
+  follow: 'types.follow',
+  like_post: 'types.likePost',
+  like_comment: 'types.likeComment',
+  comment_post: 'types.commentPost',
+  comment_reply: 'types.commentReply',
+};
+
 export type NotificationQuery = {
   /** Opaque cursor from the previous page. `null`/omitted asks for the first. */
   cursor?: string | null;

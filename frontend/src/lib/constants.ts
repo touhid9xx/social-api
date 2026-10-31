@@ -20,6 +20,13 @@ export const ROUTES = {
   posts: '/posts',
   profile: '/profile',
   admin: '/admin',
+  /**
+   * The only page a **moderator** can use: `/admin` (flags) and `/admin/audit`
+   * are admin-only (`require_roles(UserRole.ADMIN)`), while the report queue
+   * accepts `MODERATOR` and `ADMIN`. Linking a moderator to `/admin` would be a
+   * guaranteed 403, so the staff entry point branches on `role`.
+   */
+  adminReports: '/admin/reports',
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

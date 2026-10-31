@@ -12,12 +12,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/use-author';
 import { useDeleteMessage, useMarkRead } from '@/hooks/use-chat-actions';
 import { useMe } from '@/hooks/use-me';
+import { usePresence } from '@/hooks/use-presence';
+import { useReadReceipts } from '@/hooks/use-read-receipts';
+import { useRoomLive } from '@/hooks/use-room-live';
 import { useRoomMessages } from '@/hooks/use-room-messages';
 import { useRoom, useRoomMembers } from '@/hooks/use-rooms';
 import { errorMessageKey, isAppApiError } from '@/lib/api';
 import type { MessageView } from '@/lib/api/chat';
 import { mediaUrl } from '@/lib/api/media';
-import { flattenNewestFirst, peerIdOf, toChronological } from '@/lib/chat';
+import { flattenNewestFirst, peerIdOf, peerLastReadOf, toChronological } from '@/lib/chat';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -50,9 +53,11 @@ import { MessageComposer } from './message-composer';
  * rendered when the room itself 404s/403s, because then there is no room to write
  * into.
  *
- * No polling and no WebSocket: this milestone reads on demand and refetches on
- * send. A live socket is a separate feature (`docs/adr/001-modular-monolith.md`
- * defers it), and faking one with an interval would spend the user's rate limit.
+ * 4. Liveness comes from the socket, not a poll. `useRoomLive` subscribes this
+ *    room's channel on mount (a room channel is silent until joined) and patches
+ *    pushed messages straight into this exact cache shape, which is why the "Seen"
+ *    badge and the typing line below can be trusted without a refetch. Presence is
+ *    the one thing the socket *cannot* push — see `lib/api/presence.ts`.
  */
 export function MessageThread({ roomId }: { roomId: number }) {
   const t = useTranslations('chat.thread');
@@ -65,6 +70,22 @@ export function MessageThread({ roomId }: { roomId: number }) {
 
   const peerId = room.data ? peerIdOf(room.data, members.data?.members, me?.user_id) : null;
   const { data: peer } = useAuthor(peerId ?? undefined);
+
+  // "Seen" is a DIRECT-room idea only: a group has many readers and one badge
+  // would be a lie, so the query is not even issued for it. The watermark lives
+  // on the receipts document, not on the members list — see `peerLastReadOf`.
+  const receipts = useReadReceipts(room.data?.type === 'direct' ? roomId : undefined);
+  const peerLastRead = room.data
+    ? peerLastReadOf(room.data, receipts.data?.members, me?.user_id)
+    : null;
+
+  // Both live hooks are declared here, ABOVE the `isPending` early return: a hook
+  // that only ran once the room resolved would change the hook order between
+  // renders, which React rejects.
+  const { typingIds, notifyTyping } = useRoomLive(roomId);
+  const { data: presence } = usePresence(
+    room.data?.type === 'direct' ? (peerId ?? undefined) : undefined,
+  );
 
   const { mutate: markRead } = useMarkRead();
   const lastMarked = useRef<number | null>(null);
@@ -122,6 +143,18 @@ export function MessageThread({ roomId }: { roomId: number }) {
 
   const items = toChronological(messages.data?.pages);
 
+  // Only the NEWEST message of mine can carry the badge — repeating "Seen" down
+  // the whole column would say nothing the bottom line does not already say.
+  // `lastOwnId === null` means I have written nothing yet, so nothing to mark.
+  const myId = me?.user_id;
+  const lastOwnId =
+    myId === undefined
+      ? null
+      : items.reduce<number | null>(
+          (last, item) => (item.sender_id === myId ? item.id : last),
+          null,
+        );
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -135,7 +168,29 @@ export function MessageThread({ roomId }: { roomId: number }) {
       </div>
 
       <section aria-label={t('title')} className="space-y-4">
-        <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+
+          {/* Presence is pulled, never pushed (`lib/api/presence.ts`), so nothing
+              renders until the first answer lands: flashing "Offline" at a reader
+              looking at an online person would be a lie. A group header has no
+              single subject, so it shows no dot at all. */}
+          {isGroup || !presence ? null : (
+            <span
+              aria-live="polite"
+              className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'size-2 rounded-full',
+                  presence.online ? 'bg-primary' : 'bg-muted-foreground/40',
+                )}
+              />
+              {presence.online ? t('online') : t('offline')}
+            </span>
+          )}
+        </div>
 
         {messages.isPending ? (
           <div aria-busy="true" aria-live="polite" className="space-y-3">
@@ -196,6 +251,11 @@ export function MessageThread({ roomId }: { roomId: number }) {
                     key={message.id}
                     message={message}
                     mine={message.sender_id === me?.user_id}
+                    seen={
+                      message.id === lastOwnId &&
+                      peerLastRead !== null &&
+                      message.id <= peerLastRead
+                    }
                     showSender={isGroup}
                     roomId={roomId}
                   />
@@ -205,9 +265,48 @@ export function MessageThread({ roomId }: { roomId: number }) {
           </>
         )}
 
-        <MessageComposer roomId={roomId} />
+        <TypingLine ids={typingIds} isGroup={isGroup} />
+
+        <MessageComposer roomId={roomId} onTyping={notifyTyping} />
       </section>
     </div>
+  );
+}
+
+/**
+ * "typing…" above the composer.
+ *
+ * A direct room already names the peer in the header, so the line stays a bare
+ * verb. A group has no single subject, so the first typist's name is resolved
+ * through the same `useAuthor` cache a message row uses — free when that person
+ * has already spoken here. `aria-live="polite"` is load-bearing: without it the
+ * indicator is a visual pulse that only sighted users ever notice.
+ */
+function TypingLine({ ids, isGroup }: { ids: number[]; isGroup: boolean }) {
+  const t = useTranslations('chat.thread');
+  // Hoisted out of `ids` before the guard: with `noUncheckedIndexedAccess`, `ids[0]`
+  // keeps type `number | undefined` at every use site, and the fallback copy takes a
+  // definite id. Narrowing the binding once is what makes the interpolation type-check.
+  const firstId = ids[0];
+  // Called unconditionally — hooks cannot be skipped for the empty case below,
+  // and `useAuthor(undefined)` is a disabled query, not a request.
+  const { data: first } = useAuthor(firstId);
+
+  if (firstId === undefined) return null;
+
+  const label =
+    ids.length > 1
+      ? t('typingGroupMany', { count: ids.length })
+      : isGroup
+        ? t('typingGroup', {
+            name: first?.display_name?.trim() || t('senderFallback', { id: firstId }),
+          })
+        : t('typing');
+
+  return (
+    <p aria-live="polite" className="px-1 text-xs text-muted-foreground">
+      {label}
+    </p>
   );
 }
 
@@ -238,11 +337,14 @@ function ThreadSkeleton() {
 function MessageRow({
   message,
   mine,
+  seen,
   showSender,
   roomId,
 }: {
   message: MessageView;
   mine: boolean;
+  /** The peer's read watermark has reached this row. Never true for a group. */
+  seen: boolean;
   showSender: boolean;
   roomId: number;
 }) {
@@ -298,6 +400,8 @@ function MessageRow({
           </time>
 
           {message.is_edited ? <span>{t('edited')}</span> : null}
+
+          {seen ? <span className="font-medium text-foreground">{t('seen')}</span> : null}
 
           {mine ? (
             <Button

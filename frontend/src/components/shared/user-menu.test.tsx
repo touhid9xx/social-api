@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearTokens, getAccessToken, resetBootstrap, setAccessToken } from '@/lib/api';
 import { renderWithProviders } from '@/lib/testing/render';
-import { adminProfile } from '@/mocks/fixtures';
+import { adminProfile, adminUser } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
 import { UserMenu } from './user-menu';
@@ -31,6 +31,12 @@ import { UserMenu } from './user-menu';
  */
 
 const ME_PATH = '/api/v1/users/me';
+
+/**
+ * The only payload that carries a role. `/users/me` answers `ProfileSelf`, which
+ * has no `role` field, so the staff entry cannot be driven by that read.
+ */
+const AUTH_ME_PATH = '/api/v1/auth/me';
 
 const replace = vi.fn();
 const refresh = vi.fn();
@@ -176,6 +182,87 @@ describe('UserMenu', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
     expect(getAccessToken()).toBeNull();
     expect(clear).toHaveBeenCalled();
+  });
+
+  /**
+   * The staff entry. Three things matter: it exists at all (the console was
+   * previously reachable only by typing the URL), it points somewhere the
+   * account can actually open, and it stays hidden from everyone else.
+   */
+  describe('staff console entry', () => {
+    it('links an admin to the console root', async () => {
+      setAccessToken('test.access.token');
+
+      const user = userEvent.setup();
+      renderWithProviders(<UserMenu />);
+
+      const menu = await open(user);
+
+      expect(await within(menu).findByRole('menuitem', { name: 'Admin console' })).toHaveAttribute(
+        'href',
+        '/admin',
+      );
+    });
+
+    it('sends a moderator to the report queue, never the admin-only root', async () => {
+      setAccessToken('test.access.token');
+      server.use(
+        http.get(`*${AUTH_ME_PATH}`, () => HttpResponse.json({ ...adminUser, role: 'moderator' })),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<UserMenu />);
+
+      const menu = await open(user);
+
+      expect(
+        await within(menu).findByRole('menuitem', { name: 'Moderation queue' }),
+      ).toHaveAttribute('href', '/admin/reports');
+      // `/admin` (flags) and `/admin/audit` are `require_roles(UserRole.ADMIN)`,
+      // so pointing a moderator at the console root would be a guaranteed 403.
+      expect(within(menu).queryByRole('menuitem', { name: 'Admin console' })).toBeNull();
+    });
+
+    it('shows no staff entry to a plain user', async () => {
+      setAccessToken('test.access.token');
+      const asked: string[] = [];
+      server.use(
+        http.get(`*${AUTH_ME_PATH}`, () => {
+          asked.push(AUTH_ME_PATH);
+          return HttpResponse.json({ ...adminUser, role: 'user' });
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<UserMenu />);
+
+      const menu = await open(user);
+
+      // Wait for the role read to actually answer, so "no entry" means "this
+      // role has none", not "the query has not landed yet".
+      await waitFor(() => expect(asked).toEqual([AUTH_ME_PATH]));
+      expect(within(menu).queryByRole('menuitem', { name: 'Admin console' })).toBeNull();
+      expect(within(menu).queryByRole('menuitem', { name: 'Moderation queue' })).toBeNull();
+    });
+
+    it('does not ask for the role without an access token', async () => {
+      const asked: string[] = [];
+      server.use(
+        http.get(`*${AUTH_ME_PATH}`, () => {
+          asked.push(AUTH_ME_PATH);
+          return HttpResponse.json(adminUser);
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<UserMenu />);
+
+      const menu = await open(user);
+
+      await Promise.resolve();
+      expect(asked).toEqual([]);
+      expect(within(menu).queryByRole('menuitem', { name: 'Admin console' })).toBeNull();
+    });
   });
 
   it('labels the menu in Bangla under the bn locale', async () => {

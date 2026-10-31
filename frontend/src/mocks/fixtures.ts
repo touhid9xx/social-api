@@ -6,9 +6,11 @@ import type {
   ConsentRecord,
   DeleteMeResponse,
   DeletionStatusView,
+  FlagList,
   FollowCounts,
   FollowStatus,
   FollowUserView,
+  LikeUserPage,
   MemberReadState,
   MediaView,
   MessageView,
@@ -921,3 +923,61 @@ export const auditLogs: AuditLogView[] = [
     created_at: '2026-01-15T09:00:00.000Z',
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Feature flags (admin).
+//
+// The names and `builtin_value`s are the REAL ones from
+// `core/flags/provider.py:12-19` — a fixture that invented its own flags would
+// let the table pass while proving nothing about the contract. `.env` currently
+// sets all six `FF_*` variables to the code default, so on a stock checkout
+// there is no drift at all; `feed_fanout_enabled` is therefore reported as
+// `env_value: true` against a `false` default, which is the state an operator
+// reaches by setting `FF_FEED_FANOUT_ENABLED=true`. Exactly one row drifts, so
+// "drift is shown where the two values differ" is an assertion about one row,
+// not about the message existing somewhere.
+//
+// There is no override data here on purpose: `FlagView` has three fields and
+// `overridden_user_count` is deliberately absent from the contract (counting it
+// SCANs Redis per flag), so a fixture carrying counts would not type-check
+// against the real response.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Likers list (`GET /likes/{target_type}/{target_id}/users`).
+//
+// Two pages so cursor paging is exercised with the real envelope shape
+// (`{ items, next_cursor }`, `likes/schemas.py:20-24`). Page 1 deliberately
+// includes a user whose `display_name` is null — the service copies it straight
+// off the profile (`service.py:116-122`) and never invents a fallback, so the UI
+// is the only place that can name them.
+// ---------------------------------------------------------------------------
+
+export const postLikers: LikeUserPage = {
+  items: [
+    { user_id: 22, display_name: 'Mahmudul Hasan', avatar_url: null },
+    {
+      user_id: 23,
+      display_name: 'Sadia Islam',
+      avatar_url: 'https://cdn.example.com/avatars/23.png',
+    },
+    { user_id: 24, display_name: null, avatar_url: null },
+  ],
+  next_cursor: 'likers-page-2',
+};
+
+export const postLikersPage2: LikeUserPage = {
+  items: [{ user_id: 25, display_name: 'Tanvir Ahmed', avatar_url: null }],
+  next_cursor: null,
+};
+
+export const featureFlags: FlagList = {
+  flags: [
+    { name: 'ws_enabled', env_value: true, builtin_value: true },
+    { name: 'chat_enabled', env_value: true, builtin_value: true },
+    { name: 'gdpr_enabled', env_value: true, builtin_value: true },
+    { name: 'feed_fanout_enabled', env_value: true, builtin_value: false },
+    { name: 'email_enabled', env_value: true, builtin_value: true },
+    { name: 'sms_enabled', env_value: false, builtin_value: false },
+  ],
+};

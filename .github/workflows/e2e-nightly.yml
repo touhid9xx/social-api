@@ -48,10 +48,10 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Set up Node 20 (for contract export drift check)
+      - name: Set up Node 22 (for contract export drift check)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install project
         run: |

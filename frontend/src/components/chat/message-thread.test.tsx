@@ -1,9 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
+import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import type { MessagePage, MessageView } from '@/lib/api/chat';
+import { WebSocketProvider } from '@/components/shared/websocket-provider';
+import { useReadReceipts } from '@/hooks/use-read-receipts';
+import type { MessagePage, MessageView, ReadReceiptsList } from '@/lib/api/chat';
 import { renderWithProviders } from '@/lib/testing/render';
 import { roomMessages } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
@@ -25,16 +28,21 @@ import { MessageThread } from './message-thread';
  *    page forever.
  *  - **The read watermark is the newest message that actually loaded**, sent once
  *    per distinct id. Firing on every render would be one POST per paint.
+ *  - **"Seen" is a claim about a real person.** It comes from the peer's
+ *    read-receipt watermark, so it may only appear on my NEWEST message and only
+ *    once that watermark has actually reached it. A badge on an older row of mine,
+ *    a badge in a group room, or a badge the peer has not earned are all lies.
  *
  * Room 601 is the direct room (peer = Alice, user 22) and its five fixture
  * messages make a `limit=3` read produce exactly two pages.
  */
 
 const ROOM_ID = 601;
+const GROUP_ROOM_ID = 602;
 
-function rows(): MessageView[] {
-  const fixture = roomMessages[ROOM_ID];
-  if (!fixture) throw new Error(`fixture messages for room ${String(ROOM_ID)} are missing`);
+function rows(roomId = ROOM_ID): MessageView[] {
+  const fixture = roomMessages[roomId];
+  if (!fixture) throw new Error(`fixture messages for room ${String(roomId)} are missing`);
 
   // `contracts/types.ts` (what the fixtures are typed against) leaves
   // `is_edited` optional, while the generated OpenAPI client requires it. Same
@@ -54,9 +62,32 @@ function textOfListItems(): string[] {
   return screen.queryAllByRole('listitem').map((item) => item.textContent ?? '');
 }
 
+/**
+ * The thread is not standalone UI: `useRoomLive` reaches for the app-wide socket
+ * context, which the root layout mounts and `renderWithProviders` does not. The
+ * wrapper is local on purpose — teaching the shared render helper to tolerate a
+ * missing provider would hide that dependency in the app too. No access token is
+ * set in this file, so the provider stays disconnected and only supplies
+ * `joinRoom`/`subscribe`, exactly like an anonymous page.
+ */
+function renderThread(ui: ReactElement, options?: Parameters<typeof renderWithProviders>[1]) {
+  return renderWithProviders(<WebSocketProvider>{ui}</WebSocketProvider>, options);
+}
+
+/**
+ * Subscribes to the SAME receipts query the thread does, so a test can wait for
+ * "the watermark has been applied" rather than guessing. Without it a "no Seen
+ * badge" assertion would pass just as happily while the request was still in
+ * flight — the failure mode of every absence test.
+ */
+function ReceiptsProbe({ roomId = ROOM_ID }: { roomId?: number }) {
+  const { data } = useReadReceipts(roomId);
+  return <span data-testid="receipts">{data ? 'loaded' : 'pending'}</span>;
+}
+
 describe('MessageThread', () => {
   it('renders the conversation oldest-first and names a direct room after its peer', async () => {
-    renderWithProviders(<MessageThread roomId={ROOM_ID} />);
+    renderThread(<MessageThread roomId={ROOM_ID} />);
 
     expect(await screen.findByText('Hey! Did the pagination land?')).toBeInTheDocument();
 
@@ -96,7 +127,7 @@ describe('MessageThread', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<MessageThread roomId={ROOM_ID} />);
+    renderThread(<MessageThread roomId={ROOM_ID} />);
 
     // Page 1 holds the three NEWEST messages: 705, 704, 703 → displayed 703…705.
     expect(await screen.findByText("Let's ship the cursor fix first.")).toBeInTheDocument();
@@ -129,7 +160,7 @@ describe('MessageThread', () => {
       }),
     );
 
-    renderWithProviders(<MessageThread roomId={ROOM_ID} />);
+    renderThread(<MessageThread roomId={ROOM_ID} />);
 
     await screen.findByText('Hey! Did the pagination land?');
 
@@ -140,6 +171,83 @@ describe('MessageThread', () => {
     // 705 is the newest fixture row — the only honest watermark for "I read what
     // is on screen". A second POST here would mean the ref-driven guard failed.
     expect(watermarks).toEqual([705]);
+  });
+
+  it('marks only my newest message as seen, and only once the peer reached it', async () => {
+    renderThread(<MessageThread roomId={ROOM_ID} />);
+
+    // Alice's fixture watermark is exactly 704, which is my newest own row; the
+    // next one down (702) sits above the boundary. `findAllByText` waits for the
+    // badge, so "no badge on 702" is a result rather than a race.
+    const badges = await screen.findAllByText('Seen');
+    expect(badges).toHaveLength(1);
+
+    const items = screen.getAllByRole('listitem');
+    const rowFor = (body: string) => {
+      const row = items.find((item) => item.textContent?.includes(body));
+      if (!row) throw new Error(`no row rendered for "${body}"`);
+      return row;
+    };
+
+    expect(within(rowFor('Then it is a plan.')).getByText('Seen')).toBeInTheDocument();
+    // Also mine, but not the newest: repeating the badge down the column would
+    // say nothing the bottom line does not already say.
+    expect(within(rowFor('The thread reverses at render time.')).queryByText('Seen')).toBeNull();
+    // Alice's own rows can never carry it, however far her own watermark is.
+    expect(within(rowFor("Sounds good — I'll push it tonight.")).queryByText('Seen')).toBeNull();
+  });
+
+  it('shows no seen badge while the peer is behind my newest message', async () => {
+    server.use(
+      http.get('*/api/v1/chat/rooms/:room_id/read-receipts', () =>
+        // Alice read up to 703: past my OLDER message (702), short of my newest.
+        HttpResponse.json<ReadReceiptsList>({
+          members: [
+            { user_id: 21, last_read_message_id: 704 },
+            { user_id: 22, last_read_message_id: 703 },
+          ],
+        }),
+      ),
+    );
+
+    renderThread(
+      <>
+        <MessageThread roomId={ROOM_ID} />
+        <ReceiptsProbe />
+      </>,
+    );
+
+    await screen.findByText('Hey! Did the pagination land?');
+    // The probe shares the query, so this proves the watermark was fetched and
+    // applied. Without it the assertion below would pass on a pending request.
+    await waitFor(() => {
+      expect(screen.getByTestId('receipts')).toHaveTextContent('loaded');
+    });
+
+    expect(screen.queryByText('Seen')).toBeNull();
+  });
+
+  it('never marks a group room as seen and never asks for its receipts', async () => {
+    let receiptReads = 0;
+
+    server.use(
+      http.get('*/api/v1/chat/rooms/:room_id/read-receipts', () => {
+        receiptReads += 1;
+        return HttpResponse.json<ReadReceiptsList>({ members: [] });
+      }),
+    );
+
+    renderThread(<MessageThread roomId={GROUP_ROOM_ID} />);
+
+    // The group title and my own message (802) are both on screen, so the room,
+    // member and message queries have all settled by this point.
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('Design crew');
+    expect(screen.getByText('A group room needs a title — this one has it.')).toBeInTheDocument();
+
+    // A group has many readers, so a single badge would be a lie: the query is
+    // disabled outright rather than fetched and thrown away.
+    expect(receiptReads).toBe(0);
+    expect(screen.queryByText('Seen')).toBeNull();
   });
 
   it('offers a delete control only on my own messages', async () => {
@@ -153,7 +261,7 @@ describe('MessageThread', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<MessageThread roomId={ROOM_ID} />);
+    renderThread(<MessageThread roomId={ROOM_ID} />);
 
     await screen.findByText('Hey! Did the pagination land?');
 
@@ -179,7 +287,7 @@ describe('MessageThread', () => {
   });
 
   it('reports an inaccessible room without offering a composer', async () => {
-    renderWithProviders(<MessageThread roomId={9999} />);
+    renderThread(<MessageThread roomId={9999} />);
 
     expect(await screen.findByText("This conversation isn't available")).toBeInTheDocument();
     // A room that 404s has nowhere to write into, so the composer must be gone.
@@ -188,7 +296,7 @@ describe('MessageThread', () => {
   });
 
   it('renders Bangla copy under the bn locale', async () => {
-    renderWithProviders(<MessageThread roomId={ROOM_ID} />, { locale: 'bn' });
+    renderThread(<MessageThread roomId={ROOM_ID} />, { locale: 'bn' });
 
     // One page of five fixture rows (below the default page size), so there is no
     // "load older" control to assert — the Bangla copy checked here is the header

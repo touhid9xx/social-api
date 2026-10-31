@@ -4,6 +4,7 @@ import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 
 import { QueryProvider } from '@/components/shared/query-provider';
+import { RealtimeBridge } from '@/components/shared/realtime-bridge';
 import { SessionBootstrap } from '@/components/shared/session-bootstrap';
 import { ThemeProvider } from '@/components/shared/theme-provider';
 import { WebSocketProvider } from '@/components/shared/websocket-provider';
@@ -45,11 +46,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <QueryProvider>
               <SessionBootstrap />
               {/*
-                Inside `QueryProvider` (F16 will invalidate the query cache from
-                socket events) and around the tree, so every route — main, admin
-                and auth — shares one socket per tab.
+                Inside `QueryProvider` because `RealtimeBridge` writes to the query
+                cache, and around the tree so every route — main, admin and auth —
+                shares one socket per tab.
               */}
               <WebSocketProvider>
+                <RealtimeBridge />
                 <a
                   href="#main"
                   className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"

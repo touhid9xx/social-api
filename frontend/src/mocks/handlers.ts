@@ -15,6 +15,8 @@ import type {
   DeleteMeResponse,
   DeletionStatusView,
   ExploreFeedPage,
+  FlagOverride,
+  FlagOverrideResponse,
   FollowCounts,
   FollowListPage,
   FollowStatus,
@@ -33,6 +35,7 @@ import type {
   PostCreate,
   PostPage,
   PostView,
+  PresenceView,
   ProfileSelf,
   ProfileUpdate,
   ReadReceiptsList,
@@ -66,6 +69,7 @@ import {
   exploreFeedPosts,
   exportedData,
   FIXTURE_NOW,
+  featureFlags,
   followCounts,
   followersOf22,
   followingOf22,
@@ -73,6 +77,8 @@ import {
   homeFeedPosts,
   notifications,
   postComments,
+  postLikers,
+  postLikersPage2,
   refreshedAccess,
   refreshedTokens,
   reports,
@@ -198,6 +204,14 @@ export const handlers = [
   http.post('*/api/v1/auth/refresh', () => HttpResponse.json(refreshedTokens)),
 
   http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+
+  // The caller's own identity, INCLUDING `role`. This is deliberately not the
+  // same read as `GET /users/me`: that one answers `ProfileSelf` (owner PII, and
+  // no `role` field at all), so it cannot tell a staff account from anyone else.
+  // Served from `adminUser` because the seeded demo session is the admin; a test
+  // that needs a moderator or a plain user overrides this handler with
+  // `server.use(...)` instead of the fixture changing shape per case.
+  http.get('*/api/v1/auth/me', () => HttpResponse.json(adminUser)),
 
   // ---------------------------------------------------------------------------
   // One-shot token flows (F5): verify-email, forgot-password, reset-password.
@@ -690,6 +704,30 @@ export const handlers = [
     () => new HttpResponse(null, { status: 204 }),
   ),
 
+  // Two things the route actually does, mirrored here: an unknown
+  // `target_type` is NOT a 404 — `list_likers` passes the string straight to the
+  // repository, which simply finds no rows, so the answer is 200 with an empty
+  // page (`likes/service.py:99-122`). Only a malformed cursor is a 400.
+  http.get('*/api/v1/likes/:target_type/:target_id/users', ({ request }) => {
+    const cursor = new URL(request.url).searchParams.get('cursor');
+
+    if (cursor === null) {
+      return HttpResponse.json(postLikers);
+    }
+    if (cursor === postLikers.next_cursor) {
+      return HttpResponse.json(postLikersPage2);
+    }
+
+    // The real decoder raises BAD_REQUEST / INVALID_CURSOR for anything it
+    // cannot parse, so the mock does not pretend an invented cursor is fine.
+    return HttpResponse.json(
+      errorBody('BAD_REQUEST', 400, '/api/v1/likes/post/101/users', {
+        code: 'INVALID_CURSOR',
+      }),
+      { status: 400 },
+    );
+  }),
+
   // `CommentCreate` is `min_length=1`, and depth is capped at 2 on the server:
   // a reply to a reply is a real 422, so the mock refuses it too rather than
   // accepting something the backend would reject.
@@ -1012,6 +1050,29 @@ export const handlers = [
     return HttpResponse.json(payload);
   }),
 
+  // Typing is an HTTP POST, not a socket frame: `_reader_loop` in
+  // `api/v1/ws.py` only handles ping/join_room/leave_room, so the backend
+  // advertises the typing indicator by publishing on `ws:room:{id}` AFTER this
+  // call. 204 — the server has nothing to say back, and the real endpoint is
+  // rate limited to 60/min, which the mock deliberately does not simulate (the
+  // client throttles to one call per 3s).
+  http.post('*/api/v1/chat/rooms/:room_id/typing', () => new HttpResponse(null, { status: 204 })),
+
+  // Presence is a pulled Redis counter, so the mock answers ONLINE for every id:
+  // the peer dot is then visible when eyeballing the thread, and a test that
+  // needs the grey dot overrides the handler with `server.use()` — the same way
+  // the 403/409 branches are manufactured elsewhere in this file. Offline is a
+  // valid answer on the real server (`{online: false, connections: 0}`), never
+  // an error, so it must not be modelled as one here either.
+  http.get('*/api/v1/presence/:user_id', ({ params }) => {
+    const payload: PresenceView = {
+      user_id: Number(params.user_id),
+      online: true,
+      connections: 1,
+    };
+    return HttpResponse.json(payload);
+  }),
+
   // ---------------------------------------------------------------------------
   // Moderation + audit (F22).
   //
@@ -1120,6 +1181,63 @@ export const handlers = [
     const payload: AuditPage = {
       items,
       next_cursor: end < rows.length ? String(end) : null,
+    };
+
+    return HttpResponse.json(payload);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Feature flags — the admin console (`src/social_api/api/v1/flags.py`).
+  //
+  // `GET /flags` reports env vs. code default per flag and nothing else: the
+  // contract's `FlagView` has no override count (counting one SCANs the whole
+  // Redis keyspace per flag), so there is no per-user data to mock here and the
+  // write below cannot change this response — which is why the hook invalidates
+  // nothing.
+  //
+  // `POST /flags/{name}/override` is a state-set, not a create. It is not in the
+  // idempotency middleware's `_IDEMPOTENT_PATTERNS`, so it carries no key; the
+  // mock stores nothing either, and instead echoes the applied value and the
+  // `action` (`flags.py:94`) — the only way to tell "cleared" from "set to off",
+  // since both come back as `enabled: false`.
+  //
+  // An unknown flag is a real `400 BAD_REQUEST` whose `detail` carries
+  // `known_flags`. The select is built from `GET /flags` so it cannot reach this,
+  // but it is exactly what the server answers if the two ever disagree.
+  // ---------------------------------------------------------------------------
+
+  http.get('*/api/v1/flags', () => HttpResponse.json(featureFlags)),
+
+  http.post('*/api/v1/flags/:flag_name/override', async ({ request, params }) => {
+    const flagName = String(params.flag_name);
+    const path = `/api/v1/flags/${flagName}/override`;
+    const known = featureFlags.flags.map((flag) => flag.name);
+
+    if (!known.includes(flagName)) {
+      return HttpResponse.json(errorBody('BAD_REQUEST', 400, path, { known_flags: known }), {
+        status: 400,
+      });
+    }
+
+    const body = (await request.json()) as FlagOverride;
+
+    // `enabled` is REQUIRED on the contract (`bool | None`, no default), so an
+    // absent key is a malformed request, not "clear the override". Written as an
+    // explicit guard so a future `?? null` cannot quietly turn a bad body into a
+    // cleared override.
+    if (!('enabled' in body)) {
+      return HttpResponse.json(errorBody('VALIDATION_ERROR', 422, path, 'enabled is required'), {
+        status: 422,
+      });
+    }
+
+    const enabled = body.enabled ?? null;
+
+    const payload: FlagOverrideResponse = {
+      flag: flagName,
+      user_id: body.user_id,
+      enabled,
+      action: enabled === null ? 'cleared' : 'set',
     };
 
     return HttpResponse.json(payload);

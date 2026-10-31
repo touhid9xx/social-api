@@ -1,12 +1,13 @@
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { server } from '@/mocks/server';
 import type { ApiErrorBody } from '@/types';
 
 import { AppApiError } from './errors';
 import { IDEMPOTENCY_HEADER } from './idempotency';
-import { LIKE_TARGET_TYPES, likeTarget, unlikeTarget } from './likes';
+import { LIKE_TARGET_TYPES, type LikeUserPage, getLikers, likeTarget, unlikeTarget } from './likes';
 
 /**
  * Like / unlike.
@@ -111,5 +112,90 @@ describe('unlikeTarget', () => {
     );
 
     await expect(unlikeTarget('post', 101)).rejects.toBeInstanceOf(AppApiError);
+  });
+});
+
+/**
+ * `GET /likes/{target_type}/{target_id}/users` — the read side of a like.
+ *
+ * Two behaviours belong to the client and are pinned here: the first page must
+ * not send a cursor at all (`null` is not "the first page" on the wire — it is a
+ * literal the backend would try to decode), and the returned `next_cursor` must
+ * come back untouched so the caller can echo it.
+ *
+ * The fixture's third liker has `display_name: null` on purpose: the backend
+ * copies the name straight off the profile and never invents a fallback
+ * (`likes/service.py:116-122`), so the envelope must be handed over as-is and
+ * the naming decision left to the UI. A client-side "fix" here would be a
+ * second source of truth.
+ */
+
+const LIKERS_PATH = '*/api/v1/likes/:target_type/:target_id/users';
+
+describe('getLikers', () => {
+  it('requests the target path with the default page size and no cursor', async () => {
+    const captured: { url?: URL } = {};
+    server.use(
+      http.get(LIKERS_PATH, ({ request }) => {
+        captured.url = new URL(request.url);
+        const empty: LikeUserPage = { items: [], next_cursor: null };
+        return HttpResponse.json(empty);
+      }),
+    );
+
+    await getLikers('post', 101);
+
+    expect(captured.url?.pathname).toBe('/api/v1/likes/post/101/users');
+    expect(captured.url?.searchParams.get('limit')).toBe(String(DEFAULT_PAGE_SIZE));
+    expect(captured.url?.searchParams.has('cursor')).toBe(false);
+  });
+
+  it('passes an opaque cursor through untouched', async () => {
+    const captured: { url?: URL } = {};
+    server.use(
+      http.get(LIKERS_PATH, ({ request }) => {
+        captured.url = new URL(request.url);
+        const empty: LikeUserPage = { items: [], next_cursor: null };
+        return HttpResponse.json(empty);
+      }),
+    );
+
+    await getLikers('comment', 55, { cursor: 'likers-page-2', limit: 5 });
+
+    expect(captured.url?.pathname).toBe('/api/v1/likes/comment/55/users');
+    expect(captured.url?.searchParams.get('cursor')).toBe('likers-page-2');
+    expect(captured.url?.searchParams.get('limit')).toBe('5');
+  });
+
+  it('returns the page envelope verbatim, including an absent display name', async () => {
+    const first = await getLikers('post', 101);
+
+    expect(first.items.map((u) => u.user_id)).toEqual([22, 23, 24]);
+    expect(first.next_cursor).toBe('likers-page-2');
+    // Never defaulted, never renamed: the dialog owns the fallback copy.
+    expect(first.items[2]?.display_name).toBeNull();
+
+    const second = await getLikers('post', 101, { cursor: 'likers-page-2' });
+
+    expect(second.items.map((u) => u.user_id)).toEqual([25]);
+    expect(second.next_cursor).toBeNull();
+  });
+
+  it('surfaces a malformed cursor as a client error', async () => {
+    server.use(
+      http.get(LIKERS_PATH, () =>
+        HttpResponse.json(errorBody('INVALID_CURSOR', 400), { status: 400 }),
+      ),
+    );
+
+    const error = await getLikers('post', 101, { cursor: 'nonsense' }).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(AppApiError);
+    if (!(error instanceof AppApiError)) throw error;
+    expect(error.code).toBe('INVALID_CURSOR');
+    expect(error.isClientError).toBe(true);
+    expect(error.isTransient).toBe(false);
   });
 });

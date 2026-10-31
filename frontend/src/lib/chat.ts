@@ -1,4 +1,10 @@
-import type { MessagePage, MessageView, RoomMemberView, RoomView } from '@/lib/api/chat';
+import type {
+  MemberReadState,
+  MessagePage,
+  MessageView,
+  RoomMemberView,
+  RoomView,
+} from '@/lib/api/chat';
 
 /**
  * Pure helpers for chat screens, kept out of the components so they can be
@@ -29,6 +35,29 @@ export function peerIdOf(
   // so read it once and let the `null` fall through to the same "don't guess" path.
   const only = others.length === 1 ? others[0] : undefined;
   return only?.user_id ?? null;
+}
+
+/**
+ * How far the other person has read in a direct room — the "Seen" watermark.
+ *
+ * It comes from `GET /rooms/{id}/read-receipts`, NOT from the members list:
+ * `RoomMemberView` is `{user_id, role, joined_at}` and carries no read state at
+ * all. Receipts are a separate document by design.
+ *
+ * Returns `null` when the answer is not knowable — a group (many readers, one
+ * "seen" badge would be a lie), a peer with no watermark yet, or receipts that
+ * have not loaded. Callers treat `null` as "show nothing", never as 0.
+ */
+export function peerLastReadOf(
+  room: Pick<RoomView, 'type'>,
+  receipts: readonly MemberReadState[] | undefined,
+  meId: number | undefined,
+): number | null {
+  if (room.type !== 'direct' || meId === undefined) return null;
+
+  const others = receipts?.filter((receipt) => receipt.user_id !== meId) ?? [];
+  const only = others.length === 1 ? others[0] : undefined;
+  return only?.last_read_message_id ?? null;
 }
 
 /**

@@ -1,6 +1,14 @@
 'use client';
 
-import { Images, Loader2, LogOut, Settings as SettingsIcon, User } from 'lucide-react';
+import {
+  Flag,
+  Images,
+  Loader2,
+  LogOut,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  User,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
@@ -16,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMe } from '@/hooks/use-me';
+import { useMyRole } from '@/hooks/use-my-role';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { useSessionStore } from '@/lib/api/tokens';
 import { mediaUrl } from '@/lib/api/media';
@@ -43,6 +52,14 @@ import { profileGalleryPath, profilePath, ROUTES } from '@/lib/constants';
  * The theme picker inside the menu is the same `ThemeToggle` used elsewhere: icon
  * buttons only, each with its own accessible name.
  *
+ * The staff entry is here, not in the primary nav, and it branches on `role`:
+ * `useMyRole()` reads `GET /auth/me` (the only payload that carries a role —
+ * `/users/me` returns `ProfileSelf`, which has none). An admin lands on `/admin`,
+ * the console root; a moderator lands on `/admin/reports`, because `/admin` and
+ * `/admin/audit` are admin-only and would answer 403. Anyone else gets no entry
+ * at all. This is a rendering hint, never the access check — the endpoints
+ * enforce the role themselves.
+ *
  * (প্রোফাইল-সংক্রান্ত সব অপশন — প্রোফাইল, গ্যালারি, সেটিংস, থিম, সাইন আউট — এই
  *  ড্রপডাউনে। প্রধান নেভিতে শুধু গন্তব্য থাকে।)
  */
@@ -55,6 +72,13 @@ export function UserMenu() {
   // there is no token and this read would be a guaranteed 401.
   const { data: me } = useMe({ enabled: Boolean(accessToken) });
   const { signOut, pending } = useSignOut();
+
+  const role = useMyRole();
+  // `/admin` (flags) and `/admin/audit` are admin-only; the report queue also
+  // accepts moderators. So the destination follows the role rather than every
+  // staff account being pointed at a page most of them cannot open.
+  const isAdmin = role === 'admin';
+  const staffHref = isAdmin ? ROUTES.admin : role === 'moderator' ? ROUTES.adminReports : null;
 
   const displayName = me?.display_name?.trim() ?? '';
   // `ProfileSelf` carries no email, so the display name is all we have to name the
@@ -110,6 +134,18 @@ export function UserMenu() {
               {t('settings')}
             </Link>
           </DropdownMenuItem>
+
+          {/* Rendered only for staff, and only once `/auth/me` has answered — the
+              role is not known before that, and guessing would put a link in
+              front of accounts that cannot use it. */}
+          {staffHref ? (
+            <DropdownMenuItem asChild>
+              <Link href={staffHref}>
+                {isAdmin ? <ShieldCheck aria-hidden="true" /> : <Flag aria-hidden="true" />}
+                {isAdmin ? t('adminConsole') : t('moderationQueue')}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />

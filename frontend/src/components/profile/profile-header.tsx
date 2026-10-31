@@ -4,6 +4,7 @@ import { Images, Link2, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 
+import { MessageButton } from '@/components/chat/message-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buttonVariants } from '@/components/ui/button';
 import { useFollowCounts } from '@/hooks/use-follow-counts';
@@ -108,7 +109,11 @@ export function ProfileHeader({ profile }: { profile: PublicProfile }) {
         </div>
 
         {/* Your own profile has no follow control (`CANNOT_FOLLOW_SELF`), so the
-            slot carries the one action that does apply here. */}
+            slot carries the one action that does apply here. Everyone else gets
+            "Message" beside "Follow" — without it the rooms screen's "open
+            someone's profile to start a chat" points at nothing. Both controls
+            hide themselves (own profile, block in either direction) rather than
+            offering a click that is guaranteed to fail. */}
         {isSelf ? (
           <Link
             href={ROUTES.settings}
@@ -117,7 +122,10 @@ export function ProfileHeader({ profile }: { profile: PublicProfile }) {
             {t('editProfile')}
           </Link>
         ) : (
-          <FollowButton userId={profile.user_id} name={displayName} />
+          <div className="flex shrink-0 items-center gap-2">
+            <MessageButton userId={profile.user_id} name={displayName} />
+            <FollowButton userId={profile.user_id} name={displayName} />
+          </div>
         )}
       </div>
 

@@ -33,8 +33,20 @@ import {
  * The mutation is not optimistic (rate-limited, idempotency-keyed): a queued
  * bubble that turns out to have been rejected leaves the user believing they
  * said something they did not.
+ *
+ * `onTyping` is optional and purely advisory: the composer reports "this draft
+ * became non-empty", and the caller (`use-room-live`) owns the throttle and the
+ * transport. Kept out of here so the composer stays testable on its own and so
+ * a thread that has no socket subscription still renders a working input.
  */
-export function MessageComposer({ roomId }: { roomId: number }) {
+export function MessageComposer({
+  roomId,
+  onTyping,
+}: {
+  roomId: number;
+  /** Called on every non-empty draft change; the caller throttles. */
+  onTyping?: () => void;
+}) {
   const t = useTranslations('chat.composer');
   const tValidation = useTranslations('chat.validation');
   const tRoot = useTranslations();
@@ -54,6 +66,9 @@ export function MessageComposer({ roomId }: { roomId: number }) {
   function updateBody(value: string) {
     setValues({ body: value });
     setErrors((current) => (current.body ? { ...current, body: undefined } : current));
+    // Only a non-empty draft is "typing". Backspacing to empty is not a signal
+    // the backend models, and the hook throttles the rest.
+    if (value.trim().length > 0) onTyping?.();
   }
 
   function submit() {

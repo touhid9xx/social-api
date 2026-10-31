@@ -154,6 +154,37 @@ export async function markRead(roomId: number, messageId: number): Promise<Membe
   );
 }
 
+/**
+ * `POST /chat/rooms/{room_id}/typing` → 204, no body.
+ *
+ * Typing goes over HTTP, NOT over the socket, even though `ws.ts` models a
+ * `typing` outbound verb: the backend's `_reader_loop` (`api/v1/ws.py:114`)
+ * handles only `ping`, `join_room` and `leave_room`, so a socket `typing` frame
+ * is silently dropped. This endpoint is the only path that reaches
+ * `ChatService.publish_typing`, which publishes on `ws:room:{id}` with envelope
+ * type `presence` / `kind: "typing"`.
+ *
+ * Rate-limited to 60/min per user, so callers MUST throttle — see
+ * `TYPING_THROTTLE_MS` in `hooks/use-room-live.ts`, which sends at most one
+ * frame every few seconds instead of one per keystroke.
+ */
+export async function sendTyping(roomId: number): Promise<void> {
+  await apiRequest(() =>
+    apiClient.POST('/api/v1/chat/rooms/{room_id}/typing', {
+      params: { path: { room_id: roomId } },
+    }),
+  );
+}
+
+/**
+ * `GET /chat/rooms/{id}/read-receipts` — one row per member, each carrying the
+ * last message that member read (`null` until they read anything).
+ *
+ * This is the ONLY source of the "Seen" watermark. A `RoomMemberView` is
+ * `{user_id, role, joined_at}`, so the badge cannot be derived from the members
+ * list — reading it from there was the original F12 gap. `null` and `0` are
+ * different claims; see `peerLastReadOf` in `@/lib/chat`.
+ */
 export async function getReadReceipts(roomId: number): Promise<ReadReceiptsList> {
   return apiRequest(() =>
     apiClient.GET('/api/v1/chat/rooms/{room_id}/read-receipts', {
@@ -162,6 +193,15 @@ export async function getReadReceipts(roomId: number): Promise<ReadReceiptsList>
   );
 }
 
+/**
+ * `GET /chat/rooms/{id}/unread-count` → `{ unread }`.
+ *
+ * Deliberately has NO consumer yet, and that is not an oversight: the count is
+ * per room, so a badge on each row of the room list would cost one request per
+ * row (the fixture note in `mocks/fixtures.ts` says the same). The nav badge uses
+ * the single global notification count instead. Kept because it is a faithful
+ * wrapper on a real endpoint and the thread header is the obvious future caller.
+ */
 export async function getRoomUnreadCount(roomId: number): Promise<ChatUnreadCount> {
   return apiRequest(() =>
     apiClient.GET('/api/v1/chat/rooms/{room_id}/unread-count', {

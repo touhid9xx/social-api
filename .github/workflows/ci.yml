@@ -15,7 +15,9 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  # Must satisfy frontend/package.json "engines": lint-staged 17 (run by the
+  # pre-commit hook) dropped Node 20 and requires >= 22.22.1.
+  NODE_VERSION: "22"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:

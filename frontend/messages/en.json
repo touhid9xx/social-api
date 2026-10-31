@@ -80,6 +80,40 @@
       "showDiff": "Show before and after",
       "before": "Before",
       "after": "After"
+    },
+    "flags": {
+      "title": "Feature flags",
+      "subtitle": "Every flag the API knows about, with the value from the environment and the default baked into the code.",
+      "loading": "Loading flags…",
+      "count": "{count} flags",
+      "emptyTitle": "No flags registered",
+      "emptyBody": "The API returned no flags, so there is nothing to inspect.",
+      "errorTitle": "Couldn't load the flags",
+      "errorBody": "The flag list didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "adminOnlyTitle": "Admins only",
+      "adminOnlyBody": "Feature flags are limited to administrators. If you think you should have access, ask an administrator.",
+      "nameLabel": "Flag",
+      "envLabel": "Environment",
+      "builtinLabel": "Code default",
+      "on": "On",
+      "off": "Off",
+      "drift": "Differs from the code default",
+      "overrideTitle": "Per-user override",
+      "overrideSubtitle": "An override beats both values above for one user. The API doesn't list existing overrides, so this only reports the write it just made.",
+      "flagLabel": "Flag",
+      "userLabel": "User ID",
+      "userPlaceholder": "e.g. 21",
+      "valueLabel": "Override",
+      "enable": "Turn on",
+      "disable": "Turn off",
+      "clear": "Clear override",
+      "submit": "Apply override",
+      "userIdInvalid": "Enter a positive user ID.",
+      "saveFailed": "The override couldn't be applied.",
+      "savedOn": "{flag} is now on for user {id}.",
+      "savedOff": "{flag} is now off for user {id}.",
+      "savedCleared": "{flag} went back to its environment default for user {id}."
     }
   },
   "app": {
@@ -214,8 +248,14 @@
       "emptyBody": "Say hello — this conversation is waiting for its first message.",
       "deleteAction": "Delete message",
       "edited": "edited",
+      "seen": "Seen",
       "senderFallback": "User {id}",
-      "backToRooms": "All conversations"
+      "backToRooms": "All conversations",
+      "typing": "typing…",
+      "typingGroup": "{name} is typing…",
+      "typingGroupMany": "{count} people are typing…",
+      "online": "Online",
+      "offline": "Offline"
     },
     "composer": {
       "formLabel": "Write a message",
@@ -481,6 +521,22 @@
       "imageAlt": "Attached image {index}",
       "videoLabel": "Attached video"
     },
+    "likers": {
+      "open": "{count, plural, one {See the person who liked this} other {See the # people who liked this}}",
+      "title": "Liked by",
+      "description": "{count, plural, one {# person liked this} other {# people liked this}}",
+      "close": "Close",
+      "loading": "Loading who liked this…",
+      "loadingMore": "Loading more…",
+      "loadMore": "Load more people",
+      "loadMoreFailed": "Couldn't load more people. Try again.",
+      "endOfList": "That's everyone.",
+      "errorTitle": "Couldn't load this list",
+      "errorBody": "The list of people didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "emptyTitle": "No likes yet",
+      "emptyBody": "Nobody has liked this yet."
+    },
     "comments": {
       "title": "Comments",
       "loadingComments": "Loading comments…",
@@ -592,6 +648,8 @@
       "profile": "Your profile",
       "gallery": "Your gallery",
       "settings": "Settings",
+      "adminConsole": "Admin console",
+      "moderationQueue": "Moderation queue",
       "signOut": "Sign out"
     }
   },
@@ -623,11 +681,17 @@
       "commentReply": "{name} replied to your comment"
     }
   },
+  "realtime": {
+    "newNotification": "New notification",
+    "reportResolved": "A report you filed was resolved"
+  },
   "profile": {
     "follow": "Follow",
     "following": "Following",
     "followAction": "Follow {name}",
     "unfollowAction": "Unfollow {name}",
+    "message": "Message",
+    "messageAction": "Message {name}",
     "blockedByThem": "You can't follow this account.",
     "editProfile": "Edit profile",
     "galleryLink": "Gallery",

@@ -15,6 +15,21 @@ export type ChangePasswordBody = components['schemas']['ChangePasswordRequest'];
 export type MessageResponse = components['schemas']['MessageResponse'];
 
 /**
+ * `GET /api/v1/auth/me` — the caller's identity **including `role`**.
+ *
+ * Deliberately not the same call as `GET /users/me` (`./users.ts`): that one
+ * returns `ProfileSelf` with the owner's PII and no `role` field at all, so it
+ * cannot answer "may I see the staff console". This endpoint returns
+ * `UserPublic`, which is id/role/is_active/is_verified/created_at and nothing
+ * else — the one place the client can learn its own role.
+ */
+export type UserRole = components['schemas']['UserPublic']['role'];
+
+export async function getAuthMe(): Promise<components['schemas']['UserPublic']> {
+  return apiRequest(() => apiClient.GET('/api/v1/auth/me'));
+}
+
+/**
  * `POST /api/v1/auth/change-password` — rotate the caller's own password.
  *
  * The bearer token proves *who* is calling; `current_password` proves the caller

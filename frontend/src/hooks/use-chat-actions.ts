@@ -117,8 +117,14 @@ function withPages(data: unknown, transform: (items: unknown[]) => unknown[]): u
   };
 }
 
-/** Newest-first pages, so a new message belongs at the head of the FIRST page. */
-function prependMessage(data: unknown, created: { id: number }): unknown {
+/**
+ * Newest-first pages, so a new message belongs at the head of the FIRST page.
+ *
+ * Exported because the live-room subscription (`use-room-live`) has to patch a
+ * pushed message into the same cache shape the send mutation patches — two
+ * copies of this insertion rule would drift.
+ */
+export function prependMessage(data: unknown, created: { id: number }): unknown {
   const pages = (data as WithPages | null)?.pages;
   if (!Array.isArray(pages) || pages.length === 0) return data;
 

@@ -18,7 +18,7 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { useInView } from '@/hooks/use-in-view';
 import { errorMessageKey } from '@/lib/api';
 import { mediaUrl } from '@/lib/api/media';
-import type { NotificationType, NotificationView } from '@/lib/api/notifications';
+import { NOTIFICATION_COPY_KEYS, type NotificationView } from '@/lib/api/notifications';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -38,14 +38,6 @@ import { cn } from '@/lib/utils';
  * linking it would open the wrong post. Those rows render without a link rather
  * than shipping one that resolves to the wrong page.
  */
-
-const TYPE_COPY: Record<NotificationType, string> = {
-  follow: 'types.follow',
-  like_post: 'types.likePost',
-  like_comment: 'types.likeComment',
-  comment_post: 'types.commentPost',
-  comment_reply: 'types.commentReply',
-};
 
 function targetHref(notification: NotificationView): string | null {
   switch (notification.target_type) {
@@ -99,7 +91,7 @@ function NotificationRow({ notification }: { notification: NotificationView }) {
     <>
       <span className="min-w-0 flex-1 space-y-0.5">
         <span className="block text-sm text-foreground">
-          {t(TYPE_COPY[notification.type], { name })}
+          {t(NOTIFICATION_COPY_KEYS[notification.type], { name })}
         </span>
 
         {notification.preview ? (

@@ -41,8 +41,9 @@ export function useRoom(roomId: number) {
  * has `title: null`, so the peer is *only* discoverable here — the member whose
  * `user_id` is not mine. The thread header and the room list both depend on it.
  *
- * It also carries `role` and `last_read_message_id`, which is what "Seen" is
- * derived from in a direct chat.
+ * It also carries `role` and `joined_at`. It does NOT carry read state — an
+ * earlier version of this comment claimed a `last_read_message_id` here, which
+ * the contract never had; "Seen" comes from `use-read-receipts` instead.
  */
 export function useRoomMembers(roomId: number) {
   return useQuery({

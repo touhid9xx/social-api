@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { MessageView, RoomMemberView } from '@/lib/api/chat';
+import type { MemberReadState, MessageView, RoomMemberView } from '@/lib/api/chat';
 
-import { flattenNewestFirst, peerIdOf, toChronological } from './chat';
+import { flattenNewestFirst, peerIdOf, peerLastReadOf, toChronological } from './chat';
 
 /**
  * The pure half of the chat feature.
@@ -15,6 +15,11 @@ import { flattenNewestFirst, peerIdOf, toChronological } from './chat';
  *    the whole trick — and it must return `null` rather than guess whenever that
  *    member is not uniquely determinable (group, still loading, or a direct room
  *    that somehow lists three people).
+ *  - `peerLastReadOf` answers a SEPARATE question — how far the peer has read —
+ *    and it is answered by the read-receipts document, not by the member list:
+ *    `RoomMemberView` is `{user_id, role, joined_at}` and carries no watermark at
+ *    all. Like `peerIdOf` it returns `null` instead of guessing, because a "Seen"
+ *    badge on the wrong message is a claim about someone else's behaviour.
  *  - `flattenNewestFirst` / `toChronological` split the API's order from the
  *    reading order. Pages arrive NEWEST-first because that is the direction
  *    "load older" pages in; reversing is a render-time concern. Reversing the
@@ -41,6 +46,11 @@ function message(id: number, senderId = 22): MessageView {
 
 function member(userId: number): RoomMemberView {
   return { user_id: userId, role: 'member', joined_at: '2026-01-10T09:00:00.000Z' };
+}
+
+/** One read-receipts row. `lastRead` is `null` until that member reads anything. */
+function receipt(userId: number, lastRead: number | null): MemberReadState {
+  return { user_id: userId, last_read_message_id: lastRead };
 }
 
 describe('peerIdOf', () => {
@@ -79,6 +89,63 @@ describe('peerIdOf', () => {
 
   it('returns null for an empty member list', () => {
     expect(peerIdOf({ type: 'direct' }, [], 21)).toBeNull();
+  });
+});
+
+describe('peerLastReadOf', () => {
+  it("returns the other person's watermark in a direct room", () => {
+    // Room 601's fixtures: I have read up to 705, Alice up to 704.
+    expect(peerLastReadOf({ type: 'direct' }, [receipt(21, 705), receipt(22, 704)], 21)).toBe(704);
+  });
+
+  it('ignores my own watermark, which is usually the furthest ahead', () => {
+    // Reading my own row would label my message "Seen by them" the moment I read
+    // it myself — the badge would always be on, which makes it meaningless.
+    expect(peerLastReadOf({ type: 'direct' }, [receipt(21, 705), receipt(22, 703)], 21)).toBe(703);
+    expect(peerLastReadOf({ type: 'direct' }, [receipt(22, 703), receipt(21, 705)], 21)).toBe(703);
+  });
+
+  it('returns null for a group room, where a single badge would be a lie', () => {
+    // Three members read to three different points; "Seen" only says "somebody
+    // got this far", which is not a fact worth printing.
+    expect(peerLastReadOf({ type: 'group' }, [receipt(21, 803), receipt(23, 802)], 21)).toBeNull();
+  });
+
+  it('returns null while the receipts have not loaded', () => {
+    // `null` means "show nothing", so the badge must not flash on before the
+    // answer arrives — and must never be treated as 0.
+    expect(peerLastReadOf({ type: 'direct' }, undefined, 21)).toBeNull();
+  });
+
+  it('returns null when my own id is unknown', () => {
+    expect(
+      peerLastReadOf({ type: 'direct' }, [receipt(21, 705), receipt(22, 704)], undefined),
+    ).toBeNull();
+  });
+
+  it('returns null when the peer has no watermark yet', () => {
+    // A brand-new room: the row exists, `last_read_message_id` is null. That is
+    // "they have read nothing", which must surface as nothing — not as message 0.
+    expect(
+      peerLastReadOf({ type: 'direct' }, [receipt(21, 705), receipt(22, null)], 21),
+    ).toBeNull();
+  });
+
+  it('returns null when only my own receipt row came back', () => {
+    expect(peerLastReadOf({ type: 'direct' }, [receipt(21, 705)], 21)).toBeNull();
+    expect(peerLastReadOf({ type: 'direct' }, [], 21)).toBeNull();
+  });
+
+  it('returns null for an ambiguous direct room rather than picking a reader', () => {
+    // Unreachable through the direct-room endpoint (the pair is UNIQUE), but a
+    // wrong "Seen" is a false claim about a real person, so it is refused.
+    expect(
+      peerLastReadOf(
+        { type: 'direct' },
+        [receipt(21, 705), receipt(22, 704), receipt(24, 701)],
+        21,
+      ),
+    ).toBeNull();
   });
 });
 
