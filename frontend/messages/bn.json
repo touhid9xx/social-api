@@ -464,11 +464,22 @@
       "success": "পোস্ট প্রকাশিত হয়েছে",
       "visibility": "কে এটি দেখতে পাবে",
       "counter": "{count, plural, one {#টি অক্ষর বাকি} other {#টি অক্ষর বাকি}}",
+      "addMedia": "মিডিয়া যোগ করুন",
+      "attachmentsLabel": "সংযুক্তি",
+      "removeAttachment": "{name} সরান",
+      "fileTooLarge": "{name} সংযুক্ত করার জন্য খুব বড়।",
+      "tooManyFiles": "সর্বোচ্চ {max}টি ফাইল সংযুক্ত করা যাবে।",
+      "videoPreview": "ভিডিও",
       "validation": {
         "bodyRequired": "পোস্ট করার আগে কিছু লিখুন।",
         "bodyTooLong": "{max} অক্ষরের মধ্যে রাখুন।",
         "visibilityInvalid": "কে দেখতে পাবে তা বেছে নিন।"
       }
+    },
+    "media": {
+      "gridLabel": "{count, plural, one {#টি সংযুক্তি} other {#টি সংযুক্তি}}",
+      "imageAlt": "সংযুক্ত ছবি {index}",
+      "videoLabel": "সংযুক্ত ভিডিও"
     },
     "comments": {
       "title": "কমেন্ট",

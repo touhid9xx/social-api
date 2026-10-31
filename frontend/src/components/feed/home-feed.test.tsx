@@ -28,12 +28,13 @@ type Page = { items: FeedPost[]; next: string | null };
 function post(id: number): FeedPost {
   const found = homeFeedPosts.find((item) => item.id === id);
   if (!found) throw new Error(`fixture post ${String(id)} is missing`);
-  // The hand-mirrored contract types `visibility` as a bare `string` and the
-  // two flags as optional; the OpenAPI schema the feed is typed from narrows
-  // and enforces all three.
+  // The hand-mirrored contract types `visibility` and `media[].kind` as bare
+  // `string`s and the two flags as optional; the OpenAPI schema the feed is
+  // typed from narrows and enforces all of them.
   return {
     ...found,
     visibility: found.visibility as FeedPost['visibility'],
+    media: found.media as FeedPost['media'],
     is_edited: found.is_edited ?? false,
     is_liked_by_me: found.is_liked_by_me ?? false,
   };
@@ -69,13 +70,16 @@ function serveFeed(pages: Record<string, Page>) {
 }
 
 describe('HomeFeed', () => {
+  // Posts are counted by role "article" (PostCard's root element), not
+  // "listitem": a card's media grid is itself a <ul>/<li>, so counting list
+  // items would count attachments as posts.
   it('renders the first page and ends the feed when there is no cursor', async () => {
     serveFeed({ first: { items: [post(101), post(102), post(103)], next: null } });
 
     renderWithProviders(<HomeFeed />);
 
     expect(await screen.findByText(post(101).body)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getAllByRole('article')).toHaveLength(3);
     expect(screen.getByText("You're all caught up.")).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
@@ -90,12 +94,12 @@ describe('HomeFeed', () => {
     renderWithProviders(<HomeFeed />);
 
     expect(await screen.findByText(post(101).body)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.getAllByRole('article')).toHaveLength(1);
 
     await user.click(screen.getByRole('button', { name: 'Load more' }));
 
     expect(await screen.findByText(post(102).body)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByText("You're all caught up.")).toBeInTheDocument();
   });
 
@@ -114,7 +118,7 @@ describe('HomeFeed', () => {
     await user.click(screen.getByRole('button', { name: 'Load more' }));
 
     expect(await screen.findByText(post(103).body)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getAllByRole('article')).toHaveLength(3);
   });
 
   it('shows the empty state for an empty feed', async () => {

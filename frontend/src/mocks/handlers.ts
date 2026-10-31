@@ -2,6 +2,8 @@ import { HttpResponse, http } from 'msw';
 
 import type { ApiErrorBody } from '@/types';
 
+import { uploadedFile } from './multipart';
+
 import type {
   AuditLogView,
   AuditPage,
@@ -21,6 +23,7 @@ import type {
   LoginRequest,
   LoginResponse,
   MarkReadResponse,
+  MediaView,
   MemberReadState,
   MessagePage,
   MessageResponse,
@@ -103,6 +106,9 @@ let nextCreatedCommentId = 950;
 
 /** Chat message ids start above the fixture range (701–705, 801–803). */
 let nextCreatedMessageId = 970;
+
+/** Media ids start above the fixture range (501) for the same reason. */
+let nextMediaId = 980;
 
 function errorBody(error: string, status: number, path: string, detail: unknown): ApiErrorBody {
   return { error, status, detail, path, request_id: TEST_REQUEST_ID };
@@ -599,6 +605,62 @@ export const handlers = [
     };
 
     return HttpResponse.json(created, { status: 201 });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Media (two-step: upload, then attach).
+  //
+  // `POST /media` is `multipart/form-data` with one `file` part; the backend
+  // validates by magic bytes and answers 201 with the stored row, whose `url`
+  // is root-relative (`/static/media/…`) — `mediaUrl()` prefixes the API origin.
+  // The attach endpoint answers with a **bare** `MediaView`, not an envelope.
+  // ---------------------------------------------------------------------------
+  http.post('*/api/v1/media', async ({ request }) => {
+    // Parsed from the raw body rather than `request.formData()` — see the note
+    // in `./multipart` on why jsdom cannot satisfy undici's brand check.
+    const file = await uploadedFile(request);
+
+    // `UploadFile` is required on the backend, so a missing part is a real 422.
+    if (!file) {
+      return HttpResponse.json(
+        errorBody('VALIDATION_ERROR', 422, '/api/v1/media', 'file: Field required'),
+        { status: 422 },
+      );
+    }
+
+    const id = nextMediaId++;
+    const uploaded: MediaView = {
+      id,
+      owner_id: adminUser.id,
+      post_id: null,
+      kind: file.mime.startsWith('video/') ? 'video' : 'image',
+      mime: file.mime,
+      size_bytes: file.size,
+      url: `/static/media/mock/${id}`,
+      created_at: FIXTURE_NOW,
+    };
+
+    return HttpResponse.json(uploaded, { status: 201 });
+  }),
+
+  // Echoes the upload back with `post_id` filled in, which is all the composer
+  // reads. The real endpoint also bumps `posts.media_count`; the feed here is a
+  // shared fixture, so mutating it would leak between tests (see the note above
+  // on `POST /posts`) — the card renders from `media[]`, not from the count.
+  http.post('*/api/v1/media/:media_id/attach/:post_id', ({ params }) => {
+    const mediaId = Number(params.media_id);
+    const attached: MediaView = {
+      id: mediaId,
+      owner_id: adminUser.id,
+      post_id: Number(params.post_id),
+      kind: 'image',
+      mime: 'image/png',
+      size_bytes: 1024,
+      url: `/static/media/mock/${mediaId}`,
+      created_at: FIXTURE_NOW,
+    };
+
+    return HttpResponse.json(attached);
   }),
 
   // Both answer 204 with no body: the UI updates optimistically.

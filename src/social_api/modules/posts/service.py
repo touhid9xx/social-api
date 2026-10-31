@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -17,11 +18,15 @@ from social_api.core.pagination import (
 )
 from social_api.exceptions import BadRequestError, ForbiddenError
 from social_api.logging_config import get_logger
+from social_api.media.storage import StorageBackend
 from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.models import User, UserRole
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.follows.repository import FollowsRepository
 from social_api.modules.likes.repository import LikesRepository
+from social_api.modules.media.repository import MediaRepository
+from social_api.modules.media.schemas import MediaView
+from social_api.modules.media.service import get_storage_backend, media_by_post
 from social_api.modules.posts.exceptions import (
     PostForbiddenError,
     PostNotFoundError,
@@ -43,7 +48,12 @@ logger = get_logger(__name__)
 _RoleLiteral = Literal["user", "moderator", "admin"]
 
 
-def _to_view(post: Post, *, is_liked: bool = False) -> PostView:
+def _to_view(
+    post: Post,
+    *,
+    is_liked: bool = False,
+    media: Sequence[MediaView] | None = None,
+) -> PostView:
     return PostView(
         id=post.id,
         author_id=post.author_id,
@@ -61,16 +71,30 @@ def _to_view(post: Post, *, is_liked: bool = False) -> PostView:
         # immune to the second-precision truncation of MySQL DATETIME
         # that makes `updated_at > created_at` fail on fast edits.
         is_edited=post.version > 1,
+        # Empty list, not None: a post created before media upload exists must
+        # serialize `media: []` so clients can render unconditionally.
+        media=list(media or ()),
     )
 
 
 class PostsService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, storage: StorageBackend | None = None) -> None:
         self._s = session
         self._repo = PostsRepository(session)
         self._likes = LikesRepository(session)
         self._follows = FollowsRepository(session)
         self._users = UserRepository(session)
+        self._media_repo = MediaRepository(session)
+        # Resolved lazily: the write paths (create/delete) never read media,
+        # so they must not pay for constructing a storage backend.
+        self._storage = storage
+
+    async def _media_for(self, post_ids: Sequence[int]) -> dict[int, list[MediaView]]:
+        if not post_ids:
+            return {}
+        if self._storage is None:
+            self._storage = get_storage_backend()
+        return await media_by_post(self._media_repo, self._storage, post_ids=post_ids)
 
     # ---- Authorization helper ----
     async def _assert_visible(
@@ -171,7 +195,8 @@ class PostsService:
             visibility=post.visibility,
         )
         liked = await self._likes.exists(user_id=viewer_id, target_type="post", target_id=post.id)
-        return _to_view(post, is_liked=liked)
+        media = await self._media_for([post.id])
+        return _to_view(post, is_liked=liked, media=media.get(post.id))
 
     # ---- Update ----
     async def update(self, *, viewer_id: int, post_id: int, payload: PostUpdate) -> PostView:
@@ -180,13 +205,17 @@ class PostsService:
             raise PostNotFoundError()
         if post.author_id != viewer_id:
             raise PostForbiddenError()
+
+        media = await self._media_for([post.id])
+        attached = media.get(post.id)
+
         if post.version != payload.version:
             # mode="json" — datetime-safe; the error handler uses plain
             # json.dumps() inside JSONResponse.
             raise OptimisticLockError(
                 detail={
                     "current_version": post.version,
-                    "current": _to_view(post).model_dump(mode="json"),
+                    "current": _to_view(post, media=attached).model_dump(mode="json"),
                 }
             )
 
@@ -210,7 +239,7 @@ class PostsService:
                 if v is not None
             ],
         )
-        return _to_view(post)
+        return _to_view(post, media=attached)
 
     # ---- Delete (soft) ----
     async def delete(self, *, actor: User, post_id: int) -> None:
@@ -310,7 +339,8 @@ class PostsService:
             target_ids=post_ids,
         )
 
+        media = await self._media_for(post_ids)
         return PostPage(
-            items=[_to_view(p, is_liked=p.id in liked_ids) for p in visible],
+            items=[_to_view(p, is_liked=p.id in liked_ids, media=media.get(p.id)) for p in visible],
             next_cursor=next_cursor,
         )

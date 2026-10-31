@@ -36,11 +36,12 @@ const LIKES_PATH = '*/api/v1/likes/:target_type/:target_id';
 function post(id: number, overrides: Partial<FeedPost> = {}): FeedPost {
   const found = homeFeedPosts.find((item) => item.id === id);
   if (!found) throw new Error(`fixture post ${String(id)} is missing`);
-  // See post-card.test.tsx: the hand-mirrored contract leaves `visibility` a
-  // bare string and the two flags optional.
+  // See post-card.test.tsx: the hand-mirrored contract leaves `visibility` and
+  // `media[].kind` bare strings and the two flags optional.
   return {
     ...found,
     visibility: found.visibility as FeedPost['visibility'],
+    media: found.media as FeedPost['media'],
     is_edited: found.is_edited ?? false,
     is_liked_by_me: found.is_liked_by_me ?? false,
     ...overrides,

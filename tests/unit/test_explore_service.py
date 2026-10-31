@@ -76,13 +76,33 @@ class _Likes:
         return set()
 
 
+class _MediaRepo:
+    """No attached media — this file asserts filtering/ordering only."""
+
+    async def list_by_post_ids(self, *, post_ids: Any) -> list[Any]:
+        return []
+
+
+class _Storage:
+    async def url_for(self, *, key: str) -> str:
+        return f"mem://{key}"
+
+
+def _svc() -> FeedService:
+    # Media hydration runs on every read path, so inject no-op fakes.
+    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc._media_repo = _MediaRepo()  # type: ignore[assignment]
+    svc._storage = _Storage()  # type: ignore[assignment]
+    return svc
+
+
 @pytest.mark.asyncio
 async def test_public_only_filtered() -> None:
     public = _post(1, author=10, visibility=Visibility.PUBLIC)
     private = _post(2, author=11, visibility=Visibility.PRIVATE)
     followers = _post(3, author=12, visibility=Visibility.FOLLOWERS)
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = _Repo(  # type: ignore[assignment]
         source_posts=[],
         fetched_posts={1: public, 2: private, 3: followers},
@@ -100,7 +120,7 @@ async def test_blocked_author_filtered() -> None:
     a = _post(1, author=10)
     b = _post(2, author=11)
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = _Repo(  # type: ignore[assignment]
         source_posts=[],
         fetched_posts={1: a, 2: b},
@@ -118,7 +138,7 @@ async def test_cache_empty_falls_back_to_db() -> None:
     a = _post(1, author=10)
     b = _post(2, author=11)
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = _Repo(  # type: ignore[assignment]
         source_posts=[a, b],
         fetched_posts={1: a, 2: b},
@@ -134,7 +154,7 @@ async def test_cache_empty_falls_back_to_db() -> None:
 @pytest.mark.asyncio
 async def test_cache_hit_flag_when_zset_populated() -> None:
     a = _post(1, author=10)
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = _Repo(  # type: ignore[assignment]
         source_posts=[], fetched_posts={1: a}
     )

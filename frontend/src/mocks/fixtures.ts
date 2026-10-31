@@ -10,6 +10,7 @@ import type {
   FollowStatus,
   FollowUserView,
   MemberReadState,
+  MediaView,
   MessageView,
   NotificationView,
   PostView,
@@ -146,6 +147,23 @@ export const authorProfiles: Record<number, ProfilePublic> = {
   },
 };
 
+/** One attached image on post 102 — matches that post's `media_count: 1`.
+ *
+ * The URL is ROOT-RELATIVE, exactly what `LocalStorage.url_for` returns from the
+ * backend, so anything rendering it must resolve it against the API origin
+ * (`mediaUrl()` in `lib/api/media`). An absolute fixture URL would hide that.
+ */
+export const postMedia: MediaView = {
+  id: 501,
+  owner_id: 23,
+  post_id: 102,
+  kind: 'image',
+  mime: 'image/png',
+  size_bytes: 2048,
+  url: '/static/media/posts/102.png',
+  created_at: '2026-01-15T09:40:00.000Z',
+};
+
 export const homeFeedPosts: PostView[] = [
   {
     id: 101,
@@ -169,6 +187,7 @@ export const homeFeedPosts: PostView[] = [
     like_count: 4,
     comment_count: 0,
     media_count: 1,
+    media: [postMedia],
     version: 1,
     created_at: '2026-01-15T09:40:00.000Z',
     updated_at: '2026-01-15T09:40:00.000Z',

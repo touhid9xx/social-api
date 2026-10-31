@@ -283,6 +283,7 @@ export interface PostView {
   updated_at: string;
   is_liked_by_me?: boolean;
   is_edited?: boolean;
+  media?: MediaView[];
 }
 
 export interface PresenceView {

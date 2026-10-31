@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Final
 
@@ -45,6 +46,33 @@ def _to_view(media: Media, *, url: str) -> MediaView:
         url=url,
         created_at=media.created_at,
     )
+
+
+async def media_by_post(
+    repo: MediaRepository,
+    storage: StorageBackend,
+    *,
+    post_ids: Sequence[int],
+) -> dict[int, list[MediaView]]:
+    """Group a page's attached, live media by post id.
+
+    One SELECT plus one URL resolution per row — feed pagination must not
+    turn into N+1. Posts without media are simply absent from the mapping,
+    so callers use `result.get(post_id, [])`.
+
+    Takes the repository (not a session) so read services can hold their own
+    instance and unit tests can swap in a fake, like every other repo here.
+    """
+    if not post_ids:
+        return {}
+    rows = await repo.list_by_post_ids(post_ids=post_ids)
+    grouped: dict[int, list[MediaView]] = {}
+    for media in rows:
+        if media.post_id is None:  # defensive: the query already filters this
+            continue
+        url = await storage.url_for(key=media.storage_key)
+        grouped.setdefault(media.post_id, []).append(_to_view(media, url=url))
+    return grouped
 
 
 class MediaService:

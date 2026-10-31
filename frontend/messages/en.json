@@ -464,11 +464,22 @@
       "success": "Post published",
       "visibility": "Who can see this",
       "counter": "{count, plural, one {# character left} other {# characters left}}",
+      "addMedia": "Add media",
+      "attachmentsLabel": "Attachments",
+      "removeAttachment": "Remove {name}",
+      "fileTooLarge": "{name} is too large to attach.",
+      "tooManyFiles": "You can attach up to {max} files.",
+      "videoPreview": "Video",
       "validation": {
         "bodyRequired": "Write something before posting.",
         "bodyTooLong": "Keep it under {max} characters.",
         "visibilityInvalid": "Choose who can see this post."
       }
+    },
+    "media": {
+      "gridLabel": "{count, plural, one {# attachment} other {# attachments}}",
+      "imageAlt": "Attached image {index}",
+      "videoLabel": "Attached video"
     },
     "comments": {
       "title": "Comments",

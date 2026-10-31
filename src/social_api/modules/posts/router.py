@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from social_api.core.rate_limit import _key_by_user_or_ip, limiter
 from social_api.db.session import get_db
 from social_api.deps import CurrentUser, get_current_user
+from social_api.media.storage import StorageBackend
+from social_api.modules.media.service import get_storage_backend
 from social_api.modules.posts.schemas import (
     PostCreate,
     PostPage,
@@ -19,8 +21,10 @@ from social_api.modules.posts.service import PostsService
 router = APIRouter(prefix="/posts", tags=["posts"])
 
 
-def _svc(session: AsyncSession) -> PostsService:
-    return PostsService(session)
+def _svc(session: AsyncSession, storage: StorageBackend | None = None) -> PostsService:
+    # `storage` is only needed to resolve media URLs on read paths; the
+    # write endpoints leave it None so they never construct a backend.
+    return PostsService(session, storage)
 
 
 @router.post(
@@ -46,8 +50,9 @@ async def get_post(
     post_id: int,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage_backend),
 ) -> PostView:
-    return await _svc(session).get(viewer_id=user.user.id, post_id=post_id)
+    return await _svc(session, storage).get(viewer_id=user.user.id, post_id=post_id)
 
 
 @router.patch("/{post_id}", response_model=PostView)
@@ -56,8 +61,11 @@ async def update_post(
     payload: PostUpdate,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage_backend),
 ) -> PostView:
-    return await _svc(session).update(viewer_id=user.user.id, post_id=post_id, payload=payload)
+    return await _svc(session, storage).update(
+        viewer_id=user.user.id, post_id=post_id, payload=payload
+    )
 
 
 @router.delete(
@@ -84,8 +92,9 @@ async def list_by_author(
     limit: int | None = Query(default=None, ge=1, le=100),
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage_backend),
 ) -> PostPage:
-    return await _svc(session).list_by_author(
+    return await _svc(session, storage).list_by_author(
         viewer_id=user.user.id,
         author_id=author_id,
         cursor=cursor,

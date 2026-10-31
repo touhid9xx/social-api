@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +54,23 @@ class MediaRepository:
         await self._s.flush()
         await self._s.refresh(m)
         return m
+
+    async def list_by_post_ids(self, *, post_ids: Sequence[int]) -> list[Media]:
+        """All live media attached to any of `post_ids`, stable per post.
+
+        One query for a whole feed page — see `media_by_post` in the service,
+        which groups the result per post. Ordered by id so a post's gallery
+        renders in upload order.
+        """
+        if not post_ids:
+            return []
+        stmt = (
+            select(Media)
+            .where(Media.post_id.in_(post_ids), Media.deleted_at.is_(None))
+            .order_by(Media.id.asc())
+        )
+        res = await self._s.execute(stmt)
+        return list(res.scalars().all())
 
     async def save(self, m: Media) -> None:
         """Flush pending changes and re-read server-generated columns.

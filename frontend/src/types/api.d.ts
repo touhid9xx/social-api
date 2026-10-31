@@ -1655,6 +1655,8 @@ export interface components {
             is_liked_by_me: boolean;
             /** Like Count */
             like_count: number;
+            /** Media */
+            media?: components["schemas"]["MediaView"][];
             /** Media Count */
             media_count: number;
             /**

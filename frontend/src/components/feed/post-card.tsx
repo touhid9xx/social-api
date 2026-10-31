@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/use-author';
 import type { FeedPost } from '@/lib/api/feed';
+import { mediaUrl } from '@/lib/api/media';
 import { ROUTES } from '@/lib/constants';
 import { formatCount, formatRelativeTime } from '@/lib/format';
 
@@ -41,6 +42,9 @@ export function PostCard({ post }: { post: FeedPost }) {
   const initial = displayName.slice(0, 1).toUpperCase();
   const VisibilityIcon = VISIBILITY_ICON[post.visibility];
   const visibilityLabel = t(`visibility.${post.visibility}`);
+  // `media` is optional on `PostView` (the field was added to an existing
+  // contract), so a response cached or mocked before it existed has no key.
+  const media = post.media ?? [];
 
   return (
     <article className="rounded-xl border border-border bg-card p-4 shadow-sm transition-colors focus-within:border-ring sm:p-5">
@@ -92,6 +96,39 @@ export function PostCard({ post }: { post: FeedPost }) {
       <p className="mt-3 text-[0.95rem] leading-relaxed text-pretty break-words whitespace-pre-line text-card-foreground">
         {post.body}
       </p>
+
+      {media.length > 0 ? (
+        // `PostView.media` carries no alt text (the backend stores none), so
+        // images get a positional label and the list itself is named — better
+        // than an unlabelled "graphic" for a screen reader. Single attachments
+        // get the full width; anything more uses two columns.
+        <ul
+          aria-label={t('media.gridLabel', { count: media.length })}
+          className={`mt-3 grid gap-2 ${media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
+        >
+          {media.map((item, index) => (
+            <li key={item.id}>
+              {item.kind === 'video' ? (
+                <video
+                  src={mediaUrl(item.url)}
+                  controls
+                  preload="metadata"
+                  aria-label={t('media.videoLabel')}
+                  className="aspect-video w-full rounded-md border border-border bg-black"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- backend-hosted URL that may sit on another origin; next/image would need a remotePatterns entry per deployment
+                <img
+                  src={mediaUrl(item.url)}
+                  alt={t('media.imageAlt', { index: index + 1 })}
+                  loading="lazy"
+                  className="aspect-video w-full rounded-md border border-border object-cover"
+                />
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <footer className="mt-4 flex items-center gap-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">

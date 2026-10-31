@@ -130,6 +130,26 @@ class _Likes:
         return False
 
 
+class _MediaRepo:
+    """No attached media — this file asserts celebrity merging only."""
+
+    async def list_by_post_ids(self, *, post_ids: Any) -> list[Any]:
+        return []
+
+
+class _Storage:
+    async def url_for(self, *, key: str) -> str:
+        return f"mem://{key}"
+
+
+def _svc() -> FeedService:
+    # Media hydration runs on every read path, so inject no-op fakes.
+    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc._media_repo = _MediaRepo()  # type: ignore[assignment]
+    svc._storage = _Storage()  # type: ignore[assignment]
+    return svc
+
+
 @pytest.mark.asyncio
 async def test_celebrity_posts_merged_on_read(
     monkeypatch: pytest.MonkeyPatch,
@@ -156,7 +176,7 @@ async def test_celebrity_posts_merged_on_read(
     )
     cache = _Cache()
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = repo  # type: ignore[assignment]
     svc._cache = cache  # type: ignore[assignment]
     svc._likes = _Likes()  # type: ignore[assignment]
@@ -189,7 +209,7 @@ async def test_flag_off_skips_merge(
     )
     cache = _Cache()
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = repo  # type: ignore[assignment]
     svc._cache = cache  # type: ignore[assignment]
     svc._likes = _Likes()  # type: ignore[assignment]

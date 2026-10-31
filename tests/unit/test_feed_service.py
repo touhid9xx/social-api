@@ -106,6 +106,29 @@ class _FakeLikes:
         return False
 
 
+class _FakeMediaRepo:
+    """No attached media — this file asserts ordering, not media."""
+
+    def __init__(self) -> None:
+        self.calls: list[list[int]] = []
+
+    async def list_by_post_ids(self, *, post_ids: Any) -> list[Any]:
+        self.calls.append(list(post_ids))
+        return []
+
+
+class _FakeStorage:
+    async def url_for(self, *, key: str) -> str:
+        return f"mem://{key}"
+
+
+def _svc() -> FeedService:
+    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc._media_repo = _FakeMediaRepo()  # type: ignore[assignment]
+    svc._storage = _FakeStorage()  # type: ignore[assignment]
+    return svc
+
+
 @pytest.mark.asyncio
 async def test_cache_miss_rebuild_and_cache_write() -> None:
     posts = [
@@ -116,7 +139,7 @@ async def test_cache_miss_rebuild_and_cache_write() -> None:
     repo = _FakeRepo(following=[2], posts=posts)
     cache = _FakeCache()
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = repo  # type: ignore[assignment]
     svc._cache = cache  # type: ignore[assignment]
     svc._likes = _FakeLikes()  # type: ignore[assignment]
@@ -133,7 +156,7 @@ async def test_cache_hit_path() -> None:
     repo = _FakeRepo(following=[2], posts=posts)
     cache = _FakeCache()
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = repo  # type: ignore[assignment]
     svc._cache = cache  # type: ignore[assignment]
     svc._likes = _FakeLikes()  # type: ignore[assignment]
@@ -154,7 +177,7 @@ async def test_private_post_from_unfollowed_hidden() -> None:
     repo = _FakeRepo(following=[2], posts=posts, blocked_author_ids={2})
     cache = _FakeCache()
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = repo  # type: ignore[assignment]
     svc._cache = cache  # type: ignore[assignment]
     svc._likes = _FakeLikes()  # type: ignore[assignment]
@@ -169,10 +192,29 @@ async def test_own_private_posts_included() -> None:
     repo = _FakeRepo(following=[], posts=posts)
     cache = _FakeCache()
 
-    svc = FeedService(session=None)  # type: ignore[arg-type]
+    svc = _svc()
     svc._repo = repo  # type: ignore[assignment]
     svc._cache = cache  # type: ignore[assignment]
     svc._likes = _FakeLikes()  # type: ignore[assignment]
 
     page = await svc.home(user_id=1, cursor=None, limit=10)
     assert [p.id for p in page.items] == [1]
+
+
+@pytest.mark.asyncio
+async def test_media_hydration_costs_one_query_per_page() -> None:
+    """A page of N posts must not turn into N media queries."""
+    posts = [
+        _post(1, author=2, created_offset_min=0),
+        _post(2, author=2, created_offset_min=5),
+    ]
+    repo = _FakeRepo(following=[2], posts=posts)
+    cache = _FakeCache()
+
+    svc = _svc()
+    svc._repo = repo  # type: ignore[assignment]
+    svc._cache = cache  # type: ignore[assignment]
+    svc._likes = _FakeLikes()  # type: ignore[assignment]
+
+    await svc.home(user_id=1, cursor=None, limit=10)
+    assert svc._media_repo.calls == [[1, 2]]  # type: ignore[attr-defined]

@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from social_api.modules.media.schemas import MediaView
+
 VisibilityLiteral = Literal["public", "followers", "private"]
 
 
@@ -41,6 +43,9 @@ class PostView(BaseModel):
     # Viewer-relative — filled in by service
     is_liked_by_me: bool = False
     is_edited: bool = False
+    # Attached media, oldest first — filled in by service (one batched
+    # query per page). `media_count` stays the cheap scalar for counters.
+    media: list[MediaView] = Field(default_factory=list)
 
 
 class PostPage(BaseModel):

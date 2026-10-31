@@ -3,8 +3,9 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import type { FeedPost } from '@/lib/api/feed';
+import { apiBaseUrl } from '@/lib/env';
 import { renderWithProviders } from '@/lib/testing/render';
-import { homeFeedPosts } from '@/mocks/fixtures';
+import { homeFeedPosts, postMedia } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 import type { ApiErrorBody } from '@/types';
 
@@ -30,6 +31,9 @@ function post(id: number): FeedPost {
   return {
     ...found,
     visibility: found.visibility as FeedPost['visibility'],
+    // Likewise `media[].kind`: the hand-mirrored contract types it as a bare
+    // `string`, while the OpenAPI schema narrows it to `"image" | "video"`.
+    media: found.media as FeedPost['media'],
     is_edited: found.is_edited ?? false,
     is_liked_by_me: found.is_liked_by_me ?? false,
   };
@@ -104,6 +108,29 @@ describe('PostCard', () => {
 
     // Post 103 is followers-only: the icon is decoration, the words are the label.
     expect(screen.getByText('Visibility: Followers')).toBeInTheDocument();
+  });
+
+  it('renders attached media resolved against the API origin', () => {
+    renderWithProviders(<PostCard post={post(102)} />);
+
+    // Post 102's fixture URL is root-relative (`/static/media/…`). Left alone it
+    // would resolve against the Next.js origin, which is a different host from
+    // the API, so the card must prefix it.
+    expect(screen.getByRole('img', { name: 'Attached image 1' })).toHaveAttribute(
+      'src',
+      `${apiBaseUrl}${postMedia.url}`,
+    );
+    // The grid is named so a screen reader gets the count, not just "graphic".
+    expect(screen.getByRole('list', { name: '1 attachment' })).toBeInTheDocument();
+  });
+
+  it('renders no media grid for a post without attachments', () => {
+    // `media` is optional on `PostView` and absent on older responses; post 101
+    // has neither the key nor any media.
+    renderWithProviders(<PostCard post={post(101)} />);
+
+    expect(screen.queryByRole('list')).toBeNull();
+    expect(screen.queryByRole('img', { name: /Attached image/ })).toBeNull();
   });
 
   it('links to the post detail route', () => {

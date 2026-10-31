@@ -18,10 +18,14 @@ from social_api.core.pagination import (
 )
 from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
+from social_api.media.storage import StorageBackend
 from social_api.modules.feed.cache import FEED_CACHE_CAP, FeedCache
 from social_api.modules.feed.repository import FeedRepository
 from social_api.modules.feed.schemas import ExploreFeedPage, HomeFeedPage
 from social_api.modules.likes.repository import LikesRepository
+from social_api.modules.media.repository import MediaRepository
+from social_api.modules.media.schemas import MediaView
+from social_api.modules.media.service import get_storage_backend, media_by_post
 from social_api.modules.posts.models import Post
 from social_api.modules.posts.repository import PostsRepository
 from social_api.modules.posts.service import _to_view
@@ -115,12 +119,22 @@ def _observe_explore_generation(seconds: float) -> None:
 
 
 class FeedService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, storage: StorageBackend | None = None) -> None:
         self._s = session
         self._repo = FeedRepository(session)
         self._posts = PostsRepository(session)
         self._likes = LikesRepository(session)
         self._cache = FeedCache(get_redis())
+        self._media_repo = MediaRepository(session)
+        # Lazily resolved — the invalidation-only call sites never read media.
+        self._storage = storage
+
+    async def _media_for(self, post_ids: list[int]) -> dict[int, list[MediaView]]:
+        if not post_ids:
+            return {}
+        if self._storage is None:
+            self._storage = get_storage_backend()
+        return await media_by_post(self._media_repo, self._storage, post_ids=post_ids)
 
     async def _is_post_visible(
         self, post: Post, *, viewer_id: int, following_set: set[int]
@@ -262,12 +276,15 @@ class FeedService:
         liked_ids = await self._likes.exists_batch(
             user_id=user_id, target_type="post", target_ids=post_ids_page
         )
+        media = await self._media_for(post_ids_page)
 
         elapsed = time.perf_counter() - started
         _observe_feed_generation(elapsed)
 
         return HomeFeedPage(
-            items=[_to_view(p, is_liked=p.id in liked_ids) for p in page_items],
+            items=[
+                _to_view(p, is_liked=p.id in liked_ids, media=media.get(p.id)) for p in page_items
+            ],
             next_cursor=next_cursor,
             cache_hit=cache_hit,
         )
@@ -393,12 +410,15 @@ class FeedService:
         liked_ids = await self._likes.exists_batch(
             user_id=viewer_id, target_type="post", target_ids=post_ids_page
         )
+        media = await self._media_for(post_ids_page)
 
         elapsed = time.perf_counter() - started
         _observe_explore_generation(elapsed)
 
         return ExploreFeedPage(
-            items=[_to_view(p, is_liked=p.id in liked_ids) for p in page_items],
+            items=[
+                _to_view(p, is_liked=p.id in liked_ids, media=media.get(p.id)) for p in page_items
+            ],
             next_cursor=next_cursor,
             cache_hit=cache_hit,
         )

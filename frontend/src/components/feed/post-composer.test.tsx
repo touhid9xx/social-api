@@ -1,11 +1,13 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IDEMPOTENCY_HEADER } from '@/lib/api/idempotency';
+import { MEDIA_MAX_IMAGE_BYTES } from '@/lib/api/media';
 import type { PostCreateBody } from '@/lib/api/posts';
 import { renderWithProviders } from '@/lib/testing/render';
+import { uploadedFile } from '@/mocks/multipart';
 import { server } from '@/mocks/server';
 import type { ApiErrorBody } from '@/types';
 
@@ -46,6 +48,74 @@ function capture() {
 
 function bodyField() {
   return screen.getByLabelText('Post body');
+}
+
+const MEDIA_PATH = '*/api/v1/media';
+const ATTACH_PATH = '*/api/v1/media/:media_id/attach/:post_id';
+
+/** jsdom ships no object URLs; the composer makes one per image preview. */
+beforeEach(() => {
+  URL.createObjectURL = () => 'blob:preview';
+  URL.revokeObjectURL = () => undefined;
+});
+
+/** `FormData.append` is spied on to read the upload filename — never leak the spy. */
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function imageFile(name: string, size = 1024): File {
+  const file = new File([new Uint8Array(Math.min(size, 1024))], name, { type: 'image/png' });
+  // `File.size` is a prototype getter, so an oversized fixture is faked instead
+  // of allocating 10 MB just to have the browser refuse it.
+  if (size !== file.size) Object.defineProperty(file, 'size', { value: size });
+  return file;
+}
+
+/**
+ * Record the publish sequence. Media is two extra requests per file, and the
+ * order is the assertion that matters: `PostCreate` is `extra="forbid"`, so the
+ * post has to exist before anything can be attached to it.
+ */
+function capturePublish() {
+  const order: string[] = [];
+
+  function mediaBody(id: number, postId: number | null) {
+    return {
+      id,
+      owner_id: 21,
+      post_id: postId,
+      kind: 'image',
+      mime: 'image/png',
+      size_bytes: 1024,
+      url: `/static/media/mock/${String(id)}`,
+      created_at: '2024-05-01T12:00:00Z',
+    };
+  }
+
+  server.use(
+    http.post(POSTS_PATH, () => {
+      order.push('create');
+      return HttpResponse.json({ id: 901 }, { status: 201 });
+    }),
+    http.post(MEDIA_PATH, async ({ request }) => {
+      // `request.formData()` cannot parse a jsdom payload (undici brand-checks
+      // each part against its own `File`), so the part is read from the raw body
+      // — see `@/mocks/multipart`. Only its presence is asserted here: jsdom's
+      // `FormData` serialises an uploaded `File` as the string `[object Blob]`,
+      // so the bytes and filename never reach the wire. What the product
+      // actually sends is pinned by the `FormData.append` assertion below.
+      const file = await uploadedFile(request);
+      order.push(file ? 'upload' : 'upload:missing');
+      return HttpResponse.json(mediaBody(980, null), { status: 201 });
+    }),
+    http.post(ATTACH_PATH, ({ params }) => {
+      order.push(`attach:${String(params.media_id)}:${String(params.post_id)}`);
+      return HttpResponse.json(mediaBody(980, Number(params.post_id)));
+    }),
+  );
+
+  return { order };
 }
 
 describe('PostComposer', () => {
@@ -166,6 +236,48 @@ describe('PostComposer', () => {
     );
     // A failed publish must not eat what the user wrote.
     expect(bodyField()).toHaveValue('Hello feed');
+  });
+
+  it('creates the post, uploads the attachment, then attaches it', async () => {
+    const user = userEvent.setup();
+    const { order } = capturePublish();
+    // The filename is the one thing the mock cannot observe: jsdom's `FormData`
+    // stringifies an uploaded `File` (`[object Blob]`), so `body.append` is the
+    // last point where it still exists. It must be passed explicitly — the fetch
+    // spec only infers it for a *native* `File`, and a plain `Blob` would upload
+    // as `blob`.
+    const append = vi.spyOn(FormData.prototype, 'append');
+    renderWithProviders(<PostComposer />);
+
+    await user.type(bodyField(), 'With a picture');
+    await user.upload(screen.getByLabelText('Add media'), imageFile('cat.png'));
+
+    // A preview means the file survived the client-side size/type checks.
+    expect(await screen.findByAltText('cat.png')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Post' }));
+
+    // post -> upload -> attach, and the attach targets the post just created.
+    await waitFor(() => expect(order).toEqual(['create', 'upload', 'attach:980:901']));
+    expect(append).toHaveBeenCalledWith('file', expect.any(File), 'cat.png');
+    await waitFor(() => expect(bodyField()).toHaveValue(''));
+    expect(screen.queryByAltText('cat.png')).toBeNull();
+  });
+
+  it('refuses an oversized attachment without spending a single request', async () => {
+    const user = userEvent.setup();
+    const { order } = capturePublish();
+    renderWithProviders(<PostComposer />);
+
+    await user.upload(
+      screen.getByLabelText('Add media'),
+      imageFile('huge.png', MEDIA_MAX_IMAGE_BYTES + 1),
+    );
+
+    // Named in the message: several files can be picked at once.
+    expect(await screen.findByRole('alert')).toHaveTextContent('huge.png is too large to attach.');
+    expect(screen.queryByAltText('huge.png')).toBeNull();
+    expect(order).toEqual([]);
   });
 
   it('renders Bangla copy under the bn locale', () => {

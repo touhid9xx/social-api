@@ -32,12 +32,13 @@ type Page = { items: FeedPost[]; next: string | null };
 function post(id: number): FeedPost {
   const found = exploreFeedPosts.find((item) => item.id === id);
   if (!found) throw new Error(`fixture explore post ${String(id)} is missing`);
-  // The hand-mirrored contract types `visibility` as a bare `string` and the two
-  // flags as optional; the OpenAPI schema the feed is typed from narrows and
-  // enforces all three.
+  // The hand-mirrored contract types `visibility` and `media[].kind` as bare
+  // `string`s and the two flags as optional; the OpenAPI schema the feed is
+  // typed from narrows and enforces all of them.
   return {
     ...found,
     visibility: found.visibility as FeedPost['visibility'],
+    media: found.media as FeedPost['media'],
     is_edited: found.is_edited ?? false,
     is_liked_by_me: found.is_liked_by_me ?? false,
   };
@@ -75,7 +76,7 @@ describe('ExploreFeed', () => {
     renderWithProviders(<ExploreFeed />);
 
     expect(await screen.findByText(post(201).body)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(exploreFeedPosts.length);
+    expect(screen.getAllByRole('article')).toHaveLength(exploreFeedPosts.length);
 
     // The two fixture sets are disjoint on purpose: seeing a home-feed post here
     // would mean the component read the wrong endpoint.
@@ -116,7 +117,7 @@ describe('ExploreFeed', () => {
     await user.click(screen.getByRole('button', { name: 'Load more' }));
 
     expect(await screen.findByText(post(202).body)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByText("You're all caught up.")).toBeInTheDocument();
   });
 
