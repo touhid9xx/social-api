@@ -1,7 +1,7 @@
 {
-  "commit_sha": "b15aada03c88fdbe651a46c825a22334747c5b3a",
-  "endpoints_count": 80,
-  "generated_at": "2026-10-31T15:37:54.309657+00:00",
-  "openapi_sha256": "98c4598be9ace65399148fde8d57378b5ac43ee1339fbd725d6b06ad12d1a5d5",
-  "schemas_count": 69
+  "commit_sha": "e39208d2864d3299af63eceb8659633045012164",
+  "endpoints_count": 83,
+  "generated_at": "2026-11-01T10:36:51.270654+00:00",
+  "openapi_sha256": "55a04aca492d5ae28aed696612df45c7a574652df252c770602ec5adef304717",
+  "schemas_count": 74
 }

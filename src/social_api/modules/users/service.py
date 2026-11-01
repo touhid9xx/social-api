@@ -204,9 +204,7 @@ class UsersService:
         return _to_public(profile)
 
     # ---- Read (admin directory) ----
-    async def list_users(
-        self, *, cursor: str | None, limit: int | None
-    ) -> AdminUserPage:
+    async def list_users(self, *, cursor: str | None, limit: int | None) -> AdminUserPage:
         """Admin-only directory of non-deleted accounts, newest first.
 
         Same cursor contract as every other list endpoint: clamp the

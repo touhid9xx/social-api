@@ -18,6 +18,7 @@ from social_api.modules.likes.repository import LikesRepository
 from social_api.modules.media.repository import MediaRepository
 from social_api.modules.media.schemas import MediaView
 from social_api.modules.media.service import get_storage_backend, media_by_post
+
 # Reuse the posts module's view builder rather than duplicating the
 # `is_edited`/`media`/`is_liked_by_me` derivation. A second implementation
 # would drift the moment PostView gains a field.

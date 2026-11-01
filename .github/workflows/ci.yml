@@ -59,7 +59,11 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Set up Node (for json-schema-to-typescript)
+      # Not required by the export any more: scripts/export_api_contract.py
+      # defaults to its bundled Python generator so contracts/types.ts is
+      # byte-identical on every machine. Kept so a maintainer can opt into
+      # the npx generator (JSON_SCHEMA_TO_TS=npx) when comparing output.
+      - name: Set up Node (optional — npx type generator)
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -119,17 +123,38 @@ jobs:
           path: coverage.xml
           retention-days: 7
 
+      # Runs AFTER `pytest tests/unit`, which already asserts committed ==
+      # code (tests/unit/test_contract_drift.py). Regenerating here
+      # overwrites contracts/, so the drift script below then compares the
+      # files against themselves — it can no longer detect stale commits.
+      # The real stale-commit gate is the git-diff step below this one.
       - name: Regenerate contracts (in CI, to prove determinism)
         run: python scripts/export_api_contract.py
 
       - name: Contract drift check
         run: python scripts/check_api_contract_drift.py
 
+      # Only byte-reproducible artifacts may be compared here. The other
+      # files in contracts/ are structurally volatile and differ on EVERY
+      # regeneration, so `git diff --quiet -- contracts/` could never pass:
+      #   - README.md, index.md       embed generated_at AND the HEAD SHA
+      #   - api_reference.md          embeds the HEAD SHA
+      #   - version_manifest.json     embeds generated_at AND the HEAD SHA
+      #   - api_reference.xlsx        openpyxl stamps zip/core.xml mtimes
+      # Their *content* is still verified by the step above, which strips
+      # the volatile fields before comparing. This step adds the two things
+      # that check cannot see: byte-level reproducibility of the two
+      # machine-consumed artifacts, and stray/new files in contracts/.
       - name: Fail if contracts folder changed after regeneration
         run: |
-          if ! git diff --quiet -- contracts/; then
+          if ! git diff --quiet -- contracts/openapi.json contracts/types.ts; then
             echo "::error::contracts/ is stale. Run 'python scripts/export_api_contract.py' locally and commit."
-            git diff -- contracts/ || true
+            git diff -- contracts/openapi.json contracts/types.ts || true
+            exit 1
+          fi
+          stray=$(git ls-files --others --exclude-standard -- contracts/)
+          if [ -n "$stray" ]; then
+            echo "::error::unexpected untracked files in contracts/: $stray"
             exit 1
           fi
 

@@ -60,7 +60,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Change Password */
+        /**
+         * Change Password
+         * @description Change the caller's own password, given the current one.
+         */
         post: operations["change_password_api_v1_auth_change_password_post"];
         delete?: never;
         options?: never;
@@ -1270,7 +1273,10 @@ export interface components {
             is_active: boolean;
             /** Is Verified */
             is_verified: boolean;
-            /** Role */
+            /**
+             * Role
+             * @enum {string}
+             */
             role: "user" | "moderator" | "admin";
         };
         /**
@@ -2086,16 +2092,23 @@ export interface components {
              */
             updated_at: string;
         };
-        /** SearchResults */
+        /**
+         * SearchResults
+         * @description Response for `GET /search`.
+         *
+         *     `users` is a capped relevance-ordered shortlist rendered as "people"
+         *     cards, so it deliberately carries no cursor. `posts` is keyset-paginated
+         *     exactly like every other list endpoint, so `next_cursor` applies to posts.
+         */
         SearchResults: {
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Posts */
+            posts: components["schemas"]["PostView"][];
             /** Query */
             query: string;
             /** Users */
             users: components["schemas"]["SearchUserHit"][];
-            /** Posts */
-            posts: components["schemas"]["PostView"][];
-            /** Next Cursor */
-            next_cursor?: string | null;
         };
         /**
          * SearchUserHit

@@ -16,6 +16,95 @@
         "title": "AddMemberRequest",
         "type": "object"
       },
+      "AdminUserPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "AdminUserPage",
+        "type": "object"
+      },
+      "AdminUserView": {
+        "description": "One row of the staff-only user directory.\n\nField-for-field the same PII posture as `UserPublic` (no email, no\nphone — the encrypted columns stay encrypted and unexposed), plus the\ndisplay name/avatar so the console doesn't need a per-row\n`/users/{id}` fetch.",
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_verified": {
+            "title": "Is Verified",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "moderator",
+              "admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "is_active",
+          "is_verified",
+          "created_at"
+        ],
+        "title": "AdminUserView",
+        "type": "object"
+      },
       "AuditLogView": {
         "description": "Response view. before/after already PII-redacted at write time.",
         "properties": {
@@ -2345,6 +2434,83 @@
         "title": "RoomView",
         "type": "object"
       },
+      "SearchResults": {
+        "description": "Response for `GET /search`.\n\n`users` is a capped relevance-ordered shortlist rendered as \"people\"\ncards, so it deliberately carries no cursor. `posts` is keyset-paginated\nexactly like every other list endpoint, so `next_cursor` applies to posts.",
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/PostView"
+            },
+            "title": "Posts",
+            "type": "array"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/SearchUserHit"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "users",
+          "posts"
+        ],
+        "title": "SearchResults",
+        "type": "object"
+      },
+      "SearchUserHit": {
+        "description": "One person in the search results.\n\nMirrors `FollowUserView`: id, name, avatar and nothing else. No email,\nno phone, no verification flags — search is not an admin surface.",
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "SearchUserHit",
+        "type": "object"
+      },
       "UnreadCount": {
         "properties": {
           "unread": {
@@ -2503,7 +2669,8 @@
                     "LOGOUT",
                     "VERIFY_EMAIL",
                     "PASSWORD_RESET_REQUESTED",
-                    "PASSWORD_RESET_COMPLETED", "PASSWORD_CHANGED",
+                    "PASSWORD_RESET_COMPLETED",
+                    "PASSWORD_CHANGED",
                     "PROFILE_UPDATE",
                     "CONSENT_GRANTED",
                     "CONSENT_REVOKED",
@@ -2668,7 +2835,8 @@
                     "LOGOUT",
                     "VERIFY_EMAIL",
                     "PASSWORD_RESET_REQUESTED",
-                    "PASSWORD_RESET_COMPLETED", "PASSWORD_CHANGED",
+                    "PASSWORD_RESET_COMPLETED",
+                    "PASSWORD_CHANGED",
                     "PROFILE_UPDATE",
                     "CONSENT_GRANTED",
                     "CONSENT_REVOKED",
@@ -5808,6 +5976,163 @@
         "summary": "Get Presence",
         "tags": [
           "presence"
+        ]
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "description": "Search people and posts. Read-only — no commit.\n\n`q` is trimmed by the service, which enforces the real 2-character floor\n(`QUERY_TOO_SHORT`); the `min_length=1` here only stops an empty string\nfrom reaching it.",
+        "operationId": "search_api_v1_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "Admin-only: cursor-paginated directory of non-deleted accounts.\n\n`_admin` is deliberately unused in the body — it is the RBAC gate, and\nthe dependency raises 403 before the handler runs. Declared above\n`/{user_id}` so the literal path wins over the parameterised one.\n\nRead-only, so no `session.commit()` — unlike the `/me` routes this\nhandler never creates or mutates a row.",
+        "operationId": "list_users_api_v1_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Users",
+        "tags": [
+          "users"
         ]
       }
     },
