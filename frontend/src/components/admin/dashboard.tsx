@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { isAppApiError } from '@/lib/api';
 import {
@@ -75,6 +76,33 @@ type PathClassKey = (typeof PATH_CLASSES)[number];
 function isPathClass(value: string): value is PathClassKey {
   return (PATH_CLASSES as readonly string[]).includes(value);
 }
+
+/**
+ * One tab per section.
+ *
+ * The five sections are the same five the endpoint answers with, in the order
+ * they read: who is here, what they made, what it costs, what it served, and
+ * what is waiting. Splitting them is what keeps the screen from being one long
+ * scroll — each tab shows one section at its natural length instead of five
+ * stacked panels.
+ *
+ * Radix unmounts the inactive tabs, so the daily bar lists and the traffic
+ * table in the four hidden sections are not in the DOM while you read the fifth.
+ * That is also why the sections carry no per-tab loading state: the whole
+ * aggregate arrives in one response, so a panel can never be half-loaded.
+ */
+const DASHBOARD_TABS = ['people', 'content', 'storage', 'traffic', 'workers'] as const;
+
+type DashboardTab = (typeof DASHBOARD_TABS)[number];
+
+/** A tab is labelled with its section's own title, so nothing is named twice. */
+const TAB_TITLE: Record<DashboardTab, string> = {
+  people: 'users.title',
+  content: 'content.title',
+  storage: 'storage.title',
+  traffic: 'traffic.title',
+  workers: 'workers.title',
+};
 
 function Panel({
   title,
@@ -192,250 +220,281 @@ function Overview({ data }: { data: DashboardOverview }) {
   const windows = { days: data.window_days };
 
   return (
-    <div className="space-y-4">
-      <Panel title={t('users.title')} description={t('users.description', windows)}>
-        <StatGrid>
-          <Stat label={t('users.total')} value={formatCount(users.total, locale)} />
-          <Stat label={t('users.active')} value={formatCount(users.active, locale)} />
-          <Stat label={t('users.verified')} value={formatCount(users.verified, locale)} />
-          <Stat label={t('users.staff')} value={formatCount(users.staff, locale)} />
-          <Stat
-            label={t('users.newInWindow')}
-            value={formatCount(users.new_in_window, locale)}
-            hint={t('users.previousWindow', {
-              count: formatCount(users.new_previous_window, locale),
-            })}
-          />
-          <Stat label={t('users.active24h')} value={formatCount(users.active_last_24h, locale)} />
-          <Stat label={t('users.active7d')} value={formatCount(users.active_last_7d, locale)} />
-          <Stat label={t('users.active30d')} value={formatCount(users.active_last_30d, locale)} />
-          <Stat label={t('users.deleted')} value={formatCount(users.deleted, locale)} />
-        </StatGrid>
+    <Tabs defaultValue="people" className="space-y-3">
+      <TabsList variant="line" className="max-w-full overflow-x-auto">
+        {DASHBOARD_TABS.map((tab) => (
+          <TabsTrigger key={tab} value={tab}>
+            {t(TAB_TITLE[tab])}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{t('users.signupsTitle')}</h3>
-          <DailyBars
-            points={users.signups_by_day}
-            locale={locale}
-            emptyLabel={t('users.signupsEmpty')}
-          />
-        </div>
-      </Panel>
-
-      <Panel title={t('content.title')} description={t('content.description', windows)}>
-        <StatGrid>
-          <Stat label={t('content.posts')} value={formatCount(content.posts, locale)} />
-          <Stat label={t('content.comments')} value={formatCount(content.comments, locale)} />
-          <Stat label={t('content.likes')} value={formatCount(content.likes, locale)} />
-          <Stat label={t('content.follows')} value={formatCount(content.follows, locale)} />
-          <Stat label={t('content.rooms')} value={formatCount(content.chat_rooms, locale)} />
-          <Stat label={t('content.messages')} value={formatCount(content.messages, locale)} />
-          <Stat
-            label={t('content.postsInWindow')}
-            value={formatCount(content.posts_in_window, locale)}
-          />
-          <Stat
-            label={t('content.commentsInWindow')}
-            value={formatCount(content.comments_in_window, locale)}
-          />
-          <Stat
-            label={t('content.messagesInWindow')}
-            value={formatCount(content.messages_in_window, locale)}
-          />
-        </StatGrid>
-
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{t('content.activityTitle')}</h3>
-          <p className="text-micro text-muted-foreground">{t('content.activityHint')}</p>
-          <DailyBars
-            points={content.activity_by_day}
-            locale={locale}
-            emptyLabel={t('content.activityEmpty')}
-          />
-        </div>
-      </Panel>
-
-      <Panel title={t('storage.title')} description={t('storage.description')}>
-        <StatGrid>
-          <Stat label={t('storage.total')} value={formatBytes(storage.total_bytes, locale)} />
-          <Stat label={t('storage.mediaCount')} value={formatCount(storage.media_count, locale)} />
-          <Stat label={t('storage.images')} value={formatBytes(storage.image_bytes, locale)} />
-          <Stat label={t('storage.videos')} value={formatBytes(storage.video_bytes, locale)} />
-          <Stat
-            label={t('storage.usersWithMedia')}
-            value={formatCount(storage.users_with_media, locale)}
-          />
-          <Stat
-            label={t('storage.averagePerUser')}
-            value={formatBytes(storage.average_bytes_per_user, locale)}
-          />
-          <Stat
-            label={t('storage.orphans')}
-            value={formatCount(storage.orphan_count, locale)}
-            hint={t('storage.orphansHint', { bytes: formatBytes(storage.orphan_bytes, locale) })}
-          />
-        </StatGrid>
-
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{t('storage.topConsumersTitle')}</h3>
-          {storage.top_consumers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('storage.topConsumersEmpty')}</p>
-          ) : (
-            <ul className="space-y-1">
-              {storage.top_consumers.map((consumer) => (
-                <li
-                  key={consumer.user_id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-background/40 px-3 py-2"
-                >
-                  <span className="text-sm text-foreground">
-                    {consumer.display_name?.trim() ||
-                      t('storage.userFallback', { id: consumer.user_id })}
-                  </span>
-                  <span className="text-micro text-muted-foreground tabular-nums">
-                    {t('storage.consumerLine', {
-                      count: formatCount(consumer.media_count, locale),
-                    })}
-                  </span>
-                  <span className="text-sm font-medium text-foreground tabular-nums">
-                    {formatBytes(consumer.total_bytes, locale)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </Panel>
-
-      <Panel title={t('traffic.title')} description={t('traffic.description', windows)}>
-        {traffic.available ? (
-          <div className="space-y-4">
-            <StatGrid>
-              <Stat label={t('traffic.requests')} value={formatCount(traffic.requests, locale)} />
-              <Stat
-                label={t('traffic.authenticated')}
-                value={formatCount(traffic.authenticated_requests, locale)}
-              />
-              <Stat
-                label={t('traffic.uniqueVisitors')}
-                value={formatCount(traffic.unique_visitors, locale)}
-              />
-              <Stat
-                label={t('traffic.errorRate')}
-                value={formatPercent(traffic.error_rate, locale)}
-                hint={t('traffic.errorsHint', {
-                  count: formatCount(traffic.error_requests, locale),
-                })}
-              />
-              <Stat
-                label={t('traffic.avgLatency')}
-                value={formatMilliseconds(traffic.avg_latency_ms, locale)}
-              />
-              <Stat
-                label={t('traffic.p95Latency')}
-                value={formatMilliseconds(traffic.p95_latency_ms, locale)}
-              />
-            </StatGrid>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">{t('traffic.requestsTitle')}</h3>
-              <DailyBars
-                points={traffic.requests_by_day}
-                locale={locale}
-                emptyLabel={t('traffic.requestsEmpty')}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">{t('traffic.byClassTitle')}</h3>
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="text-left text-micro text-muted-foreground">
-                    <th scope="col" className="pb-1 font-medium">
-                      {t('traffic.classColumn')}
-                    </th>
-                    <th scope="col" className="pb-1 text-right font-medium">
-                      {t('traffic.requestsColumn')}
-                    </th>
-                    <th scope="col" className="pb-1 text-right font-medium">
-                      {t('traffic.errorsColumn')}
-                    </th>
-                    <th scope="col" className="pb-1 text-right font-medium">
-                      {t('traffic.latencyColumn')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {traffic.by_class.map((row) => (
-                    <tr key={row.path_class} className="border-t border-border/70">
-                      <td className="py-1.5 text-foreground">
-                        {isPathClass(row.path_class)
-                          ? t(`traffic.class.${row.path_class}`)
-                          : row.path_class}
-                      </td>
-                      <td className="py-1.5 text-right text-foreground tabular-nums">
-                        {formatCount(row.requests, locale)}
-                      </td>
-                      <td className="py-1.5 text-right text-muted-foreground tabular-nums">
-                        {formatCount(row.error_requests, locale)}
-                      </td>
-                      <td className="py-1.5 text-right text-muted-foreground tabular-nums">
-                        {formatMilliseconds(row.avg_latency_ms, locale)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">{t('traffic.regionsTitle')}</h3>
-              {traffic.regions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('traffic.regionsEmpty')}</p>
-              ) : (
-                <ul className="space-y-1">
-                  {traffic.regions.map((row, index) => (
-                    <li
-                      key={`${row.country ?? 'unknown'}:${row.city ?? ''}:${row.timezone ?? ''}:${String(index)}`}
-                      className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-background/40 px-3 py-2"
-                    >
-                      <span className="text-sm text-foreground">
-                        {[row.country ?? t('traffic.regionUnknown'), row.city]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </span>
-                      <span className="text-micro text-muted-foreground">
-                        {row.timezone ?? '—'}
-                      </span>
-                      <span className="text-sm text-foreground tabular-nums">
-                        {formatCount(row.requests, locale)}
-                      </span>
-                      <span className="text-micro text-muted-foreground tabular-nums">
-                        {formatPercent(row.share, locale)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        ) : (
-          <Unavailable title={t('traffic.unavailableTitle')} body={t('traffic.unavailableBody')} />
-        )}
-      </Panel>
-
-      <Panel title={t('workers.title')} description={t('workers.description')}>
-        {workers.available ? (
+      <TabsContent value="people">
+        <Panel title={t('users.title')} description={t('users.description', windows)}>
           <StatGrid>
+            <Stat label={t('users.total')} value={formatCount(users.total, locale)} />
+            <Stat label={t('users.active')} value={formatCount(users.active, locale)} />
+            <Stat label={t('users.verified')} value={formatCount(users.verified, locale)} />
+            <Stat label={t('users.staff')} value={formatCount(users.staff, locale)} />
             <Stat
-              label={t('workers.queueDepth')}
-              value={formatCount(workers.queue_depth, locale)}
+              label={t('users.newInWindow')}
+              value={formatCount(users.new_in_window, locale)}
+              hint={t('users.previousWindow', {
+                count: formatCount(users.new_previous_window, locale),
+              })}
+            />
+            <Stat label={t('users.active24h')} value={formatCount(users.active_last_24h, locale)} />
+            <Stat label={t('users.active7d')} value={formatCount(users.active_last_7d, locale)} />
+            <Stat label={t('users.active30d')} value={formatCount(users.active_last_30d, locale)} />
+            <Stat label={t('users.deleted')} value={formatCount(users.deleted, locale)} />
+          </StatGrid>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-foreground">{t('users.signupsTitle')}</h3>
+            <DailyBars
+              points={users.signups_by_day}
+              locale={locale}
+              emptyLabel={t('users.signupsEmpty')}
+            />
+          </div>
+        </Panel>
+      </TabsContent>
+
+      <TabsContent value="content">
+        <Panel title={t('content.title')} description={t('content.description', windows)}>
+          <StatGrid>
+            <Stat label={t('content.posts')} value={formatCount(content.posts, locale)} />
+            <Stat label={t('content.comments')} value={formatCount(content.comments, locale)} />
+            <Stat label={t('content.likes')} value={formatCount(content.likes, locale)} />
+            <Stat label={t('content.follows')} value={formatCount(content.follows, locale)} />
+            <Stat label={t('content.rooms')} value={formatCount(content.chat_rooms, locale)} />
+            <Stat label={t('content.messages')} value={formatCount(content.messages, locale)} />
+            <Stat
+              label={t('content.postsInWindow')}
+              value={formatCount(content.posts_in_window, locale)}
+            />
+            <Stat
+              label={t('content.commentsInWindow')}
+              value={formatCount(content.comments_in_window, locale)}
+            />
+            <Stat
+              label={t('content.messagesInWindow')}
+              value={formatCount(content.messages_in_window, locale)}
             />
           </StatGrid>
-        ) : (
-          <Unavailable title={t('workers.unavailableTitle')} body={t('workers.unavailableBody')} />
-        )}
-      </Panel>
-    </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-foreground">{t('content.activityTitle')}</h3>
+            <p className="text-micro text-muted-foreground">{t('content.activityHint')}</p>
+            <DailyBars
+              points={content.activity_by_day}
+              locale={locale}
+              emptyLabel={t('content.activityEmpty')}
+            />
+          </div>
+        </Panel>
+      </TabsContent>
+
+      <TabsContent value="storage">
+        <Panel title={t('storage.title')} description={t('storage.description')}>
+          <StatGrid>
+            <Stat label={t('storage.total')} value={formatBytes(storage.total_bytes, locale)} />
+            <Stat
+              label={t('storage.mediaCount')}
+              value={formatCount(storage.media_count, locale)}
+            />
+            <Stat label={t('storage.images')} value={formatBytes(storage.image_bytes, locale)} />
+            <Stat label={t('storage.videos')} value={formatBytes(storage.video_bytes, locale)} />
+            <Stat
+              label={t('storage.usersWithMedia')}
+              value={formatCount(storage.users_with_media, locale)}
+            />
+            <Stat
+              label={t('storage.averagePerUser')}
+              value={formatBytes(storage.average_bytes_per_user, locale)}
+            />
+            <Stat
+              label={t('storage.orphans')}
+              value={formatCount(storage.orphan_count, locale)}
+              hint={t('storage.orphansHint', { bytes: formatBytes(storage.orphan_bytes, locale) })}
+            />
+          </StatGrid>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-foreground">
+              {t('storage.topConsumersTitle')}
+            </h3>
+            {storage.top_consumers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('storage.topConsumersEmpty')}</p>
+            ) : (
+              <ul className="space-y-1">
+                {storage.top_consumers.map((consumer) => (
+                  <li
+                    key={consumer.user_id}
+                    className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-background/40 px-3 py-2"
+                  >
+                    <span className="text-sm text-foreground">
+                      {consumer.display_name?.trim() ||
+                        t('storage.userFallback', { id: consumer.user_id })}
+                    </span>
+                    <span className="text-micro text-muted-foreground tabular-nums">
+                      {t('storage.consumerLine', {
+                        count: formatCount(consumer.media_count, locale),
+                      })}
+                    </span>
+                    <span className="text-sm font-medium text-foreground tabular-nums">
+                      {formatBytes(consumer.total_bytes, locale)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Panel>
+      </TabsContent>
+
+      <TabsContent value="traffic">
+        <Panel title={t('traffic.title')} description={t('traffic.description', windows)}>
+          {traffic.available ? (
+            <div className="space-y-4">
+              <StatGrid>
+                <Stat label={t('traffic.requests')} value={formatCount(traffic.requests, locale)} />
+                <Stat
+                  label={t('traffic.authenticated')}
+                  value={formatCount(traffic.authenticated_requests, locale)}
+                />
+                <Stat
+                  label={t('traffic.uniqueVisitors')}
+                  value={formatCount(traffic.unique_visitors, locale)}
+                />
+                <Stat
+                  label={t('traffic.errorRate')}
+                  value={formatPercent(traffic.error_rate, locale)}
+                  hint={t('traffic.errorsHint', {
+                    count: formatCount(traffic.error_requests, locale),
+                  })}
+                />
+                <Stat
+                  label={t('traffic.avgLatency')}
+                  value={formatMilliseconds(traffic.avg_latency_ms, locale)}
+                />
+                <Stat
+                  label={t('traffic.p95Latency')}
+                  value={formatMilliseconds(traffic.p95_latency_ms, locale)}
+                />
+              </StatGrid>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">
+                  {t('traffic.requestsTitle')}
+                </h3>
+                <DailyBars
+                  points={traffic.requests_by_day}
+                  locale={locale}
+                  emptyLabel={t('traffic.requestsEmpty')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">{t('traffic.byClassTitle')}</h3>
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="text-left text-micro text-muted-foreground">
+                      <th scope="col" className="pb-1 font-medium">
+                        {t('traffic.classColumn')}
+                      </th>
+                      <th scope="col" className="pb-1 text-right font-medium">
+                        {t('traffic.requestsColumn')}
+                      </th>
+                      <th scope="col" className="pb-1 text-right font-medium">
+                        {t('traffic.errorsColumn')}
+                      </th>
+                      <th scope="col" className="pb-1 text-right font-medium">
+                        {t('traffic.latencyColumn')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {traffic.by_class.map((row) => (
+                      <tr key={row.path_class} className="border-t border-border/70">
+                        <td className="py-1.5 text-foreground">
+                          {isPathClass(row.path_class)
+                            ? t(`traffic.class.${row.path_class}`)
+                            : row.path_class}
+                        </td>
+                        <td className="py-1.5 text-right text-foreground tabular-nums">
+                          {formatCount(row.requests, locale)}
+                        </td>
+                        <td className="py-1.5 text-right text-muted-foreground tabular-nums">
+                          {formatCount(row.error_requests, locale)}
+                        </td>
+                        <td className="py-1.5 text-right text-muted-foreground tabular-nums">
+                          {formatMilliseconds(row.avg_latency_ms, locale)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">{t('traffic.regionsTitle')}</h3>
+                {traffic.regions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('traffic.regionsEmpty')}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {traffic.regions.map((row, index) => (
+                      <li
+                        key={`${row.country ?? 'unknown'}:${row.city ?? ''}:${row.timezone ?? ''}:${String(index)}`}
+                        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-background/40 px-3 py-2"
+                      >
+                        <span className="text-sm text-foreground">
+                          {[row.country ?? t('traffic.regionUnknown'), row.city]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                        <span className="text-micro text-muted-foreground">
+                          {row.timezone ?? '—'}
+                        </span>
+                        <span className="text-sm text-foreground tabular-nums">
+                          {formatCount(row.requests, locale)}
+                        </span>
+                        <span className="text-micro text-muted-foreground tabular-nums">
+                          {formatPercent(row.share, locale)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Unavailable
+              title={t('traffic.unavailableTitle')}
+              body={t('traffic.unavailableBody')}
+            />
+          )}
+        </Panel>
+      </TabsContent>
+
+      <TabsContent value="workers">
+        <Panel title={t('workers.title')} description={t('workers.description')}>
+          {workers.available ? (
+            <StatGrid>
+              <Stat
+                label={t('workers.queueDepth')}
+                value={formatCount(workers.queue_depth, locale)}
+              />
+            </StatGrid>
+          ) : (
+            <Unavailable
+              title={t('workers.unavailableTitle')}
+              body={t('workers.unavailableBody')}
+            />
+          )}
+        </Panel>
+      </TabsContent>
+    </Tabs>
   );
 }
 

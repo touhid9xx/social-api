@@ -28,6 +28,11 @@ import { Dashboard } from './dashboard';
  *  - **The window is query identity.** Changing it has to reach the wire as
  *    `window_days`, otherwise every window silently renders the 30-day numbers.
  *
+ * Sections live behind tabs, and Radix keeps only the active panel mounted — so
+ * every assertion past "People" has to open its own tab first. That unmounting is
+ * also what makes `queryByText` meaningful below: a counter that is absent really
+ * is absent from the DOM, not merely hidden.
+ *
  * (৩০৩ মানে "শুধু অ্যাডমিন"; `available: false` মানে "কোনো তথ্য নেই", শূন্য নয়।)
  */
 
@@ -123,6 +128,20 @@ async function ready(): Promise<void> {
   await screen.findByRole('heading', { name: 'People' });
 }
 
+type User = ReturnType<typeof userEvent.setup>;
+
+/**
+ * Open one section's tab and wait for its panel.
+ *
+ * The tab trigger and the panel heading carry the same label (a tab is labelled
+ * with its section's own title), so the heading is the reliable "the panel is
+ * now mounted" signal — the trigger exists whether or not it is active.
+ */
+async function openTab(user: User, name: string): Promise<void> {
+  await user.click(screen.getByRole('tab', { name }));
+  await screen.findByRole('heading', { name });
+}
+
 /**
  * The value rendered next to a `Stat` label.
  *
@@ -138,6 +157,7 @@ function statValue(label: string): string {
 
 describe('Dashboard', () => {
   it('renders every section from the single aggregate response', async () => {
+    const user = userEvent.setup();
     let reads = 0;
     server.use(
       http.get(DASHBOARD_PATH, () => {
@@ -150,21 +170,20 @@ describe('Dashboard', () => {
 
     await ready();
 
-    // Five sections, one request.
+    // Five sections, one request — the tabs are sections of one response, not
+    // five requests, and switching them must never refetch.
     expect(reads).toBe(1);
-    for (const heading of ['People', 'Content', 'Storage', 'Traffic', 'Workers']) {
-      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-    }
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'People',
+      'Content',
+      'Storage',
+      'Traffic',
+      'Workers',
+    ]);
 
-    // One counter per section, read as a label/value pair: a panel that dropped a
+    // One counter per section, read as a label/value pair: a tab that dropped a
     // section, or that put a number under the wrong label, fails here.
     expect(statValue('Accounts')).toBe('1.2K');
-    expect(statValue('Messages')).toBe('51K');
-    expect(statValue('Files')).toBe('421');
-    // "Signed in", not "Requests": the traffic table also has a `Requests` column
-    // header, which would make the label lookup ambiguous.
-    expect(statValue('Signed in')).toBe('30.1K');
-    expect(statValue('Queued jobs')).toBe('4');
 
     // The window-locked counters carry the response's window, not a default.
     expect(statValue('New')).toBe('87');
@@ -175,9 +194,19 @@ describe('Dashboard', () => {
       screen.getByText('Registrations and sign-in activity over the last 30 days.'),
     ).toBeInTheDocument();
 
+    await openTab(user, 'Content');
+    expect(statValue('Messages')).toBe('51K');
+
     // Storage is formatted in bytes, and a nameless consumer falls back to `User {id}`.
+    await openTab(user, 'Storage');
+    expect(statValue('Files')).toBe('421');
     expect(screen.getByText('Ayesha Rahman')).toBeInTheDocument();
     expect(screen.getByText('User 31')).toBeInTheDocument();
+
+    // "Signed in", not "Requests": the traffic table also has a `Requests` column
+    // header, which would make the label lookup ambiguous.
+    await openTab(user, 'Traffic');
+    expect(statValue('Signed in')).toBe('30.1K');
 
     // Endpoint families are labelled, but a bucket the frontend does not know is
     // printed verbatim rather than dropped from the table.
@@ -189,11 +218,16 @@ describe('Dashboard', () => {
     expect(screen.getByText('BD · Dhaka')).toBeInTheDocument();
 
     // Workers panel is populated, so the queue counter is shown.
-    expect(screen.getByText('Queued jobs')).toBeInTheDocument();
+    await openTab(user, 'Workers');
+    expect(statValue('Queued jobs')).toBe('4');
     expect(screen.queryByText('Queue depth unavailable')).not.toBeInTheDocument();
+
+    // Switching tabs is a client-side operation on already-fetched data.
+    expect(reads).toBe(1);
   });
 
   it('says "no data" instead of zero when traffic and workers are unavailable', async () => {
+    const user = userEvent.setup();
     const data = overview();
     server.use(
       http.get(DASHBOARD_PATH, () =>
@@ -211,13 +245,16 @@ describe('Dashboard', () => {
 
     await ready();
 
+    await openTab(user, 'Traffic');
     expect(screen.getByText('No traffic data yet')).toBeInTheDocument();
-    expect(screen.getByText('Queue depth unavailable')).toBeInTheDocument();
 
     // The traffic counters must not be on screen at all — not even as zeros.
     expect(screen.queryByText('Unique visitors')).not.toBeInTheDocument();
-    expect(screen.queryByText('Queued jobs')).not.toBeInTheDocument();
     expect(screen.queryByText('Error rate')).not.toBeInTheDocument();
+
+    await openTab(user, 'Workers');
+    expect(screen.getByText('Queue depth unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Queued jobs')).not.toBeInTheDocument();
   });
 
   it('treats 403 as "admins only" and offers no retry', async () => {
@@ -292,13 +329,19 @@ describe('Dashboard', () => {
   });
 
   it('renders under the Bangla catalog', async () => {
+    const user = userEvent.setup();
     server.use(http.get(DASHBOARD_PATH, () => HttpResponse.json(overview())));
 
     renderWithProviders(<Dashboard />, { locale: 'bn' });
 
     await screen.findByRole('heading', { name: 'ব্যবহারকারী' });
-    expect(screen.getByRole('heading', { name: 'কনটেন্ট' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'ট্রাফিক' })).toBeInTheDocument();
+    // Every tab is translated, not just the one that opens first.
+    expect(screen.getByRole('tab', { name: 'কনটেন্ট' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'ট্রাফিক' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'স্টোরেজ' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'ওয়ার্কার' })).toBeInTheDocument();
+
+    await openTab(user, 'স্টোরেজ');
     // Names are data, so they stay untranslated even under `bn`.
     expect(screen.getByText('Ayesha Rahman')).toBeInTheDocument();
     // The name fallback is copy, so it is.
