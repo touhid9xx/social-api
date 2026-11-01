@@ -13,6 +13,10 @@ repos:
         # accepts a single document.
         exclude: ^frontend/pnpm-lock\.yaml$
       - id: check-json
+        # frontend/tsconfig.json is JSONC, not JSON: TypeScript officially
+        # allows `//` comments there, and this file uses them to record why
+        # `baseUrl` is omitted. Strict JSON parsing can never accept it.
+        exclude: ^frontend/tsconfig\.json$
       - id: check-added-large-files
         args: ["--maxkb=2000"]
 
