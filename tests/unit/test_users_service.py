@@ -21,7 +21,7 @@ from social_api.modules.users.exceptions import (
 from social_api.modules.users.models import Profile, Visibility
 from social_api.modules.users.repository import AdminUserRow
 from social_api.modules.users.schemas import AdminUserUpdate, ProfileUpdate
-from social_api.modules.users.service import UsersService
+from social_api.modules.users.service import UsersService, _mask_email, _to_admin_view
 
 pytestmark = pytest.mark.unit
 
@@ -145,6 +145,7 @@ def _row(user_id: int, created_at: datetime) -> AdminUserRow:
         created_at=created_at,
         display_name=f"User {user_id}",
         avatar_url=None,
+        email=f"user{user_id}@example.com",
     )
 
 
@@ -291,6 +292,7 @@ def _admin_row(user_id: int = 42, **overrides: Any) -> AdminUserRow:
         "created_at": datetime(2026, 1, 1, 12, 0, 0),
         "display_name": "Alice",
         "avatar_url": None,
+        "email": "alice@example.com",
     }
     base.update(overrides)
     return AdminUserRow(**base)
@@ -569,3 +571,30 @@ async def test_admin_mutations_are_404_for_an_unknown_account() -> None:
         )
 
     assert users.saves == []
+
+
+def test_directory_rows_carry_a_masked_email_never_the_raw_one() -> None:
+    """A fresh registration has no display name, so the masked email is the
+    only thing that tells two pending accounts apart — but it must not be
+    a contactable address."""
+    view = _to_admin_view(_admin_row(email="tushar@example.com"))
+
+    assert view.email_masked == "t***@example.com"
+    # The local part past its first character and the raw address itself are
+    # both absent from the wire payload.
+    assert "ushar" not in view.email_masked
+    assert "tushar@example.com" not in view.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("alice@example.com", "a***@example.com"),
+        ("A@b.co", "A***@b.co"),
+        # Defensive: a stored value without '@' fails closed rather than
+        # echoing whatever it is.
+        ("not-an-email", "***"),
+    ],
+)
+def test_mask_email_shapes(raw: str, expected: str) -> None:
+    assert _mask_email(raw) == expected

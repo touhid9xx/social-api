@@ -115,10 +115,16 @@ class DeleteMeResponse(BaseModel):
 class AdminUserView(BaseModel):
     """One row of the staff-only user directory.
 
-    Field-for-field the same PII posture as `UserPublic` (no email, no
-    phone — the encrypted columns stay encrypted and unexposed), plus the
-    display name/avatar so the console doesn't need a per-row
-    `/users/{id}` fetch.
+    Same PII posture as `UserPublic`: no raw email, no phone — the encrypted
+    columns stay encrypted and unexposed — plus the display name/avatar so
+    the console doesn't need a per-row `/users/{id}` fetch.
+
+    `email_masked` is the one deliberate exception. A brand-new account has
+    no `display_name` yet (registration collects only email + password), so
+    without it every fresh registration is indistinguishable from the next
+    and an admin cannot tell *who* they are verifying. The mask
+    (`t***@example.com`) is enough to recognise an account and not enough to
+    contact or impersonate it.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -130,6 +136,7 @@ class AdminUserView(BaseModel):
     created_at: datetime
     display_name: str | None = None
     avatar_url: str | None = None
+    email_masked: str
 
 
 class AdminUserPage(BaseModel):

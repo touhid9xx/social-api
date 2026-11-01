@@ -117,6 +117,32 @@ async def test_patch_changes_one_field_and_ignores_omitted_ones(uc: AsyncClient)
     assert body["role"] == "moderator"  # unchanged by the second PATCH
 
 
+async def test_directory_rows_expose_a_masked_email_never_the_raw_one(uc: AsyncClient) -> None:
+    """Registration collects only email + password, so a fresh account has no
+    `display_name`. Without `email_masked` every pending row is anonymous and
+    the admin cannot tell *who* they are verifying — but the raw address must
+    never reach the wire (the column stays encrypted and unexposed).
+    """
+    h = await _admin_headers(uc, "adm-mask@example.com")
+    target = await _login(uc, "quinn-mask-target@example.com")
+
+    r = await uc.get("/api/v1/users", headers=h, params={"limit": 100})
+    assert r.status_code == 200, r.text
+    rows = [item for item in r.json()["items"] if item["id"] == int(target["user_id"])]
+    assert len(rows) == 1, f"target missing from directory: {r.text}"
+    row = rows[0]
+
+    assert row["email_masked"] == "q***@example.com"
+    # No raw-email field at all, and no raw address anywhere in the payload.
+    assert "email" not in row, f"raw email field leaked: {row}"
+    assert "quinn-mask-target@example.com" not in r.text
+
+    # A mutation returns the same view builder, so the mask survives a write.
+    r = await uc.patch(f"/api/v1/users/{target['user_id']}", headers=h, json={"is_verified": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["email_masked"] == "q***@example.com"
+
+
 async def test_empty_update_is_a_400_not_a_silent_noop(uc: AsyncClient) -> None:
     h = await _admin_headers(uc, "adm-empty@example.com")
     target = await _login(uc, "adm-empty-target@example.com")

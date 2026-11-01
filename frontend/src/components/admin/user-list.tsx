@@ -57,11 +57,12 @@ import { formatRelativeTime } from '@/lib/format';
  * The staff-only user directory — `GET /api/v1/users`, plus the three admin
  * account writes (`PATCH`, `POST /activate`, `DELETE` on `/users/{id}`).
  *
- * `AdminUserView` already carries `display_name` and `avatar_url`, so a row is
- * one request's worth of data and must not fan out to `/users/{id}` per row —
- * the same rule `FollowList` documents, and the reason this component does not
- * touch `useAuthor`. (`useMe` is the one profile read here, and it is a single
- * shared cache entry for the whole session, not per row.)
+ * `AdminUserView` already carries `display_name`, `avatar_url` and
+ * `email_masked`, so a row is one request's worth of data and must not fan out
+ * to `/users/{id}` per row — the same rule `FollowList` documents, and the
+ * reason this component does not touch `useAuthor`. (`useMe` is the one profile
+ * read here, and it is a single shared cache entry for the whole session, not
+ * per row.)
  *
  * A `403` is rendered as "admins only", never as an empty directory: "nobody has
  * signed up" and "you are not allowed to see who did" are different facts.
@@ -308,6 +309,13 @@ function UserRow({ user, isSelf }: { user: AdminUserView; isSelf: boolean }) {
           </span>
 
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {/* The only identity a fresh account has. Registration collects just
+                email + password, so `display_name` is null and `User {id}` tells
+                an admin nothing about *who* they are verifying. The mask is
+                built server-side (`s***@gmail.com`) — recognisable, and the
+                domain keeps two same-initial accounts apart. */}
+            <span className="truncate font-mono text-micro">{user.email_masked}</span>
+            <span aria-hidden="true">·</span>
             <span>{t(user.is_verified ? 'verified' : 'unverified')}</span>
             <span aria-hidden="true">·</span>
             <span>{t(user.is_active ? 'active' : 'deactivated')}</span>

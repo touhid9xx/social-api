@@ -31,6 +31,10 @@ class AdminUserRow(NamedTuple):
     created_at: datetime
     display_name: str | None
     avatar_url: str | None
+    # Decrypted by the `EncryptedString` column type on the way out, and
+    # masked by the service before it ever reaches a schema — the raw value
+    # must not leave this module.
+    email: str
 
 
 class ProfileRepository:
@@ -162,6 +166,7 @@ class UserDirectoryRepository:
                 User.created_at,
                 Profile.display_name,
                 Profile.avatar_url,
+                User.email,
             )
             .join(Profile, Profile.user_id == User.id, isouter=True)
             .where(User.deleted_at.is_(None))
@@ -201,6 +206,7 @@ class UserDirectoryRepository:
                 User.created_at,
                 Profile.display_name,
                 Profile.avatar_url,
+                User.email,
             )
             .join(Profile, Profile.user_id == User.id, isouter=True)
             .where(User.id == user_id, User.deleted_at.is_(None))

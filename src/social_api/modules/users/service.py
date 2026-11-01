@@ -68,6 +68,23 @@ def _decode_user_cursor(cursor: str) -> tuple[datetime, int]:
         raise BadRequestError("Invalid cursor", detail={"code": "INVALID_CURSOR"}) from None
 
 
+def _mask_email(email: str) -> str:
+    """`t***@example.com` — enough to recognise an account, not to contact it.
+
+    Masking here (rather than in the schema) keeps the raw address inside
+    this module: `AdminUserView` only ever sees the masked form, so a future
+    change to the view cannot accidentally serialise the ciphertext's
+    plaintext. Same intent as `email.sms._masked`, which keeps a trace of a
+    phone number without exposing it.
+    """
+    local, sep, domain = email.partition("@")
+    if not sep or not local:
+        # Unreachable for rows that passed registration validation; fail
+        # closed rather than echoing something unrecognisable.
+        return "***"
+    return f"{local[0]}***@{domain}"
+
+
 def _to_admin_view(row: AdminUserRow) -> AdminUserView:
     """One directory row → wire view. Shared by the list and the mutations
     so a PATCH response is byte-identical to the row the list would show."""
@@ -79,6 +96,7 @@ def _to_admin_view(row: AdminUserRow) -> AdminUserView:
         created_at=row.created_at,
         display_name=row.display_name,
         avatar_url=row.avatar_url,
+        email_masked=_mask_email(row.email),
     )
 
 

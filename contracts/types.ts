@@ -25,6 +25,7 @@ export interface AdminUserView {
   created_at: string;
   display_name?: string | null;
   avatar_url?: string | null;
+  email_masked: string;
 }
 
 export interface AuditLogView {

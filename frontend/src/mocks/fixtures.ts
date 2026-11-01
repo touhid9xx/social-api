@@ -1007,6 +1007,7 @@ export const adminDirectory: AdminUserPage = {
       created_at: '2025-11-02T08:15:00.000Z',
       display_name: 'Ayesha Rahman',
       avatar_url: null,
+      email_masked: 'a***@example.com',
     },
     {
       id: 24,
@@ -1016,6 +1017,7 @@ export const adminDirectory: AdminUserPage = {
       created_at: '2025-12-14T17:40:00.000Z',
       display_name: 'Tanvir Ahmed',
       avatar_url: null,
+      email_masked: 't***@example.com',
     },
     {
       id: 31,
@@ -1025,6 +1027,9 @@ export const adminDirectory: AdminUserPage = {
       created_at: '2026-01-09T12:05:00.000Z',
       display_name: null,
       avatar_url: null,
+      // A different domain on purpose: the mask keeps the domain, which is what
+      // makes two same-initial accounts distinguishable at a glance.
+      email_masked: 's***@gmail.com',
     },
   ],
   next_cursor: null,

@@ -2,7 +2,7 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `032081f6e006`
+**Generated from commit:** `3d3736aa7bc9`
 
 ---
 

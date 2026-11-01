@@ -120,6 +120,13 @@ describe('UserList', () => {
     expect(within(plain).getByText('Deactivated')).toBeInTheDocument();
     expect(within(plain).getByText('User 31')).toBeInTheDocument();
 
+    // `User 31` alone cannot tell an admin *who* they are about to verify, so
+    // every row also shows the server-masked address. The domain is kept, which
+    // is what separates two accounts sharing an initial.
+    expect(within(plain).getByText('s***@gmail.com')).toBeInTheDocument();
+    expect(within(admin).getByText('a***@example.com')).toBeInTheDocument();
+    expect(within(moderator).getByText('t***@example.com')).toBeInTheDocument();
+
     // A row is one link to the public profile — the same destination the feed's
     // author name uses.
     expect(within(admin).getByRole('link')).toHaveAttribute('href', '/profile/21');
@@ -127,6 +134,37 @@ describe('UserList', () => {
     // `joined` is formatted per locale, so assert the prefix rather than a
     // string that would change every time the suite runs.
     expect(within(admin).getByText(/^Joined /)).toBeInTheDocument();
+  });
+
+  it('renders the server-provided mask verbatim instead of re-deriving it', async () => {
+    server.use(
+      http.get(LIST_PATH, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 77,
+              role: 'user',
+              is_active: true,
+              is_verified: false,
+              created_at: '2026-01-09T12:05:00.000Z',
+              display_name: null,
+              avatar_url: null,
+              // Deliberately a shape the backend never emits: masking is a
+              // server concern (it owns the raw address), so the component must
+              // print what it was given rather than reconstruct its own mask.
+              email_masked: 'q***@mail.example.co.uk',
+            },
+          ],
+          next_cursor: null,
+        }),
+      ),
+    );
+
+    renderWithProviders(<UserList />);
+
+    await ready();
+
+    expect(screen.getByText('q***@mail.example.co.uk')).toBeInTheDocument();
   });
 
   it('loads the directory once and never fans out to /users/{id}', async () => {
