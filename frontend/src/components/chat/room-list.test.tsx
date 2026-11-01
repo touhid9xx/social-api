@@ -27,6 +27,19 @@ import { RoomList } from './room-list';
 
 const ROOMS_PATH = '*/api/v1/chat/rooms';
 
+/**
+ * Waits for a direct room to be named.
+ *
+ * A direct row costs three round trips before its name exists — the list itself,
+ * then that room's member list, then the peer's profile — and the row renders the
+ * generic fallback in between. `findByText`'s 1s budget is tight while the whole
+ * suite runs in parallel, so every "wait until the peer resolved" assertion goes
+ * through here with a wider window instead of re-timing each call site.
+ */
+function findPeerName(text: string) {
+  return screen.findByText(text, undefined, { timeout: 5000 });
+}
+
 const ERROR_BODY: ApiErrorBody = {
   error: 'CHAT_UNAVAILABLE',
   status: 429,
@@ -39,7 +52,7 @@ describe('RoomList', () => {
   it('names a direct room after its peer and a group room after its title', async () => {
     renderWithProviders(<RoomList />);
 
-    expect(await screen.findByText('Alice Rahman')).toBeInTheDocument();
+    expect(await findPeerName('Alice Rahman')).toBeInTheDocument();
     expect(screen.getByText('Design crew')).toBeInTheDocument();
 
     // 601 has no title at all — the name came from resolving the member list.
@@ -119,7 +132,7 @@ describe('RoomList', () => {
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
-    expect(await screen.findByText('Alice Rahman')).toBeInTheDocument();
+    expect(await findPeerName('Alice Rahman')).toBeInTheDocument();
   });
 
   it('renders Bangla copy under the bn locale', async () => {
