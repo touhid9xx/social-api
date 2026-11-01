@@ -127,6 +127,9 @@ export const ERROR_MESSAGE_KEY = {
   PROFILE_NOT_VISIBLE: 'profileNotVisible',
   VERSION_CONFLICT: 'versionConflict',
   CONSENT_NOT_FOUND: 'consentNotFound',
+  CANNOT_MODIFY_SELF: 'cannotModifySelf',
+  LAST_ADMIN_PROTECTED: 'lastAdminProtected',
+  EMPTY_UPDATE: 'emptyUpdate',
   // modules/posts
   POST_NOT_FOUND: 'postNotFound',
   COMMENT_NOT_FOUND: 'commentNotFound',

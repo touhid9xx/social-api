@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import NamedTuple
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.modules.auth.models import User, UserRole
@@ -183,3 +183,48 @@ class UserDirectoryRepository:
         stmt = stmt.order_by(User.created_at.desc(), User.id.desc()).limit(limit + 1)
         res = await self._s.execute(stmt)
         return [AdminUserRow(*row) for row in res.all()]
+
+    async def get_user_row(self, user_id: int) -> AdminUserRow | None:
+        """One directory row by id, same shape/join as `list_users`.
+
+        Used by the admin mutations to build their response AFTER a flush,
+        so the client sees the state it just wrote rather than the state
+        it read. Returns `None` for a soft-deleted account — the same
+        filter `get_by_id` applies — which the service turns into a 404.
+        """
+        stmt = (
+            select(
+                User.id,
+                User.role,
+                User.is_active,
+                User.is_verified,
+                User.created_at,
+                Profile.display_name,
+                Profile.avatar_url,
+            )
+            .join(Profile, Profile.user_id == User.id, isouter=True)
+            .where(User.id == user_id, User.deleted_at.is_(None))
+        )
+        res = await self._s.execute(stmt)
+        row = res.first()
+        return None if row is None else AdminUserRow(*row)
+
+    async def count_active_admins(self, *, excluding: int) -> int:
+        """Active, non-deleted admins other than `excluding`.
+
+        The "last admin" guard asks this question with the target's own id,
+        so an admin demoting a *peer* is counted correctly: the answer is
+        how many admins would remain afterwards, not how many exist now.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.role == UserRole.ADMIN,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+                User.id != excluding,
+            )
+        )
+        res = await self._s.execute(stmt)
+        return int(res.scalar_one())

@@ -40,6 +40,10 @@ AuditActionLiteral = Literal[
     "CONSENT_GRANTED",
     "CONSENT_REVOKED",
     "USER_SOFT_DELETE",
+    # admin account management
+    "ADMIN_USER_UPDATE",
+    "USER_ACTIVATED",
+    "ADMIN_USER_DELETE",
     # posts
     "DELETE_POST",
     # comments

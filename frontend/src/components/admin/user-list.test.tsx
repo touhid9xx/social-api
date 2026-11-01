@@ -1,7 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The three writes announce themselves through a toast, and the refusal copy is
+// the only place `CANNOT_MODIFY_SELF` / `LAST_ADMIN_PROTECTED` become visible, so
+// the announcements are spied on rather than rendered.
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('sonner', () => ({ toast }));
 
 import { renderWithProviders } from '@/lib/testing/render';
 import { adminDirectory } from '@/mocks/fixtures';
@@ -31,11 +37,27 @@ import { UserList } from './user-list';
  * page* that fails flips `isError` too, and the already-loaded accounts must
  * survive it.
  *
- * (প্রতি সারিতে আলাদা অনুরোধ নয়; 403 মানে "শুধু অ্যাডমিন", ব্যর্থতা নয়।)
+ * The row actions are pinned on the WIRE, not on the pixels: which endpoint was
+ * called and with which body. That is the part a refactor can silently break —
+ * `{ is_active: true }` instead of `POST /activate` looks identical on screen but
+ * leaves `is_verified` false, so the account that was "activated" still cannot
+ * sign in to a verified-only screen. Your own row is asserted to carry no menu at
+ * all, and both server refusals are asserted to reach the user as their own copy.
+ *
+ * (প্রতি সারিতে আলাদা অনুরোধ নয়; 403 মানে "শুধু অ্যাডমিন", ব্যর্থতা নয়।
+ * অ্যাক্টিভেট আলাদা এন্ডপয়েন্ট — `is_active` আর `is_verified` একসাথে সেট হয়।)
  */
 
 const LIST_PATH = '*/api/v1/users';
-const PROFILE_PATH = '*/api/v1/users/:user_id';
+
+/**
+ * A profile read for a *directory row*, not for the signed-in user.
+ *
+ * The screen legitimately reads `GET /users/me` once (to know which row is you and
+ * so carry no action menu), and `:user_id` would happily match `me`. Counting only
+ * numeric ids keeps the fan-out assertion about what it is actually about.
+ */
+const ROW_PROFILE_PATH = /\/api\/v1\/users\/\d+$/;
 
 function errorBody(error: string, status: number, path: string): ApiErrorBody {
   return { error, status, detail: 'test', path, request_id: 'req-1' };
@@ -50,6 +72,24 @@ function rows(): HTMLElement[] {
 async function ready(): Promise<void> {
   await screen.findByRole('list');
 }
+
+type User = ReturnType<typeof userEvent.setup>;
+
+/**
+ * Open one row's action menu and return the menu surface.
+ *
+ * `adminProfile.user_id` (21) is the fixture's first row, so that row is "you" and
+ * deliberately has no menu — every action test targets a row that is not self.
+ */
+async function openMenu(user: User, name: string) {
+  await user.click(screen.getByRole('button', { name: `Actions for ${name}` }));
+  return screen.findByRole('menu');
+}
+
+beforeEach(() => {
+  toast.success.mockClear();
+  toast.error.mockClear();
+});
 
 describe('UserList', () => {
   it('lists every account with its own role, state and joined date', async () => {
@@ -93,7 +133,7 @@ describe('UserList', () => {
     let profileReads = 0;
 
     server.use(
-      http.get(PROFILE_PATH, () => {
+      http.get(ROW_PROFILE_PATH, () => {
         profileReads += 1;
         return HttpResponse.json(errorBody('PROFILE_NOT_FOUND', 404, '/api/v1/users/31'), {
           status: 404,
@@ -231,5 +271,200 @@ describe('UserList', () => {
     // The name fallback is copy, so it is translated; real names are not.
     expect(screen.getByText('ব্যবহারকারী 31')).toBeInTheDocument();
     expect(screen.getByText('Ayesha Rahman')).toBeInTheDocument();
+  });
+
+  it('renders no controls on your own row, only the reason', async () => {
+    renderWithProviders(<UserList />);
+
+    await ready();
+
+    // Row one IS `adminProfile.user_id` (21). Deactivating or demoting yourself
+    // would remove the console needed to undo it, so the rule is shown rather
+    // than offered and then refused.
+    //
+    // The lock is awaited first on purpose: `me` is a SEPARATE query from the
+    // directory, so asserting its absence straight after `ready()` would read a
+    // row that has not heard back from `GET /users/me` yet and flake. Once the
+    // lock is on screen, "no menu here" is a real statement about the final
+    // render rather than a race.
+    const locked = await screen.findByRole('button', {
+      name: 'This is your own account — another admin has to change it.',
+    });
+    expect(locked).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Actions for Ayesha Rahman' }),
+    ).not.toBeInTheDocument();
+
+    // The other two rows are other people, so they do have a menu.
+    expect(screen.getByRole('button', { name: 'Actions for Tanvir Ahmed' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Actions for User 31' })).toBeInTheDocument();
+  });
+
+  it('deactivates through PATCH with only the flag that changed', async () => {
+    const user = userEvent.setup();
+    const calls: Array<{ id: number; body: unknown }> = [];
+
+    server.use(
+      http.patch('*/api/v1/users/:user_id', async ({ request, params }) => {
+        calls.push({ id: Number(params.user_id), body: await request.json() });
+        return HttpResponse.json({ ...adminDirectory.items[1], is_active: false });
+      }),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'Tanvir Ahmed');
+    await user.click(await screen.findByRole('menuitem', { name: /Deactivate/ }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    // The body is `exclude_unset`, so a whole-row snapshot would be a silent role
+    // reset. Only the field that actually changed may be sent.
+    expect(calls[0]).toEqual({ id: 24, body: { is_active: false } });
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Tanvir Ahmed is now deactivated.'),
+    );
+  });
+
+  it('activates through the named endpoint so both columns clear at once', async () => {
+    const user = userEvent.setup();
+    const activations: number[] = [];
+    let patches = 0;
+
+    server.use(
+      http.patch('*/api/v1/users/:user_id', () => {
+        patches += 1;
+        return HttpResponse.json(adminDirectory.items[2]);
+      }),
+      http.post('*/api/v1/users/:user_id/activate', ({ params }) => {
+        activations.push(Number(params.user_id));
+        return HttpResponse.json({
+          ...adminDirectory.items[2],
+          is_active: true,
+          is_verified: true,
+        });
+      }),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    // Row three is the stuck signup: unverified and deactivated.
+    await openMenu(user, 'User 31');
+    await user.click(await screen.findByRole('menuitem', { name: /^Activate/ }));
+
+    await waitFor(() => expect(activations).toEqual([31]));
+    // A `PATCH { is_active: true }` would leave `is_verified` false — the account
+    // would still be blocked on any verified-only screen.
+    expect(patches).toBe(0);
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('User 31 is now active.'));
+  });
+
+  it('changes a role through PATCH and names the new role', async () => {
+    const user = userEvent.setup();
+    const calls: Array<{ id: number; body: unknown }> = [];
+
+    server.use(
+      http.patch('*/api/v1/users/:user_id', async ({ request, params }) => {
+        calls.push({ id: Number(params.user_id), body: await request.json() });
+        return HttpResponse.json({ ...adminDirectory.items[1], role: 'admin' });
+      }),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'Tanvir Ahmed');
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Admin' }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ id: 24, body: { role: 'admin' } });
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Tanvir Ahmed is now a Admin.'));
+  });
+
+  it('deletes only after the confirmation dialog is accepted', async () => {
+    const user = userEvent.setup();
+    const deletions: number[] = [];
+
+    server.use(
+      http.delete('*/api/v1/users/:user_id', ({ params }) => {
+        deletions.push(Number(params.user_id));
+        // Soft delete: the row survives with the sign-in block set.
+        return HttpResponse.json({ ...adminDirectory.items[1], is_active: false });
+      }),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'Tanvir Ahmed');
+    await user.click(await screen.findByRole('menuitem', { name: /Delete account/ }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Delete this account?')).toBeInTheDocument();
+    // Choosing the item opens the dialog; it must not delete on its own.
+    expect(deletions).toHaveLength(0);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete account' }));
+
+    await waitFor(() => expect(deletions).toEqual([24]));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Tanvir Ahmed has been deleted.'),
+    );
+  });
+
+  it('surfaces a self-action refusal in its own words', async () => {
+    const user = userEvent.setup();
+
+    // The client cannot predict every refusal — another admin may have promoted
+    // this row a moment ago — so the server's code has to reach the reader.
+    server.use(
+      http.patch('*/api/v1/users/:user_id', () =>
+        HttpResponse.json(errorBody('CANNOT_MODIFY_SELF', 403, '/api/v1/users/24'), {
+          status: 403,
+        }),
+      ),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'Tanvir Ahmed');
+    await user.click(await screen.findByRole('menuitem', { name: /Deactivate/ }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'You cannot do this to your own account. Ask another admin.',
+      ),
+    );
+    // A refusal must not be announced as a success.
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the last-admin refusal instead of a generic failure', async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.patch('*/api/v1/users/:user_id', () =>
+        HttpResponse.json(errorBody('LAST_ADMIN_PROTECTED', 409, '/api/v1/users/24'), {
+          status: 409,
+        }),
+      ),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'Tanvir Ahmed');
+    await user.click(await screen.findByRole('menuitemradio', { name: 'User' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'At least one active admin has to remain, so this account cannot be demoted, deactivated or deleted.',
+      ),
+    );
   });
 });

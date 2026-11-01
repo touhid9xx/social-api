@@ -135,3 +135,25 @@ class AdminUserView(BaseModel):
 class AdminUserPage(BaseModel):
     items: list[AdminUserView]
     next_cursor: str | None = None
+
+
+class AdminUserUpdate(BaseModel):
+    """PATCH body for one account, staff-only.
+
+    Every field is optional and only the keys the admin actually sent are
+    applied (`exclude_unset`), so a request that flips `is_active` can never
+    silently reset the role. There is deliberately no `email` or password
+    field: re-identifying an account or resetting its password is the
+    owner's flow (`/auth/*`), not an admin's.
+
+    No `version` field either — unlike `ProfileUpdate` this is not an
+    optimistic-locked record. The guards that matter here (can't act on
+    yourself, can't remove the last admin) are enforced server-side against
+    live state inside the same transaction.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: UserRoleLiteral | None = None
+    is_active: bool | None = None
+    is_verified: bool | None = None

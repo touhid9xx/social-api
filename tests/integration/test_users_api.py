@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from social_api.main import create_app
@@ -29,7 +30,7 @@ async def _register_and_login(client: AsyncClient, email: str = "u@example.com")
     }
 
 
-@pytest.fixture
+@pytest_asyncio.fixture()
 async def uc(
     use_testcontainers_db: str,
     fake_redis: object,

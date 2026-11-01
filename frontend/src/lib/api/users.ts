@@ -168,3 +168,67 @@ export async function getAdminUsers({
 }: AdminUserQuery = {}): Promise<AdminUserPage> {
   return apiRequest(() => apiClient.GET('/api/v1/users', { params: { query: { cursor, limit } } }));
 }
+
+/** PATCH body for one account. Only the keys actually sent are applied. */
+export type AdminUserUpdate = components['schemas']['AdminUserUpdate'];
+
+/**
+ * `PATCH /api/v1/users/{user_id}` — change another account's role or flags.
+ *
+ * Same body discipline as `updateMe`: the model forbids unknown keys and the
+ * service applies `exclude_unset`, so sending `{ is_active: true }` leaves the
+ * role alone. A `null` counts as "not sent" too (`exclude_none`), so a caller can
+ * spread an optional form field without risking a NULL write. Callers therefore
+ * build the body from what changed, never from a whole form snapshot.
+ *
+ * The response is the full re-read `AdminUserView` — identical in shape to a
+ * directory row, so the list can patch one entry in place instead of refetching
+ * page one and losing the reader's scroll position.
+ */
+export async function updateAdminUser(
+  userId: number,
+  payload: AdminUserUpdate,
+): Promise<AdminUserView> {
+  return apiRequest(() =>
+    apiClient.PATCH('/api/v1/users/{user_id}', {
+      params: { path: { user_id: userId } },
+      body: payload,
+    }),
+  );
+}
+
+/**
+ * `POST /api/v1/users/{user_id}/activate` — clear the sign-in block.
+ *
+ * Sets `is_active` AND `is_verified` in one call. The two are separate columns
+ * but one intent here: this is the manual stand-in for the emailed verification
+ * link, so an admin can admit an account on a deployment with no mail server.
+ * That is why it is a named endpoint rather than `PATCH { is_active: true }` —
+ * the pairing is the policy, and it should not be reassembled per caller.
+ */
+export async function activateAdminUser(userId: number): Promise<AdminUserView> {
+  return apiRequest(() =>
+    apiClient.POST('/api/v1/users/{user_id}/activate', {
+      params: { path: { user_id: userId } },
+    }),
+  );
+}
+
+/**
+ * `DELETE /api/v1/users/{user_id}` — soft-delete another account.
+ *
+ * Not a hard delete, and not the same operation as `DELETE /users/me`: this one
+ * only flips `deleted_at` + `is_active` and writes an audit row. It schedules no
+ * GDPR hard delete, so it stays reversible — an admin reinstating the account is
+ * `activate` on the same id.
+ *
+ * The response is the final row rather than `204`, so the console can show the
+ * resulting state (deactivated, still listed) without guessing what the server
+ * did. The directory filters out deleted accounts, so the row leaves the list on
+ * the next refetch.
+ */
+export async function deleteAdminUser(userId: number): Promise<AdminUserView> {
+  return apiRequest(() =>
+    apiClient.DELETE('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } }),
+  );
+}

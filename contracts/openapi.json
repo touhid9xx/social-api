@@ -43,6 +43,52 @@
         "title": "AdminUserPage",
         "type": "object"
       },
+      "AdminUserUpdate": {
+        "additionalProperties": false,
+        "description": "PATCH body for one account, staff-only.\n\nEvery field is optional and only the keys the admin actually sent are\napplied (`exclude_unset`), so a request that flips `is_active` can never\nsilently reset the role. There is deliberately no `email` or password\nfield: re-identifying an account or resetting its password is the\nowner's flow (`/auth/*`), not an admin's.\n\nNo `version` field either — unlike `ProfileUpdate` this is not an\noptimistic-locked record. The guards that matter here (can't act on\nyourself, can't remove the last admin) are enforced server-side against\nlive state inside the same transaction.",
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "is_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Verified"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "user",
+                  "moderator",
+                  "admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "AdminUserUpdate",
+        "type": "object"
+      },
       "AdminUserView": {
         "description": "One row of the staff-only user directory.\n\nField-for-field the same PII posture as `UserPublic` (no email, no\nphone — the encrypted columns stay encrypted and unexposed), plus the\ndisplay name/avatar so the console doesn't need a per-row\n`/users/{id}` fetch.",
         "properties": {
@@ -3185,6 +3231,9 @@
                     "CONSENT_GRANTED",
                     "CONSENT_REVOKED",
                     "USER_SOFT_DELETE",
+                    "ADMIN_USER_UPDATE",
+                    "USER_ACTIVATED",
+                    "ADMIN_USER_DELETE",
                     "DELETE_POST",
                     "DELETE_COMMENT",
                     "BLOCK",
@@ -3351,6 +3400,9 @@
                     "CONSENT_GRANTED",
                     "CONSENT_REVOKED",
                     "USER_SOFT_DELETE",
+                    "ADMIN_USER_UPDATE",
+                    "USER_ACTIVATED",
+                    "ADMIN_USER_DELETE",
                     "DELETE_POST",
                     "DELETE_COMMENT",
                     "BLOCK",
@@ -6855,6 +6907,52 @@
       }
     },
     "/api/v1/users/{user_id}": {
+      "delete": {
+        "description": "Admin-only: soft-delete an account (30-day GDPR window still applies).",
+        "operationId": "admin_delete_user_api_v1_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Delete User",
+        "tags": [
+          "users"
+        ]
+      },
       "get": {
         "operationId": "get_profile_api_v1_users__user_id__get",
         "parameters": [
@@ -6896,6 +6994,110 @@
           }
         ],
         "summary": "Get Profile",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "description": "Admin-only: change one account's role / active / verified flag.",
+        "operationId": "admin_update_user_api_v1_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Update User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/activate": {
+      "post": {
+        "description": "Admin-only: re-enable a deactivated account and mark it verified.\n\nA POST, not a PATCH, because it is an action rather than a field write:\nit always lands in the same state, so it is safe to retry.",
+        "operationId": "admin_activate_user_api_v1_users__user_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Activate User",
         "tags": [
           "users"
         ]

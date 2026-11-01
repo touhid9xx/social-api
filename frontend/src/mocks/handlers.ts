@@ -1224,6 +1224,123 @@ export const handlers = [
   }),
 
   // ---------------------------------------------------------------------------
+  // The three admin account writes (`src/social_api/modules/users/router.py`).
+  //
+  // All three answer with the full re-read `AdminUserView`, never `204`, so the
+  // mocks do the same — a test that only ever sees an empty body would not catch
+  // a mismatched return shape. Nothing mutates `adminDirectory`: each handler
+  // spreads the fixture row into a new object, because the fixture is shared for
+  // the whole file and a mutated row would leak across tests.
+  //
+  // The guards are here rather than in the tests because they are the contract:
+  //
+  //  - `CANNOT_MODIFY_SELF` (403) — an admin acting on their own row. Demoting or
+  //    deactivating yourself is one-way from your side, so it is refused.
+  //  - `LAST_ADMIN_PROTECTED` (409) — removing the last remaining admin would
+  //    leave the console unreachable with no way back in.
+  //
+  // `activate` is the one write that sets two columns (`is_active` AND
+  // `is_verified`) — the manual stand-in for the emailed verification link — so
+  // it is a separate route rather than `PATCH { is_active: true }`.
+  //
+  // The delete is SOFT: the row comes back with `is_active: false` and keeps its
+  // id. `DELETE` here does not remove it from `adminDirectory`, so a screen that
+  // refetches still lists it; a test asserting "the row disappears" has to
+  // override the directory handler, exactly like the real backend's
+  // `deleted_at IS NULL` filter.
+  // ---------------------------------------------------------------------------
+
+  http.patch('*/api/v1/users/:user_id', async ({ request, params }) => {
+    const userId = Number(params.user_id);
+    const path = `/api/v1/users/${String(userId)}`;
+    const row = adminDirectory.items.find((user) => user.id === userId);
+
+    if (!row) {
+      return HttpResponse.json(errorBody('NOT_FOUND', 404, path, 'User not found'), {
+        status: 404,
+      });
+    }
+
+    if (userId === adminProfile.user_id) {
+      return HttpResponse.json(
+        errorBody('CANNOT_MODIFY_SELF', 403, path, 'Admins cannot act on their own account'),
+        {
+          status: 403,
+        },
+      );
+    }
+
+    const body = (await request.json()) as Partial<
+      Pick<AdminUserView, 'role' | 'is_active' | 'is_verified'>
+    >;
+    const next: AdminUserView = { ...row, ...body };
+
+    // "Admins remaining after this write". Somebody else has to still be able to
+    // reach the console, which is why the row being changed is excluded.
+    const otherAdmins = adminDirectory.items.filter(
+      (user) => user.role === 'admin' && user.is_active && user.id !== userId,
+    );
+
+    if (row.role === 'admin' && next.role !== 'admin' && otherAdmins.length === 0) {
+      return HttpResponse.json(
+        errorBody('LAST_ADMIN_PROTECTED', 409, path, 'At least one active admin must remain'),
+        {
+          status: 409,
+        },
+      );
+    }
+
+    return HttpResponse.json(next);
+  }),
+
+  http.post('*/api/v1/users/:user_id/activate', ({ params }) => {
+    const userId = Number(params.user_id);
+    const path = `/api/v1/users/${String(userId)}/activate`;
+    const row = adminDirectory.items.find((user) => user.id === userId);
+
+    if (!row) {
+      return HttpResponse.json(errorBody('NOT_FOUND', 404, path, 'User not found'), {
+        status: 404,
+      });
+    }
+
+    if (userId === adminProfile.user_id) {
+      return HttpResponse.json(
+        errorBody('CANNOT_MODIFY_SELF', 403, path, 'Admins cannot act on their own account'),
+        {
+          status: 403,
+        },
+      );
+    }
+
+    return HttpResponse.json({ ...row, is_active: true, is_verified: true });
+  }),
+
+  http.delete('*/api/v1/users/:user_id', ({ params }) => {
+    const userId = Number(params.user_id);
+    const path = `/api/v1/users/${String(userId)}`;
+    const row = adminDirectory.items.find((user) => user.id === userId);
+
+    if (!row) {
+      return HttpResponse.json(errorBody('NOT_FOUND', 404, path, 'User not found'), {
+        status: 404,
+      });
+    }
+
+    if (userId === adminProfile.user_id) {
+      return HttpResponse.json(
+        errorBody('CANNOT_MODIFY_SELF', 403, path, 'Admins cannot act on their own account'),
+        {
+          status: 403,
+        },
+      );
+    }
+
+    // Soft delete: the record survives, only the sign-in block is set.
+    return HttpResponse.json({ ...row, is_active: false });
+  }),
+
+  // ---------------------------------------------------------------------------
   // Feature flags — the admin console (`src/social_api/api/v1/flags.py`).
   //
   // `GET /flags` reports env vs. code default per flag and nothing else: the

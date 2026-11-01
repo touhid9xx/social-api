@@ -2,7 +2,7 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `e0c94bba2d35`
+**Generated from commit:** `032081f6e006`
 
 ---
 
@@ -61,7 +61,7 @@ curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN
 | Name | In | Required | Schema |
 |---|---|---|---|
 | actor_id | query | False | `{"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Actor Id"}` |
-| action | query | False | `{"anyOf": [{"enum": ["REGISTER", "LOGIN", "LOGOUT", "VERIFY_EMAIL", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_COMPLETED", "PASSWORD_CHANGED", "PROFILE_UPDATE", "CONSENT_GRANTED", "CONSENT_REVOKED", "USER_SOFT_DELETE", "DELETE_POST", "DELETE_COMMENT", "BLOCK", "UNBLOCK", "MUTE", "UNMUTE", "CREATE_CHAT_GROUP", "UPDATE_CHAT_GROUP_TITLE", "ADD_CHAT_MEMBER", "REMOVE_CHAT_MEMBER", "DELETE_CHAT_MESSAGE", "MODERATION_STATUS_UPDATE", "GDPR_DELETE_SCHEDULED", "GDPR_DELETE_CANCELLED", "FEATURE_FLAG_OVERRIDE", "USER_HARD_DELETED", "RETENTION_NOTIFICATIONS_PURGED", "RETENTION_AUDIT_PURGED", "RETENTION_ORPHAN_MEDIA_PURGED", "RETENTION_MESSAGES_PURGED"], "type": "string"}, {"type": "null"}], "title": "Action"}` |
+| action | query | False | `{"anyOf": [{"enum": ["REGISTER", "LOGIN", "LOGOUT", "VERIFY_EMAIL", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_COMPLETED", "PASSWORD_CHANGED", "PROFILE_UPDATE", "CONSENT_GRANTED", "CONSENT_REVOKED", "USER_SOFT_DELETE", "ADMIN_USER_UPDATE", "USER_ACTIVATED", "ADMIN_USER_DELETE", "DELETE_POST", "DELETE_COMMENT", "BLOCK", "UNBLOCK", "MUTE", "UNMUTE", "CREATE_CHAT_GROUP", "UPDATE_CHAT_GROUP_TITLE", "ADD_CHAT_MEMBER", "REMOVE_CHAT_MEMBER", "DELETE_CHAT_MESSAGE", "MODERATION_STATUS_UPDATE", "GDPR_DELETE_SCHEDULED", "GDPR_DELETE_CANCELLED", "FEATURE_FLAG_OVERRIDE", "USER_HARD_DELETED", "RETENTION_NOTIFICATIONS_PURGED", "RETENTION_AUDIT_PURGED", "RETENTION_ORPHAN_MEDIA_PURGED", "RETENTION_MESSAGES_PURGED"], "type": "string"}, {"type": "null"}], "title": "Action"}` |
 | entity | query | False | `{"anyOf": [{"enum": ["user", "profile", "post", "comment", "message", "chat_room", "report", "notification", "audit_log", "media"], "type": "string"}, {"type": "null"}], "title": "Entity"}` |
 | entity_id | query | False | `{"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Entity Id"}` |
 | cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
@@ -98,7 +98,7 @@ curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN
 
 | Name | In | Required | Schema |
 |---|---|---|---|
-| action | query | False | `{"anyOf": [{"enum": ["REGISTER", "LOGIN", "LOGOUT", "VERIFY_EMAIL", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_COMPLETED", "PASSWORD_CHANGED", "PROFILE_UPDATE", "CONSENT_GRANTED", "CONSENT_REVOKED", "USER_SOFT_DELETE", "DELETE_POST", "DELETE_COMMENT", "BLOCK", "UNBLOCK", "MUTE", "UNMUTE", "CREATE_CHAT_GROUP", "UPDATE_CHAT_GROUP_TITLE", "ADD_CHAT_MEMBER", "REMOVE_CHAT_MEMBER", "DELETE_CHAT_MESSAGE", "MODERATION_STATUS_UPDATE", "GDPR_DELETE_SCHEDULED", "GDPR_DELETE_CANCELLED", "FEATURE_FLAG_OVERRIDE", "USER_HARD_DELETED", "RETENTION_NOTIFICATIONS_PURGED", "RETENTION_AUDIT_PURGED", "RETENTION_ORPHAN_MEDIA_PURGED", "RETENTION_MESSAGES_PURGED"], "type": "string"}, {"type": "null"}], "title": "Action"}` |
+| action | query | False | `{"anyOf": [{"enum": ["REGISTER", "LOGIN", "LOGOUT", "VERIFY_EMAIL", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_COMPLETED", "PASSWORD_CHANGED", "PROFILE_UPDATE", "CONSENT_GRANTED", "CONSENT_REVOKED", "USER_SOFT_DELETE", "ADMIN_USER_UPDATE", "USER_ACTIVATED", "ADMIN_USER_DELETE", "DELETE_POST", "DELETE_COMMENT", "BLOCK", "UNBLOCK", "MUTE", "UNMUTE", "CREATE_CHAT_GROUP", "UPDATE_CHAT_GROUP_TITLE", "ADD_CHAT_MEMBER", "REMOVE_CHAT_MEMBER", "DELETE_CHAT_MESSAGE", "MODERATION_STATUS_UPDATE", "GDPR_DELETE_SCHEDULED", "GDPR_DELETE_CANCELLED", "FEATURE_FLAG_OVERRIDE", "USER_HARD_DELETED", "RETENTION_NOTIFICATIONS_PURGED", "RETENTION_AUDIT_PURGED", "RETENTION_ORPHAN_MEDIA_PURGED", "RETENTION_MESSAGES_PURGED"], "type": "string"}, {"type": "null"}], "title": "Action"}` |
 | entity | query | False | `{"anyOf": [{"enum": ["user", "profile", "post", "comment", "message", "chat_room", "report", "notification", "audit_log", "media"], "type": "string"}, {"type": "null"}], "title": "Entity"}` |
 | entity_id | query | False | `{"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Entity Id"}` |
 | cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
@@ -2744,6 +2744,110 @@ curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TO
 ```bash
 curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
      http://localhost:8000/api/v1/users/{user_id}
+```
+
+---
+
+### `PATCH` /api/v1/users/{user_id}
+
+**Summary:** Admin Update User
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Request body:**
+
+- `application/json` -> `AdminUserUpdate`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"<see schema>": "AdminUserUpdate"}' \
+     http://localhost:8000/api/v1/users/{user_id}
+```
+
+---
+
+### `DELETE` /api/v1/users/{user_id}
+
+**Summary:** Admin Delete User
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}
+```
+
+---
+
+### `POST` /api/v1/users/{user_id}/activate
+
+**Summary:** Admin Activate User
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| user_id | path | True | `{"type": "integer", "title": "User Id"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/users/{user_id}/activate
 ```
 
 ---

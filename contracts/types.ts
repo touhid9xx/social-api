@@ -11,6 +11,12 @@ export interface AdminUserPage {
   next_cursor?: string | null;
 }
 
+export interface AdminUserUpdate {
+  role?: string | null;
+  is_active?: boolean | null;
+  is_verified?: boolean | null;
+}
+
 export interface AdminUserView {
   id: number;
   role: string;

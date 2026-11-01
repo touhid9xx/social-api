@@ -15,13 +15,15 @@ from social_api.core.pagination import (
 from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
 from social_api.modules.audit.service import AuditService
-from social_api.modules.auth.models import User
+from social_api.modules.auth.models import User, UserRole
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.follows.repository import FollowsRepository
 from social_api.modules.users.exceptions import (
+    LastAdminError,
     OptimisticLockError,
     ProfileNotFoundError,
     ProfileVisibilityError,
+    SelfActionError,
 )
 from social_api.modules.users.models import (
     ConsentChannel,
@@ -36,6 +38,7 @@ from social_api.modules.users.repository import (
 )
 from social_api.modules.users.schemas import (
     AdminUserPage,
+    AdminUserUpdate,
     AdminUserView,
     ConsentRecord,
     DeleteMeResponse,
@@ -65,6 +68,20 @@ def _decode_user_cursor(cursor: str) -> tuple[datetime, int]:
         raise BadRequestError("Invalid cursor", detail={"code": "INVALID_CURSOR"}) from None
 
 
+def _to_admin_view(row: AdminUserRow) -> AdminUserView:
+    """One directory row → wire view. Shared by the list and the mutations
+    so a PATCH response is byte-identical to the row the list would show."""
+    return AdminUserView(
+        id=row.id,
+        role=row.role.value,
+        is_active=row.is_active,
+        is_verified=row.is_verified,
+        created_at=row.created_at,
+        display_name=row.display_name,
+        avatar_url=row.avatar_url,
+    )
+
+
 def _build_user_page(rows: list[AdminUserRow], limit: int) -> AdminUserPage:
     """Trim to `limit`, emit next_cursor when the repository over-fetched."""
     next_cursor: str | None = None
@@ -74,18 +91,7 @@ def _build_user_page(rows: list[AdminUserRow], limit: int) -> AdminUserPage:
         next_cursor = encode_cursor([last.created_at, last.id])
 
     return AdminUserPage(
-        items=[
-            AdminUserView(
-                id=r.id,
-                role=r.role.value,
-                is_active=r.is_active,
-                is_verified=r.is_verified,
-                created_at=r.created_at,
-                display_name=r.display_name,
-                avatar_url=r.avatar_url,
-            )
-            for r in rows
-        ],
+        items=[_to_admin_view(r) for r in rows],
         next_cursor=next_cursor,
     )
 
@@ -378,3 +384,173 @@ class UsersService:
             ),
             hard_delete_after=hard_delete_at,
         )
+
+    # ---- Admin: account management ----
+    #
+    # Three mutations over ONE account. All of them share the same shape:
+    # load the live row, refuse the two changes that are one-way traps
+    # (acting on yourself / removing the last admin), apply, re-read, audit.
+    # The re-read is what makes the response trustworthy — the client patches
+    # its cache with exactly these bytes instead of guessing.
+
+    async def _guarded_user(self, *, actor_id: int, user_id: int) -> User:
+        """Load a live account and refuse the self-action trap.
+
+        Every admin mutation funnels through here so the "you cannot do this
+        to yourself" rule cannot be forgotten in one of the three methods.
+        """
+        if user_id == actor_id:
+            raise SelfActionError()
+        user: User | None = await self._users.get_by_id(user_id)
+        if user is None:
+            raise ProfileNotFoundError()
+        return user
+
+    async def _refuse_last_admin(self, *, user: User) -> None:
+        """Raise when `user` is the only active admin left.
+
+        Called only by paths that are about to take admin power away
+        (demote, deactivate, delete). Counting with `excluding=user.id`
+        makes the check "how many admins remain afterwards", which is the
+        question that actually matters.
+        """
+        if user.role != UserRole.ADMIN or not user.is_active:
+            return
+        if await self._directory.count_active_admins(excluding=user.id) == 0:
+            raise LastAdminError()
+
+    async def _admin_row(self, user_id: int) -> AdminUserView:
+        """Re-read the directory row so the response reflects the write."""
+        row = await self._directory.get_user_row(user_id)
+        if row is None:  # pragma: no cover — guarded caller just loaded it
+            raise ProfileNotFoundError()
+        return _to_admin_view(row)
+
+    async def admin_update_user(
+        self,
+        *,
+        actor_id: int,
+        user_id: int,
+        payload: AdminUserUpdate,
+    ) -> AdminUserView:
+        """Admin PATCH: change role / active flag / verified flag.
+
+        `exclude_unset` means an omitted key is left untouched, so a request
+        that only deactivates an account can never quietly rewrite its role.
+        An empty body is a 400 rather than a silent no-op: a mutation that
+        changes nothing is a client bug, and answering 200 would hide it.
+        """
+        # `exclude_none` treats an explicit `null` exactly like an omitted key.
+        # Without it, `{"is_active": null}` would reach `setattr` below and try to
+        # write NULL into a NOT NULL column — a 500 on a request the client should
+        # simply have left out. "No change" is the only safe reading of a null here.
+        data = payload.model_dump(exclude_unset=True, exclude_none=True)
+        if not data:
+            raise BadRequestError("No fields to update", detail={"code": "EMPTY_UPDATE"})
+
+        user = await self._guarded_user(actor_id=actor_id, user_id=user_id)
+
+        losing_admin = user.role == UserRole.ADMIN and (
+            data.get("role", user.role.value) != UserRole.ADMIN.value
+            or data.get("is_active", user.is_active) is False
+        )
+        if losing_admin:
+            await self._refuse_last_admin(user=user)
+
+        for key, value in data.items():
+            if key == "role":
+                user.role = UserRole(value)
+            else:
+                setattr(user, key, value)
+        await self._users.save(user)
+
+        await self._audit(
+            actor_id=actor_id,
+            action="ADMIN_USER_UPDATE",
+            entity_id=user_id,
+            after=dict(data),
+        )
+        logger.info(
+            "admin_user_updated",
+            actor_id=actor_id,
+            user_id=user_id,
+            fields=sorted(data),
+        )
+        return await self._admin_row(user_id)
+
+    async def admin_activate_user(self, *, actor_id: int, user_id: int) -> AdminUserView:
+        """Admin "activate": clear deactivation and mark the email verified.
+
+        The two flags travel together on purpose. Deactivation is what
+        actually blocks login (`AuthService.login` → `InactiveUserError`),
+        while `is_verified` is normally flipped by clicking the emailed
+        link — which the operator cannot do. An admin vouching for an
+        account is the manual equivalent of that click, so this single
+        action makes the account usable end to end. Use `admin_update_user`
+        when only one of the two should change.
+
+        Idempotent: activating an already-active, already-verified account
+        succeeds and returns the unchanged row, so a double-click or a retry
+        after a dropped response is harmless.
+        """
+        user = await self._guarded_user(actor_id=actor_id, user_id=user_id)
+
+        changed = not user.is_active or not user.is_verified
+        user.is_active = True
+        user.is_verified = True
+        await self._users.save(user)
+
+        if changed:
+            await self._audit(
+                actor_id=actor_id,
+                action="USER_ACTIVATED",
+                entity_id=user_id,
+                after={"is_active": True, "is_verified": True},
+            )
+        logger.info("admin_user_activated", actor_id=actor_id, user_id=user_id)
+        return await self._admin_row(user_id)
+
+    async def admin_delete_user(self, *, actor_id: int, user_id: int) -> AdminUserView:
+        """Admin delete — soft, same shape as `soft_delete_me`.
+
+        `deleted_at` + `is_active=False` on both the account and its profile,
+        so the row disappears from every read path while the GDPR retention
+        window (30 days) still owns the real erase. Hard-deleting here would
+        bypass that window and destroy data the user may still be entitled
+        to have restored.
+
+        Returns the final row (now `is_active=False`) so the caller can patch
+        its cache in place rather than refetch the page.
+        """
+        user = await self._guarded_user(actor_id=actor_id, user_id=user_id)
+        await self._refuse_last_admin(user=user)
+
+        # Read the row BEFORE deleting: `get_user_row` filters out
+        # soft-deleted accounts, so re-reading afterwards would 404 on the
+        # success path. The delete only clears `is_active`, so patching that
+        # one field onto the pre-delete view is exactly the post-delete row.
+        before = await self._admin_row(user_id)
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        user.deleted_at = now
+        user.is_active = False
+        await self._users.save(user)
+
+        profile = await self._profiles.get_by_user_id(user_id)
+        if profile is not None:
+            profile.deleted_at = now
+            await self._profiles.save(profile)
+
+        await self._audit(
+            actor_id=actor_id,
+            action="ADMIN_USER_DELETE",
+            entity_id=user_id,
+            after={
+                "hard_delete_after": (
+                    datetime.now(UTC) + timedelta(days=_SOFT_DELETE_HARD_DELETE_DAYS)
+                ).isoformat(),
+                "days_window": _SOFT_DELETE_HARD_DELETE_DAYS,
+            },
+        )
+        logger.info("admin_user_deleted", actor_id=actor_id, user_id=user_id)
+        return before.model_copy(update={"is_active": False})

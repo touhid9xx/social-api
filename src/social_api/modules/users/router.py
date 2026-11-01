@@ -15,6 +15,8 @@ from social_api.modules.gdpr.exceptions import AlreadyScheduledForDeletionError
 from social_api.modules.gdpr.service import GdprService
 from social_api.modules.users.schemas import (
     AdminUserPage,
+    AdminUserUpdate,
+    AdminUserView,
     ConsentGrantRequest,
     ConsentList,
     DeleteMeResponse,
@@ -143,3 +145,58 @@ async def get_profile(
     session: AsyncSession = Depends(get_db),
 ) -> ProfilePublic:
     return await _svc(session).get_public_profile(target_user_id=user_id, viewer_id=viewer.user.id)
+
+
+# ---- Admin: account management ----
+#
+# Three mutations over the same `/users/{user_id}` resource, all behind the
+# same `require_roles(ADMIN)` gate as the directory above. They answer with
+# the full `AdminUserView`, not a bare `{message}`, so the client can patch
+# the row it is already showing instead of refetching the page.
+#
+# `admin.user.id` is passed through to the service, which owns both guards
+# (can't act on yourself, can't remove the last admin). Those rules need
+# live DB state, so they cannot live in a dependency.
+
+
+@router.patch("/{user_id}", response_model=AdminUserView)
+async def admin_update_user(
+    user_id: int,
+    payload: AdminUserUpdate,
+    admin: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+) -> AdminUserView:
+    """Admin-only: change one account's role / active / verified flag."""
+    result = await _svc(session).admin_update_user(
+        actor_id=admin.user.id, user_id=user_id, payload=payload
+    )
+    await session.commit()
+    return result
+
+
+@router.post("/{user_id}/activate", response_model=AdminUserView)
+async def admin_activate_user(
+    user_id: int,
+    admin: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+) -> AdminUserView:
+    """Admin-only: re-enable a deactivated account and mark it verified.
+
+    A POST, not a PATCH, because it is an action rather than a field write:
+    it always lands in the same state, so it is safe to retry.
+    """
+    result = await _svc(session).admin_activate_user(actor_id=admin.user.id, user_id=user_id)
+    await session.commit()
+    return result
+
+
+@router.delete("/{user_id}", response_model=AdminUserView)
+async def admin_delete_user(
+    user_id: int,
+    admin: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+) -> AdminUserView:
+    """Admin-only: soft-delete an account (30-day GDPR window still applies)."""
+    result = await _svc(session).admin_delete_user(actor_id=admin.user.id, user_id=user_id)
+    await session.commit()
+    return result

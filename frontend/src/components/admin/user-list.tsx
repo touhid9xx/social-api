@@ -1,34 +1,91 @@
 'use client';
 
-import { ShieldOff, Users } from 'lucide-react';
+import {
+  BadgeCheck,
+  BadgeX,
+  Loader2,
+  Lock,
+  MoreHorizontal,
+  ShieldOff,
+  Trash2,
+  UserCheck,
+  UserX,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  useActivateAdminUser,
+  useDeleteAdminUser,
+  useUpdateAdminUser,
+} from '@/hooks/use-admin-user-actions';
 import { useAdminUsers } from '@/hooks/use-admin-users';
 import { useInView } from '@/hooks/use-in-view';
-import { isAppApiError } from '@/lib/api';
+import { useMe } from '@/hooks/use-me';
+import { errorMessageKey, isAppApiError } from '@/lib/api';
 import { mediaUrl } from '@/lib/api/media';
-import type { AdminUserView } from '@/lib/api/users';
+import type { AdminUserUpdate, AdminUserView } from '@/lib/api/users';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 
 /**
- * The staff-only user directory — `GET /api/v1/users`.
+ * The staff-only user directory — `GET /api/v1/users`, plus the three admin
+ * account writes (`PATCH`, `POST /activate`, `DELETE` on `/users/{id}`).
  *
  * `AdminUserView` already carries `display_name` and `avatar_url`, so a row is
  * one request's worth of data and must not fan out to `/users/{id}` per row —
  * the same rule `FollowList` documents, and the reason this component does not
- * touch `useAuthor`.
+ * touch `useAuthor`. (`useMe` is the one profile read here, and it is a single
+ * shared cache entry for the whole session, not per row.)
  *
  * A `403` is rendered as "admins only", never as an empty directory: "nobody has
  * signed up" and "you are not allowed to see who did" are different facts.
  *
- * The rows are read-only on purpose. Nothing in the contract lets an admin
- * change another account's role or active flag, so the console reports state
- * instead of offering controls that would have no endpoint behind them.
+ * ## Why the rows carry controls now
+ *
+ * The three writes answer with the full re-read `AdminUserView`, so the server is
+ * the authority and every mutation invalidates the directory rather than patching
+ * a row optimistically — a refusal (`CANNOT_MODIFY_SELF`, `LAST_ADMIN_PROTECTED`)
+ * has its own copy and must not be pre-empted by a screen that already moved.
+ *
+ * Two of those refusals are also *visible* rules, not just server answers:
+ *
+ *  1. **Your own row has no menu.** Deactivating or demoting yourself is one-way
+ *     from your side — you would lose the console needed to undo it — so the row
+ *     renders a muted lock labelled with the reason instead of controls that only
+ *     exist to be refused.
+ *  2. **Activate is a distinct action, not `is_active: true`.** It clears the
+ *     sign-in block *and* marks the email verified in one call — the manual
+ *     stand-in for the emailed link on a deployment with no mail server. Only the
+ *     plain deactivation is a `PATCH`.
+ *
+ * The action menu is a sibling of the `<Link>`, never a child: the whole row is
+ * one anchor, so a button inside it would navigate on click.
  */
 export function UserList() {
   const t = useTranslations('admin.users');
@@ -43,6 +100,11 @@ export function UserList() {
     fetchNextPage,
     isFetchNextPageError,
   } = useAdminUsers();
+  // One shared `GET /users/me` for the whole list, so each row can answer "is
+  // this me?" without its own request. Before it resolves no row looks like self
+  // (`me?.user_id` is undefined) — that briefly shows the menu on your own row,
+  // which is why the backend also refuses the write.
+  const { data: me } = useMe();
 
   const canLoadMore = hasNextPage && !isFetchingNextPage;
   const sentinelRef = useInView<HTMLDivElement>(() => {
@@ -94,7 +156,7 @@ export function UserList() {
       ) : (
         <ul className="space-y-2">
           {users.map((user) => (
-            <UserRow key={user.id} user={user} />
+            <UserRow key={user.id} user={user} isSelf={me?.user_id === user.id} />
           ))}
         </ul>
       )}
@@ -149,18 +211,88 @@ function UserSkeleton() {
   );
 }
 
-function UserRow({ user }: { user: AdminUserView }) {
+function UserRow({ user, isSelf }: { user: AdminUserView; isSelf: boolean }) {
   const t = useTranslations('admin.users');
+  const tRoot = useTranslations();
   const locale = useLocale();
+
+  const update = useUpdateAdminUser();
+  const activate = useActivateAdminUser();
+  const remove = useDeleteAdminUser();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const name = user.display_name?.trim() || t('nameFallback', { id: user.id });
   const initial = name.slice(0, 1).toUpperCase();
+  const pending = update.isPending || activate.isPending || remove.isPending;
+
+  // One refusal path for all three writes: the code decides the copy, so a
+  // `CANNOT_MODIFY_SELF` and a `LAST_ADMIN_PROTECTED` each explain themselves
+  // instead of collapsing into a generic "something went wrong".
+  function reportError(error: unknown) {
+    toast.error(tRoot(errorMessageKey(error)));
+  }
+
+  function setActive(isActive: boolean) {
+    const changes: AdminUserUpdate = { is_active: isActive };
+    update.mutate(
+      { userId: user.id, changes },
+      {
+        onSuccess: () => toast.success(t('actions.deactivated', { name })),
+        onError: reportError,
+      },
+    );
+  }
+
+  // The named endpoint, not `{ is_active: true }`: it also clears the
+  // "unverified" flag, which is the whole point for a stuck signup.
+  function runActivate() {
+    activate.mutate(user.id, {
+      onSuccess: () => toast.success(t('actions.activated', { name })),
+      onError: reportError,
+    });
+  }
+
+  function setVerified(isVerified: boolean) {
+    const changes: AdminUserUpdate = { is_verified: isVerified };
+    update.mutate(
+      { userId: user.id, changes },
+      {
+        onSuccess: () =>
+          toast.success(t(isVerified ? 'actions.verified' : 'actions.unverified', { name })),
+        onError: reportError,
+      },
+    );
+  }
+
+  function changeRole(next: string) {
+    if (!isRole(next) || next === user.role) return;
+    update.mutate(
+      { userId: user.id, changes: { role: next } },
+      {
+        onSuccess: () => toast.success(t('actions.roleChanged', { name, role: t(`role.${next}`) })),
+        onError: reportError,
+      },
+    );
+  }
+
+  function confirmDelete() {
+    remove.mutate(user.id, {
+      onSuccess: () => {
+        setConfirmOpen(false);
+        toast.success(t('actions.deleted', { name }));
+      },
+      onError: (error) => {
+        setConfirmOpen(false);
+        reportError(error);
+      },
+    });
+  }
 
   return (
-    <li>
+    <li className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40">
       <Link
         href={`${ROUTES.profile}/${String(user.id)}`}
-        className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <Avatar size="default">
           {user.avatar_url ? <AvatarImage src={mediaUrl(user.avatar_url)} alt="" /> : null}
@@ -186,8 +318,147 @@ function UserRow({ user }: { user: AdminUserView }) {
           </span>
         </span>
       </Link>
+
+      {isSelf ? (
+        // No controls on your own account — the rule the backend enforces, shown
+        // rather than merely refused. `aria-label` carries the reason.
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled
+          aria-label={t('actions.selfHint')}
+          title={t('actions.selfHint')}
+          className="shrink-0"
+        >
+          <Lock aria-hidden="true" />
+        </Button>
+      ) : (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                disabled={pending}
+                aria-label={t('actions.menu', { name })}
+              >
+                <MoreHorizontal aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>{name}</DropdownMenuLabel>
+
+              <DropdownMenuItem
+                onSelect={() => {
+                  if (user.is_active) setActive(false);
+                  else runActivate();
+                }}
+              >
+                {user.is_active ? <UserX aria-hidden="true" /> : <UserCheck aria-hidden="true" />}
+                <MenuCopy
+                  label={t(user.is_active ? 'actions.deactivate' : 'actions.activate')}
+                  hint={t(user.is_active ? 'actions.deactivateHint' : 'actions.activateHint')}
+                />
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onSelect={() => setVerified(!user.is_verified)}>
+                {user.is_verified ? (
+                  <BadgeX aria-hidden="true" />
+                ) : (
+                  <BadgeCheck aria-hidden="true" />
+                )}
+                <MenuCopy
+                  label={t(user.is_verified ? 'actions.unverify' : 'actions.verify')}
+                  hint={t(user.is_verified ? 'actions.unverifyHint' : 'actions.verifyHint')}
+                />
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuLabel>{t('actions.roleLabel')}</DropdownMenuLabel>
+              <p className="px-2 pb-1 text-micro text-pretty text-muted-foreground">
+                {t('actions.roleHint')}
+              </p>
+              <DropdownMenuRadioGroup value={user.role} onValueChange={changeRole}>
+                {ROLE_OPTIONS.map((role) => (
+                  <DropdownMenuRadioItem key={role} value={role}>
+                    {t(`role.${role}`)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                variant="destructive"
+                // `preventDefault` keeps the menu's own close from fighting the
+                // dialog's focus trap; the dialog lives outside the menu so it
+                // survives the menu unmounting.
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setConfirmOpen(true);
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+                <MenuCopy label={t('actions.delete')} hint={t('actions.deleteHint')} />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('actions.confirmDeleteTitle')}</DialogTitle>
+                <DialogDescription>{t('actions.confirmDeleteBody', { name })}</DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter>
+                {/* A translated close, not the footer's hardcoded English
+                    `showCloseButton` — same reason as the privacy panel. */}
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    {t('actions.cancel')}
+                  </Button>
+                </DialogClose>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={remove.isPending}
+                  onClick={confirmDelete}
+                >
+                  {remove.isPending ? (
+                    <Loader2 aria-hidden="true" className="animate-spin" />
+                  ) : null}
+                  {remove.isPending ? t('actions.working') : t('actions.confirmDeleteConfirm')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </li>
   );
+}
+
+/** A menu row with its consequence spelled out underneath. */
+function MenuCopy({ label, hint }: { label: string; hint: string }) {
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span>{label}</span>
+      <span className="text-micro text-pretty text-muted-foreground">{hint}</span>
+    </span>
+  );
+}
+
+/** The backend `UserRoleLiteral`, in the order the console lists them. */
+const ROLE_OPTIONS: ReadonlyArray<AdminUserView['role']> = ['user', 'moderator', 'admin'];
+
+function isRole(value: string): value is AdminUserView['role'] {
+  return (ROLE_OPTIONS as readonly string[]).includes(value);
 }
 
 /**

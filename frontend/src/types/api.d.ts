@@ -1087,6 +1087,37 @@ export interface paths {
         get: operations["get_profile_api_v1_users__user_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Admin Delete User
+         * @description Admin-only: soft-delete an account (30-day GDPR window still applies).
+         */
+        delete: operations["admin_delete_user_api_v1_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Admin Update User
+         * @description Admin-only: change one account's role / active / verified flag.
+         */
+        patch: operations["admin_update_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Activate User
+         * @description Admin-only: re-enable a deactivated account and mark it verified.
+         *
+         *     A POST, not a PATCH, because it is an action rather than a field write:
+         *     it always lands in the same state, so it is safe to retry.
+         */
+        post: operations["admin_activate_user_api_v1_users__user_id__activate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1270,6 +1301,29 @@ export interface components {
             items: components["schemas"]["AdminUserView"][];
             /** Next Cursor */
             next_cursor?: string | null;
+        };
+        /**
+         * AdminUserUpdate
+         * @description PATCH body for one account, staff-only.
+         *
+         *     Every field is optional and only the keys the admin actually sent are
+         *     applied (`exclude_unset`), so a request that flips `is_active` can never
+         *     silently reset the role. There is deliberately no `email` or password
+         *     field: re-identifying an account or resetting its password is the
+         *     owner's flow (`/auth/*`), not an admin's.
+         *
+         *     No `version` field either — unlike `ProfileUpdate` this is not an
+         *     optimistic-locked record. The guards that matter here (can't act on
+         *     yourself, can't remove the last admin) are enforced server-side against
+         *     live state inside the same transaction.
+         */
+        AdminUserUpdate: {
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Is Verified */
+            is_verified?: boolean | null;
+            /** Role */
+            role?: ("user" | "moderator" | "admin") | null;
         };
         /**
          * AdminUserView
@@ -2440,7 +2494,7 @@ export interface operations {
         parameters: {
             query?: {
                 actor_id?: number | null;
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "ADMIN_USER_UPDATE" | "USER_ACTIVATED" | "ADMIN_USER_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
                 entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
@@ -2475,7 +2529,7 @@ export interface operations {
     my_audit_api_v1_audit_me_get: {
         parameters: {
             query?: {
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "ADMIN_USER_UPDATE" | "USER_ACTIVATED" | "ADMIN_USER_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
                 entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
@@ -4652,6 +4706,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfilePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_update_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_activate_user_api_v1_users__user_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
                 };
             };
             /** @description Validation Error */
