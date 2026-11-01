@@ -13,39 +13,47 @@ modular monolith — plus the Next.js client that consumes it.
 **Backend: complete.** All backend milestones (M0–M26) are implemented: auth and
 sessions, users/profiles/consent/GDPR, follows/blocks/mutes, posts/comments/likes,
 media, three feed strategies, notifications, 1-1 and group chat, moderation, audit,
-idempotency, feature flags, presence, WebSockets, and observability. API, Celery
-worker and scheduler, migrations, container images, contracts, ADRs and runbook are
-all in place and gated by CI.
+search, idempotency, feature flags, presence, WebSockets, privacy-preserving
+analytics, the admin dashboard, and observability. API, Celery worker and scheduler,
+migrations, container images, contracts, ADRs and runbook are all in place and gated
+by CI.
 
-**Frontend: in progress.** The Next.js app in [`frontend/`](frontend/README.md)
-covers the landing page; auth (sign in, sign up, verify email, forgot and reset
-password); home and explore feeds; post detail with comments; notifications; chat
-room list and message threads; profiles with the follow graph, followers/following
-lists and a photo gallery; settings (profile, avatar, consent, GDPR export and
-account deletion); and the `/admin/reports` moderation queue and `/admin/audit`
-trail. Media upload ships in the post composer and the avatar uploader.
+**Frontend: complete.** Every screen the client ships is backed by a real endpoint —
+there are no placeholder routes left. The Next.js app in
+[`frontend/`](frontend/README.md) covers the landing page; auth (sign in, sign up,
+verify email, forgot and reset password); home and explore feeds; post detail with
+comments; search; profiles with the follow graph, followers/following lists and a
+photo gallery; settings (profile, avatar, consent, GDPR export and account
+deletion); and a staff area with five screens:
 
-Still placeholder screens: `/search`, `/admin` (the stat-card landing) and
-`/admin/users`. There is no WebSocket client yet, so chat and notifications read
-on demand and refetch rather than streaming.
+| Route | Screen |
+|---|---|
+| `/admin` | feature-flag console — env/builtin values plus per-user overrides |
+| `/admin/dashboard` | users/content/storage/traffic/workers overview |
+| `/admin/users` | user directory — edit, activate, verify, resend verification, delete |
+| `/admin/reports` | moderation queue with optimistic-locked status transitions |
+| `/admin/audit` | audit trail with action/entity filters and redacted payload diffs |
 
-> **Note:** the API surface is complete for the social features above, but not every
-> planned screen has a backend endpoint behind it. Those three remaining placeholders
-> — search, the admin user list and the admin stat cards — are exactly the routes
-> still missing endpoints; everything else the client renders is already served and
-> covered by integration tests.
+A shared section nav (`AdminTabs`) links the four operational screens — dashboard,
+users, reports, audit — and renders nothing for non-staff; the flag console sits
+outside it on purpose. Chat and notifications are live: `use-websocket` opens one
+auth-gated socket and `RealtimeBridge` routes inbound frames straight into the React
+Query cache, so new messages and notifications appear without a refetch.
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
-| `src/social_api/` | FastAPI application — `api/v1/` routers over `modules/*` services |
+| `src/social_api/` | FastAPI application — `api/v1/` routers over 18 `modules/*` services |
 | `tests/` | `unit/` (no DB), `integration/` (real MySQL), `e2e/`, `chaos/`, `load/` |
-| `alembic/` | 13 migrations, baseline `0001` → `0013` |
+| `alembic/` | 15 migrations, baseline `0001` → `0015` |
 | `contracts/` | Generated OpenAPI JSON, Markdown/xlsx reference, TypeScript types |
 | `docs/` | Architecture, runbook, and 7 ADRs |
 | `frontend/` | Next.js 15 client — see [`frontend/README.md`](frontend/README.md) |
+| `deploy/` | Container entrypoint and the nginx config the prod image ships |
+| `ops/` | Prometheus scrape config and Grafana provisioning |
 | `scripts/` | PowerShell dev/CI helpers (see [Verification](#verification)) |
+| `secrets/`, `data/`, `logs/` | Git-ignored: JWT/encryption keys, uploaded media, runtime logs |
 
 ## Quickstart
 

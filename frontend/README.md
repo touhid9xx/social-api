@@ -2,6 +2,38 @@
 
 Next.js 15 (App Router) + React 19 + TypeScript strict frontend for `social-api`.
 
+## Screens
+
+Every route below is backed by a real endpoint; nothing is a placeholder.
+
+| Route                                                      | Component                             | Notes                                               |
+| ---------------------------------------------------------- | ------------------------------------- | --------------------------------------------------- |
+| `/`                                                        | `app/page.tsx`                        | marketing landing page                              |
+| `/login`, `/register`                                      | `auth/*-form.tsx`                     | credential flows; tokens never touch `localStorage` |
+| `/verify-email`, `/forgot-password`, `/reset-password`     | `auth/*`                              | one-time-token flows                                |
+| `/home`                                                    | `feed/home-feed.tsx`                  | composer + endless feed                             |
+| `/explore`                                                 | `feed/explore-feed.tsx`               | discovery feed, no composer                         |
+| `/posts/[id]`                                              | `feed/post-detail.tsx`                | post + two-level comment thread                     |
+| `/search?q=`                                               | `search/*`                            | people first, then keyset-paged posts               |
+| `/notifications`                                           | `notifications/notification-list.tsx` | live via `RealtimeBridge`                           |
+| `/messages`, `/messages/[roomId]`                          | `chat/*`                              | room list + thread, read receipts, typing           |
+| `/profile/[id]` (+ `/followers`, `/following`, `/gallery`) | `profile/*`                           | follow graph and media gallery                      |
+| `/settings`                                                | `settings/*`                          | profile, avatar, consent, GDPR export, deletion     |
+| `/admin`                                                   | `admin/flag-list.tsx`                 | feature-flag console                                |
+| `/admin/dashboard`                                         | `admin/dashboard.tsx`                 | stats overview, five sections                       |
+| `/admin/users`                                             | `admin/user-list.tsx`                 | edit, activate, verify, resend, delete              |
+| `/admin/reports`                                           | `admin/report-list.tsx`               | moderation queue                                    |
+| `/admin/audit`                                             | `admin/audit-log.tsx`                 | audit trail with filters                            |
+
+`admin/admin-tabs.tsx` is the real-`Link` section nav shared by the four operational
+staff screens — dashboard, users, reports, audit. It renders nothing for non-staff,
+and shows moderators only the report queue. `/admin` (the flag console) is
+deliberately not in it: it is a debugging tool, not one of the dashboards.
+
+Middleware guards every non-public route; the client-side `RequireSession` wrapper
+covers the window before the access token is restored from the httpOnly refresh
+cookie.
+
 ## Setup
 
 ```powershell
@@ -15,9 +47,11 @@ pnpm dev           # http://localhost:3000
 | script                    | purpose                                                         |
 | ------------------------- | --------------------------------------------------------------- |
 | `dev`                     | Next dev server on :3000                                        |
+| `build` / `start`         | production build / serve it (`output: standalone` for Docker)   |
 | `type-check`              | `tsc --noEmit` (strict)                                         |
-| `lint`                    | ESLint flat config (`next/core-web-vitals` + `next/typescript`) |
+| `lint` / `lint:fix`       | ESLint flat config (`next/core-web-vitals` + `next/typescript`) |
 | `format` / `format:check` | Prettier + tailwind class sorting                               |
+| `test` / `test:watch`     | Vitest single run (the CI gate) / watch mode                    |
 | `sync-api`                | contract sync + type generation (PowerShell)                    |
 | `gen-types`               | `openapi-typescript` from the backend OpenAPI JSON              |
 
