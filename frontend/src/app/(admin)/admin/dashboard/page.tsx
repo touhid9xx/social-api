@@ -5,8 +5,10 @@ import { Dashboard } from '@/components/admin/dashboard';
 /**
  * The admin overview.
  *
- * Admin-only server-side (`require_roles(ADMIN)`); the client renders and lets a
- * `403` become the "admins only" state, since the frontend has no role to check.
+ * Admin-only server-side (`require_roles(ADMIN)`). The client still renders and
+ * lets a `403` become the "admins only" state: `useMyRole()` knows the role, but
+ * only to draw the right section nav (`AdminTabs`) — it is a rendering hint, and
+ * every staff endpoint enforces the role itself.
  *
  * The page is wider than the audit trail's `max-w-2xl`: it is a grid of counters
  * and two numeric tables, and squeezing those into a single reading column would
