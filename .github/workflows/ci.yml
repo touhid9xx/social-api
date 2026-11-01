@@ -93,6 +93,13 @@ jobs:
           ))
           PY
           cp .env.example .env
+          # .env.example is the *production* template, so it points the JWT PEMs
+          # at /app/secrets — the path inside the api container. The block above
+          # writes them to ./secrets on the runner instead, so rewrite both
+          # paths or every JWT / email-token test fails with
+          # "JWT private key not found".
+          sed -i 's#^JWT_PRIVATE_KEY_PATH=.*#JWT_PRIVATE_KEY_PATH=secrets/jwt_private.pem#' .env
+          sed -i 's#^JWT_PUBLIC_KEY_PATH=.*#JWT_PUBLIC_KEY_PATH=secrets/jwt_public.pem#' .env
 
       - name: ruff format --check
         run: ruff format --check src tests scripts
