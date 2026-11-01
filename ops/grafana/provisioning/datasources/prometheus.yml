@@ -1,0 +1,18 @@
+# Grafana datasource provisioning.
+#
+# The directory `/etc/grafana/provisioning` was mounted in docker-compose.prod.yml
+# but empty, so Grafana booted with no datasource: every panel in
+# `ops/grafana/dashboards/social-api.json` rendered "Datasource not found".
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.core.rate_limit import _key_by_user_or_ip, limiter
@@ -18,6 +18,7 @@ router = APIRouter(tags=["search"])
 @limiter.limit("30/minute", key_func=_key_by_user_or_ip)
 async def search(
     request: Request,
+    response: Response,  # slowapi header injection target
     q: str = Query(min_length=1, max_length=100),
     cursor: str | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1, le=100),

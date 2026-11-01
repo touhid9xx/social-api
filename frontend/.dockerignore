@@ -1,0 +1,20 @@
+# Keep the build context small and the build reproducible.
+node_modules
+.next
+coverage
+tsconfig.tsbuildinfo
+
+# Never ship local env overrides: .env.local would shadow the NEXT_PUBLIC_*
+# build args baked in by the Dockerfile and quietly point the image at
+# http://localhost:8000 (which does not exist inside the container network).
+.env.local
+.env*.local
+
+# Dev-only artefacts
+*.log
+_dev*.log
+_port*.log
+.github
+
+Dockerfile
+.dockerignore

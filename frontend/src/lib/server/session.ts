@@ -100,9 +100,19 @@ export function sessionExpiredResponse(secure: boolean): NextResponse {
   return response;
 }
 
-/** Absolute backend origin — the route handlers talk to the API server-side. */
+/**
+ * Absolute backend origin — the route handlers talk to the API server-side.
+ *
+ * `NEXT_PUBLIC_API_URL` is inlined at build time and must stay browser-safe, so
+ * it cannot also address the API from inside a container: there, `localhost` is
+ * the frontend container itself (see docker-compose.prod.yml), not nginx.
+ * `API_INTERNAL_URL` is a non-public variable, so Next reads it at runtime; set
+ * it to the in-network origin. Unset outside Docker, which leaves host
+ * development pointed at `NEXT_PUBLIC_API_URL` exactly as before.
+ */
 export function backendUrl(path: string): string {
-  return `${apiBaseUrl}${path}`;
+  const internal = process.env.API_INTERNAL_URL?.replace(/\/+$/, '');
+  return `${internal || apiBaseUrl}${path}`;
 }
 
 /** Headers forwarded so backend i18n picks the same language the user reads. */

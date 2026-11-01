@@ -1,7 +1,10 @@
 """Seed demo data for local development and frontend testing.
 
-Deterministic, idempotent, transactional. Writes real PNG bytes to
-MEDIA_ROOT so <img src> works without 404.
+Deterministic, idempotent, transactional. Writes real photographs (see
+`scripts/seed_photos.py`: portraits from randomuser.me, imagery from the
+Unsplash-backed picsum.photos) to MEDIA_ROOT, so <img src> shows actual people
+and places instead of flat generated squares. If the network is unavailable the
+generated PNGs are used instead and the seed still succeeds.
 
 Every demo user also gets their own photo posts (see
 `GALLERY_PHOTOS_PER_USER`), so a signed-in visitor who explores other
@@ -17,12 +20,15 @@ Usage:
 Exact per-table totals are printed on completion — they are not duplicated in
 this docstring, where they would only ever drift.
 
-Avatar URL modes:
-    --avatar local     (default) — writes data/media/avatars/{uid}.png and
-                                    sets avatar_url=/media/avatars/{uid}.png
-                                    Use when your app serves MEDIA_ROOT at /media/*
-    --avatar external  — sets avatar_url to a public UI Avatars URL
-                                    Use when /media/* is not mounted
+Image modes:
+    --photos real          (default) — download real photographs (see
+                                       scripts/seed_photos.py) and cache them
+                                       under --photo-cache
+    --photos placeholder   — skip the network; write generated PNGs (offline)
+    --avatar local         (default) — store the avatar in MEDIA_ROOT and set
+                                       avatar_url=/static/media/avatars/...
+    --avatar external      — set avatar_url to a public UI Avatars URL
+                                       Use when MEDIA_ROOT is not served
 
 Demo credentials (all users, password `DemoPass123!`):
     admin@example.com     (admin)
@@ -30,7 +36,7 @@ Demo credentials (all users, password `DemoPass123!`):
     alice@example.com     (celebrity, everyone follows her)
     bob@example.com
     carol@example.com
-    ... (15 more regular users)
+    ... 25 more accounts, for 30 people in total
     tushar@tushar.com     (admin) — non-@example.com account, so the seeded
                                     domain is not assumed to be uniform
 """
@@ -50,9 +56,13 @@ from random import Random
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
+# ROOT itself, so `scripts.seed_photos` resolves whether this file is run as a
+# script (python scripts/seed_demo_data.py) or imported as a module.
+sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import delete, select  # noqa: E402
 
+from scripts import seed_photos  # noqa: E402
 from social_api.config import get_settings  # noqa: E402
 from social_api.core.password import hash_password  # noqa: E402
 from social_api.core.security import hash_email  # noqa: E402
@@ -96,7 +106,8 @@ DEMO_EMAILS = [
     "alice@example.com",
     "bob@example.com",
     "carol@example.com",
-    *[f"user{i:02d}@example.com" for i in range(1, 16)],
+    # 5 named + 25 numbered = 30 people on the canonical @example.com domain.
+    *[f"user{i:02d}@example.com" for i in range(1, 26)],
     # Appended, never inserted: fixtures below address demo users positionally
     # (`users[:15]`, `_admin, mod, alice, bob, carol = users[:5]`), so a new
     # account must go last or every one of those indices shifts.
@@ -107,10 +118,59 @@ DEMO_EMAILS = [
 # appending to DEMO_EMAILS above stays safe.
 EXTRA_ADMIN_EMAILS = frozenset({"tushar@tushar.com"})
 
+# Display names for the 25 numbered accounts (DEMO_EMAILS[5:30]), in the same
+# order. Plain "User 07" next to a real photographic portrait reads as broken
+# demo data, so the numbered accounts get ordinary human names; the address is
+# still userNN@example.com, which is what keeps them predictable for testing.
+DISPLAY_NAMES = [
+    "Tanvir Ahmed",
+    "Nusrat Jahan",
+    "Arif Hossain",
+    "Sadia Islam",
+    "Rafiq Chowdhury",
+    "Mehjabin Karim",
+    "Imran Sheikh",
+    "Farhana Akter",
+    "Shakib Rahman",
+    "Tasnim Bushra",
+    "Delwar Hossain",
+    "Rubina Sultana",
+    "Nayeem Uddin",
+    "Anika Tabassum",
+    "Sohel Rana",
+    "Jarin Tasnim",
+    "Mahmudul Hasan",
+    "Sharmin Sultana",
+    "Asif Mahmud",
+    "Rumana Begum",
+    "Fahim Reza",
+    "Nadia Sharmin",
+    "Zahid Hasan",
+    "Mitu Das",
+    "Hasib Rahman",
+]
+
 # Public image posts created per demo user. `/profile/{id}/gallery` derives its
 # tiles from the author's posts that carry media, so this is what keeps every
 # demo profile's gallery non-empty (and the explore feed image-rich).
-GALLERY_PHOTOS_PER_USER = 2
+GALLERY_PHOTOS_PER_USER = 3
+
+# Record counts. Module-level so the pre-download list and the insert loops are
+# driven by the same numbers and cannot drift apart.
+N_POSTS = 90
+N_TOP_COMMENTS = 60
+N_REPLY_COMMENTS = 30
+N_POST_LIKES = 300
+N_COMMENT_LIKES = 90
+N_POST_PHOTOS = 18
+N_ORPHAN_PHOTOS = 8
+N_MESSAGES = 40
+N_NOTIFICATIONS_PER_KIND = 20
+
+
+# Replaced by main() with the fetcher configured from --photos/--photo-cache.
+# The placeholder default keeps importers (and --dry-run) off the network.
+_photos: seed_photos.PhotoFetcher = seed_photos.PhotoFetcher(mode="placeholder")
 
 
 # =============================================================================
@@ -182,6 +242,52 @@ def _write_media_file(media_root: Path, storage_key: str, data: bytes) -> bool:
         target.write_bytes(data)
         return True
     return False
+
+
+def _photo_asset(
+    url: str,
+    *,
+    folder: str,
+    media_root: Path,
+    fallback_seed: int,
+    fallback_size: int = 512,
+) -> seed_photos.PhotoAsset:
+    """Fetch *url* (real photograph) and store it under MEDIA_ROOT/*folder*.
+
+    The returned asset owns the extension, MIME type, size and sha256 of the
+    bytes that were actually written — the caller must use those instead of
+    assuming PNG, because a successful download is usually JPEG.
+
+    The `fallback` is the legacy generated PNG, so an offline laptop still seeds.
+    """
+    data, ext = _photos.get(
+        url,
+        fallback=lambda: _generate_png(seed=fallback_seed, size=fallback_size),
+    )
+    sha = hashlib.sha256(data).hexdigest()
+    storage_key = f"{folder}/{sha[:16]}.{ext}"
+    written = _write_media_file(media_root, storage_key, data)
+    return seed_photos.PhotoAsset(storage_key=storage_key, data=data, ext=ext, written=written)
+
+
+def _image_urls(users: list[User]) -> list[str]:
+    """Every image URL this seed will need, as one list.
+
+    Built up front so `PhotoFetcher.prefetch` can warm the cache in parallel
+    instead of stalling on one synchronous download per insert. The URL seeds
+    must match the ones the insert loops below use, and they do because both
+    read the same module-level counts.
+    """
+    urls = [seed_photos.portrait_url(i) for i in range(len(users))]
+    urls += [seed_photos.photo_url(f"post-{i}") for i in range(N_POST_PHOTOS)]
+    urls += [seed_photos.photo_url(f"orphan-{i}", 800, 800) for i in range(N_ORPHAN_PHOTOS)]
+    urls += [
+        seed_photos.photo_url(f"gallery-{u.id}-{j}")
+        for u in users
+        for j in range(GALLERY_PHOTOS_PER_USER)
+    ]
+    urls += [seed_photos.photo_url(f"chat-{i}", 800, 800) for i in range(2)]
+    return urls
 
 
 # =============================================================================
@@ -277,15 +383,15 @@ async def seed(
         print(f"[ 1/17] users: {len(users)}")
 
         # =====================================================================
-        # 2. Profiles (1 per user) — writes avatar PNGs (local mode)
+        # 2. Profiles (1 per user) — stores a real portrait (local mode)
         # =====================================================================
         names = [
             "Admin",
             "Mod",
-            "Alice (celebrity)",
-            "Bob",
-            "Carol",
-            *[f"User {i:02d}" for i in range(1, 16)],
+            "Alice Rahman",
+            "Bob Carter",
+            "Carol Mendes",
+            *DISPLAY_NAMES,  # 25 people, index-aligned with DEMO_EMAILS[5:30]
             "Tushar",  # must stay index-aligned with DEMO_EMAILS (zip strict=True)
         ]
         bios = [
@@ -301,18 +407,22 @@ async def seed(
 
         avatars_written = 0
         profiles: list[Profile] = []
-        for u, name in zip(users, names, strict=True):
+        # Warm the whole image cache in parallel before the (sequential) insert
+        # loops: every URL the seed will need, fetched once up front. Portraits
+        # are indexed by cast position so no two demo users share a face.
+        _photos.prefetch(_image_urls(users))
+        for index, (u, name) in enumerate(zip(users, names, strict=True)):
             if avatar_mode == "local":
-                avatar_key = f"avatars/{u.id}.png"
-                png_bytes = _generate_png(seed=u.id, size=128)
-                was_written = _write_media_file(media_root, avatar_key, png_bytes)
-                if was_written:
-                    avatars_written += 1
-                avatar_url_value = f"/static/media/{avatar_key}"
-                print(
-                    f"   avatar: user_id={u.id} key={avatar_key} "
-                    f"bytes={len(png_bytes)} new={was_written}"
+                avatar = _photo_asset(
+                    seed_photos.portrait_url(index),
+                    folder="avatars",
+                    media_root=media_root,
+                    fallback_seed=u.id,
+                    fallback_size=128,
                 )
+                if avatar.written:
+                    avatars_written += 1
+                avatar_url_value = f"/static/media/{avatar.storage_key}"
             else:
                 avatar_url_value = (
                     f"https://ui-avatars.com/api/?name={name.replace(' ', '+')}&size=128"
@@ -340,7 +450,7 @@ async def seed(
         # =====================================================================
         # 3. Consents
         # =====================================================================
-        for u in users[:15]:
+        for u in users[:25]:
             for ch in rng.sample(list(ConsentChannel), k=rng.randint(1, 3)):
                 granted = rng.random() < 0.7
                 consent = UserConsent(
@@ -413,35 +523,115 @@ async def seed(
         print(f"[ 5/17] blocks+mutes: {counts['blocks']}+{counts['mutes']}")
 
         # =====================================================================
-        # 6. Posts (40)
+        # 6. Posts (N_POSTS)
         # =====================================================================
-        post_bodies = [
-            "hello world",
-            "my first post",
-            "coffee time",
-            "sunset today",
-            "shipping a feature",
-            "weekend vibes",
-            "cold brew gang",
-            "deep work session",
-            "reading list",
-            "gym done",
-            "weekend plans?",
-            "anyone else noticed...",
-            "sunday reset",
-            "monday again",
-            "new keyboard day",
-            "the cat is asleep",
-            "trying a new recipe",
-            "anyone up?",
-            "weekend read",
-            "just shipped a fix",
+        # Two pools combined, so ~N_POSTS posts read as a real timeline instead
+        # of the same sentence repeated with a counter bolted on.
+        post_openers = [
+            "Shipped the new feed pipeline today",
+            "Coffee at 6am, code by 7",
+            "Golden hour on the rooftop",
+            "Finally fixed that flaky test",
+            "Road trip, no plan, no signal",
+            "Reading about keyset pagination again",
+            "The cat has claimed the keyboard",
+            "Trying a new recipe tonight",
+            "Long walk by the river",
+            "Refactored a 600-line function",
+            "Rain all afternoon",
+            "New lens arrived",
+            "Someone explain this stack trace to me",
+            "Weekend reset",
+            "Monday, again",
+            "Cleaned up the backlog",
+            "This view never gets old",
+            "Deep work, four hours, no notifications",
+            "Sold my old bike",
+            "Sunrise run",
+            "Bookstore haul",
+            "Late night deploy, all green",
+            "Learning the hard way why cursors beat offsets",
+            "Slow morning, strong coffee",
+            "City lights after the rain",
+            "Deleted 3k lines and everything got faster",
+            "Home cooked dinner",
+            "Chasing bugs in the dark theme",
+            "First surf lesson",
+            "Shipping small, shipping often",
+            "The quietest Sunday",
+            "Museum afternoon",
+            "Reading list is out of control",
+            "New office chair, new posture",
+            "Watched the storm roll in",
+            "Finally understand the fan-out model",
         ]
+        post_tails = [
+            "",
+            "",
+            "",
+            "Small win.",
+            "Worth the detour.",
+            "Still not sure it was the right call.",
+            "Would do again.",
+            "Now on to the next thing.",
+            "Thanks for the recommendations.",
+            "Might write it up.",
+            "Slowly getting there.",
+            "Three rewrites in, and it finally clicks.",
+        ]
+        # Comment / chat copy. Same reasoning as the post pools above: a list
+        # of "top comment 7" placeholders makes every thread look like a
+        # fixture, which is exactly what this seed is trying to avoid.
+        comment_bodies = [
+            "This is the best thing I've read today.",
+            "Same here — took me three attempts.",
+            "Where was this taken?",
+            "That light is unreal.",
+            "Congrats! Big step.",
+            "Have you tried profiling it first?",
+            "Beautiful. Saving this one.",
+            "I hit the exact same bug last week.",
+            "Tell me you wrote a blog post about it.",
+            "Coffee is doing a lot of work in this photo.",
+            "Never gets old, does it?",
+            "Adding this to my list.",
+            "Looks like a proper Sunday.",
+            "The colours!",
+            "Careful, that's how the rabbit hole starts.",
+            "Proud of you.",
+            "What lens?",
+            "Strongly agree.",
+        ]
+        reply_bodies = [
+            "Totally.",
+            "Thanks!",
+            "Same to you.",
+            "Ha, guilty.",
+            "Not yet — good idea.",
+            "It was in Lisbon.",
+            "Appreciate it!",
+            "Will do.",
+            "Honestly, yes.",
+            "Right?",
+        ]
+        chat_bodies = [
+            "Hey! Long time no see.",
+            "Are we still on for tomorrow?",
+            "Just sent you the file.",
+            "Perfect, thanks!",
+            "I'll be there around 7.",
+            "Sounds good.",
+            "Did you see the game last night?",
+            "No way, really?",
+            "Let me check and get back to you.",
+            "Ha, that's brilliant.",
+        ]
+
         posts: list[Post] = []
-        for i in range(40):
+        for _ in range(N_POSTS):
             post = Post(
                 author_id=rng.choice(users).id,
-                body=rng.choice(post_bodies) + f" #{i}",
+                body=f"{rng.choice(post_openers)}. {rng.choice(post_tails)}".strip(),
                 visibility=rng.choice([Visibility.PUBLIC] * 8 + [Visibility.FOLLOWERS]),
                 created_at=_rand_dt(now, 60, rng),
             )
@@ -454,17 +644,17 @@ async def seed(
         print(f"[ 6/17] posts: {counts['posts']}")
 
         # =====================================================================
-        # 7. Comments (30; 20 top-level + 10 nested depth-2)
+        # 7. Comments (N_TOP_COMMENTS top-level + N_REPLY_COMMENTS depth-2)
         # =====================================================================
         top_comments: list[Comment] = []
-        for i in range(20):
+        for _ in range(N_TOP_COMMENTS):
             post = rng.choice(posts)
             comment = Comment(
                 post_id=post.id,
                 author_id=rng.choice(users).id,
                 parent_id=None,
                 depth=1,
-                body=f"top comment {i}",
+                body=rng.choice(comment_bodies),
                 created_at=_rand_dt(now, 55, rng),
             )
             session.add(comment)
@@ -472,14 +662,14 @@ async def seed(
             bump("comments")
         await session.flush()
 
-        for i in range(10):
+        for _ in range(N_REPLY_COMMENTS):
             parent = rng.choice(top_comments)
             reply = Comment(
                 post_id=parent.post_id,
                 author_id=rng.choice(users).id,
                 parent_id=parent.id,
                 depth=2,
-                body=f"reply {i}",
+                body=rng.choice(reply_bodies),
                 created_at=parent.created_at + timedelta(hours=rng.randint(1, 48)),
             )
             session.add(reply)
@@ -488,7 +678,7 @@ async def seed(
         print(f"[ 7/17] comments: {counts['comments']}")
 
         # =====================================================================
-        # 8. Likes (30 on posts + 10 on comments)
+        # 8. Likes (N_POST_LIKES on posts + N_COMMENT_LIKES on comments)
         # =====================================================================
         seen_likes: set[tuple[int, str, int]] = set()
 
@@ -507,9 +697,9 @@ async def seed(
             )
             bump("likes")
 
-        for _ in range(30):
+        for _ in range(N_POST_LIKES):
             like(rng.choice(users).id, LikeTarget.POST, rng.choice(posts).id)
-        for _ in range(10):
+        for _ in range(N_COMMENT_LIKES):
             like(
                 rng.choice(users).id,
                 LikeTarget.COMMENT,
@@ -519,47 +709,54 @@ async def seed(
         print(f"[ 8/17] likes: {counts['likes']}")
 
         # =====================================================================
-        # 9. Media (10 post-attached + 5 orphan) — real PNG bytes on disk
+        # 9. Media — real photographs attached to posts, plus orphans
         # =====================================================================
+        # Ownership follows the post's author rather than a random user: a media
+        # row owned by someone who does not own the post breaks the ownership
+        # checks in MediaService and makes the gallery look inconsistent.
         medias: list[Media] = []
-        for i in range(10):
-            owner = rng.choice(users)
-            png_bytes = _generate_png(seed=1000 + i, size=512)
-            sha = hashlib.sha256(png_bytes).hexdigest()
-            storage_key = f"posts/{sha[:16]}.png"
-            _write_media_file(media_root, storage_key, png_bytes)
+        for i in range(N_POST_PHOTOS):
+            post = posts[i % len(posts)]
+            asset = _photo_asset(
+                seed_photos.photo_url(f"post-{i}"),
+                folder="posts",
+                media_root=media_root,
+                fallback_seed=5000 + i,
+            )
             post_media = Media(
-                owner_id=owner.id,
-                post_id=rng.choice(posts).id,
+                owner_id=post.author_id,
+                post_id=post.id,
                 message_id=None,
-                sha256=sha,
-                mime="image/png",
+                sha256=asset.sha256,
+                mime=asset.mime,
                 kind=MediaKind.IMAGE,
-                size_bytes=len(png_bytes),
-                storage_key=storage_key,
-                original_name=f"post-{i}.png",
+                size_bytes=asset.size,
+                storage_key=asset.storage_key,
+                original_name=f"post-{i}.{asset.ext}",
                 created_at=_rand_dt(now, 55, rng),
             )
             session.add(post_media)
             medias.append(post_media)
             bump("media")
 
-        for i in range(5):
+        for i in range(N_ORPHAN_PHOTOS):
             owner = rng.choice(users)
-            png_bytes = _generate_png(seed=2000 + i, size=512)
-            sha = hashlib.sha256(png_bytes).hexdigest()
-            storage_key = f"orphans/{sha[:16]}.png"
-            _write_media_file(media_root, storage_key, png_bytes)
+            asset = _photo_asset(
+                seed_photos.photo_url(f"orphan-{i}", 800, 800),
+                folder="orphans",
+                media_root=media_root,
+                fallback_seed=6000 + i,
+            )
             orphan_media = Media(
                 owner_id=owner.id,
                 post_id=None,
                 message_id=None,
-                sha256=sha,
-                mime="image/png",
+                sha256=asset.sha256,
+                mime=asset.mime,
                 kind=MediaKind.IMAGE,
-                size_bytes=len(png_bytes),
-                storage_key=storage_key,
-                original_name=f"orphan-{i}.png",
+                size_bytes=asset.size,
+                storage_key=asset.storage_key,
+                original_name=f"orphan-{i}.{asset.ext}",
                 created_at=_rand_dt(now, 55, rng),
             )
             session.add(orphan_media)
@@ -595,7 +792,7 @@ async def seed(
             "film grain",
             "city walk",
         ]
-        gallery_specs: list[tuple[Post, bytes]] = []
+        gallery_specs: list[tuple[Post, str, int]] = []
         for u in users:
             for j in range(GALLERY_PHOTOS_PER_USER):
                 gallery_post = Post(
@@ -608,29 +805,41 @@ async def seed(
                 session.add(gallery_post)
                 posts.append(gallery_post)
                 bump("posts")
-                # Distinct seed per (user, photo). _generate_png embeds the
-                # seed in the PNG so bytes (and therefore sha256) stay distinct
-                # — the media table has a unique (owner_id, sha256) constraint
-                # and a user can own media from several seed ranges.
-                png_bytes = _generate_png(seed=4000 + u.id * 10 + j, size=512)
-                gallery_specs.append((gallery_post, png_bytes))
+                # Seed embeds both the owner and the slot, so the URL (and
+                # therefore the image, and therefore the sha256) is distinct for
+                # every (user, photo). The media table has a unique
+                # (owner_id, sha256) constraint, and one user owns several
+                # images across the post/gallery/orphan ranges.
+                gallery_specs.append(
+                    (
+                        gallery_post,
+                        seed_photos.photo_url(f"gallery-{u.id}-{j}"),
+                        # Distinct fallback seeds too, for the offline path: the
+                        # generated PNG embeds its seed, which keeps the bytes —
+                        # and so the sha256 — injective per (user, slot).
+                        7000 + u.id * 10 + j,
+                    )
+                )
         await session.flush()
 
-        for gallery_post, png_bytes in gallery_specs:
-            sha = hashlib.sha256(png_bytes).hexdigest()
-            storage_key = f"gallery/{sha[:16]}.png"
-            _write_media_file(media_root, storage_key, png_bytes)
+        for gallery_post, gallery_url, fallback_seed in gallery_specs:
+            asset = _photo_asset(
+                gallery_url,
+                folder="gallery",
+                media_root=media_root,
+                fallback_seed=fallback_seed,
+            )
             session.add(
                 Media(
                     owner_id=gallery_post.author_id,
                     post_id=gallery_post.id,
                     message_id=None,
-                    sha256=sha,
-                    mime="image/png",
+                    sha256=asset.sha256,
+                    mime=asset.mime,
                     kind=MediaKind.IMAGE,
-                    size_bytes=len(png_bytes),
-                    storage_key=storage_key,
-                    original_name=f"gallery-{gallery_post.id}.png",
+                    size_bytes=asset.size,
+                    storage_key=asset.storage_key,
+                    original_name=f"gallery-{gallery_post.id}.{asset.ext}",
                     created_at=gallery_post.created_at,
                 )
             )
@@ -697,11 +906,11 @@ async def seed(
         print(f"[12/17] chat_room_members: {counts['chat_room_members']}")
 
         # =====================================================================
-        # 13. Messages (25) — some with real media bytes
+        # 13. Messages (N_MESSAGES — the first two carry a photo)
         # =====================================================================
         msgs: list[Message] = []
         message_media: list[Media] = []
-        for i in range(25):
+        for i in range(N_MESSAGES):
             room = rng.choice(rooms)
             member_ids = (
                 (
@@ -714,22 +923,24 @@ async def seed(
             )
             sender = rng.choice(member_ids)
 
-            # Attach a PNG to the first 2 messages
+            # Attach a real photograph to the first 2 messages
             if i < 2:
-                png_bytes = _generate_png(seed=3000 + i, size=512)
-                sha = hashlib.sha256(png_bytes).hexdigest()
-                storage_key = f"messages/{sha[:16]}.png"
-                _write_media_file(media_root, storage_key, png_bytes)
+                asset = _photo_asset(
+                    seed_photos.photo_url(f"chat-{i}", 800, 800),
+                    folder="messages",
+                    media_root=media_root,
+                    fallback_seed=8000 + i,
+                )
                 chat_media = Media(
                     owner_id=sender,
                     post_id=None,
                     message_id=None,
-                    sha256=sha,
-                    mime="image/png",
+                    sha256=asset.sha256,
+                    mime=asset.mime,
                     kind=MediaKind.IMAGE,
-                    size_bytes=len(png_bytes),
-                    storage_key=storage_key,
-                    original_name=f"chat-{i}.png",
+                    size_bytes=asset.size,
+                    storage_key=asset.storage_key,
+                    original_name=f"chat-{i}.{asset.ext}",
                     created_at=_rand_dt(now, 20, rng),
                 )
                 session.add(chat_media)
@@ -739,7 +950,7 @@ async def seed(
             msg = Message(
                 room_id=room.id,
                 sender_id=sender,
-                body=f"message {i}",
+                body=rng.choice(chat_bodies),
                 media_id=None,
                 created_at=_rand_dt(now, 20, rng),
             )
@@ -776,7 +987,7 @@ async def seed(
         print(f"[13/17] messages: {counts['messages']}")
 
         # =====================================================================
-        # 14. Notifications (30)
+        # 14. Notifications (N_NOTIFICATIONS_PER_KIND of each kind)
         # =====================================================================
         seen_n: set[tuple[int, int, str, str, int, date]] = set()
         notifications: list[Notification] = []
@@ -812,7 +1023,7 @@ async def seed(
             bump("notifications")
 
         # Follow notifications
-        for _ in range(10):
+        for _ in range(N_NOTIFICATIONS_PER_KIND):
             follower_id, followee_id = rng.choice(list(seen_follows))
             notif(
                 recipient=followee_id,
@@ -823,7 +1034,7 @@ async def seed(
                 is_read=rng.random() < 0.5,
             )
         # Post-like notifications
-        for _ in range(10):
+        for _ in range(N_NOTIFICATIONS_PER_KIND):
             post = rng.choice(posts)
             notif(
                 recipient=post.author_id,
@@ -834,7 +1045,7 @@ async def seed(
                 is_read=rng.random() < 0.5,
             )
         # Post-comment notifications
-        for _ in range(10):
+        for _ in range(N_NOTIFICATIONS_PER_KIND):
             comment = rng.choice(top_comments)
             post = next(p for p in posts if p.id == comment.post_id)
             notif(
@@ -1022,7 +1233,12 @@ async def seed(
 # =============================================================================
 # CLI
 # =============================================================================
-def _summarize(counts: dict[str, int], scale: int, media_root: Path) -> None:
+def _summarize(
+    counts: dict[str, int],
+    scale: int,
+    media_root: Path,
+    photo_summary: str | None = None,
+) -> None:
     print()
     print("=" * 60)
     print(f"Seed complete (scale={scale})")
@@ -1032,6 +1248,8 @@ def _summarize(counts: dict[str, int], scale: int, media_root: Path) -> None:
     print(f"  {'TOTAL':<22} {sum(counts.values()):>5}")
     print()
     print(f"Media files written to: {media_root.resolve()}")
+    if photo_summary is not None:
+        print(f"Photos: {photo_summary}")
     print()
     print("Demo credentials (password: DemoPass123!):")
     for e in DEMO_EMAILS[:5]:
@@ -1076,12 +1294,35 @@ def main(argv: list[str] | None = None) -> int:
         choices=["local", "external"],
         default="local",
         help=(
-            "local (default) — write PNGs to MEDIA_ROOT and set "
-            "avatar_url=/media/avatars/{uid}.png. "
+            "local (default) — store a real portrait under MEDIA_ROOT and set "
+            "avatar_url=/static/media/{key}. "
             "external — set avatar_url to https://ui-avatars.com/... ."
         ),
     )
+    parser.add_argument(
+        "--photos",
+        choices=list(seed_photos.PHOTO_MODES),
+        default="real",
+        help=(
+            "real (default) — download genuine photographs (randomuser.me "
+            "portraits, picsum.photos imagery) and cache them on disk. "
+            "placeholder — skip the network and paint the legacy generated "
+            "PNGs, which works fully offline."
+        ),
+    )
+    parser.add_argument(
+        "--photo-cache",
+        type=Path,
+        default=None,
+        help=(
+            "Directory for the photo cache (default: a temp dir shared across "
+            "runs, so re-seeding is offline and instant)."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    global _photos
+    _photos = seed_photos.PhotoFetcher(mode=args.photos, cache_dir=args.photo_cache)
 
     counts = asyncio.run(
         seed(
@@ -1093,7 +1334,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     if counts:
-        _summarize(counts, args.scale, Path(get_settings().media_root))
+        _summarize(
+            counts,
+            args.scale,
+            Path(get_settings().media_root),
+            photo_summary=_photos.summary(),
+        )
     return 0
 
 

@@ -1,0 +1,18 @@
+# Grafana dashboard provisioning.
+#
+# `ops/grafana/dashboards` was already mounted at /var/lib/grafana/dashboards,
+# but without a provider entry Grafana never scans that directory — the
+# dashboard JSON sat on disk, unread, for every deployment.
+apiVersion: 1
+
+providers:
+  - name: social-api
+    orgId: 1
+    folder: Social API
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
