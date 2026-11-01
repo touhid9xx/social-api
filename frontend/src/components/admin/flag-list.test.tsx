@@ -320,12 +320,15 @@ describe('FlagList', () => {
 
     await ready();
 
-    expect(screen.getByText('এনভায়রনমেন্ট: চালু')).toBeInTheDocument();
+    // Several flags are on in the environment, so this copy appears once per
+    // matching row — scope it to one row instead of expecting a unique match.
+    const list = screen.getByRole('list');
+    const [firstRow] = within(list).getAllByRole('listitem');
+    expect(within(firstRow!).getByText('এনভায়রনমেন্ট: চালু')).toBeInTheDocument();
     expect(screen.getByText('কোডের ডিফল্টের সঙ্গে মিলছে না')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'ওভাররাইড প্রয়োগ করুন' })).toBeInTheDocument();
 
     // Flag names are identifiers, not copy: they stay untranslated in both locales.
-    const list = screen.getByRole('list');
     expect(within(list).getByText('feed_fanout_enabled')).toBeInTheDocument();
   });
 });

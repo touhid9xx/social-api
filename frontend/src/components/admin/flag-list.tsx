@@ -111,6 +111,7 @@ function OverrideForm({ flags }: { flags: string[] }) {
 
   return (
     <form
+      noValidate
       onSubmit={submit}
       aria-busy={override.isPending}
       className="space-y-4 rounded-xl border border-border bg-card p-4"

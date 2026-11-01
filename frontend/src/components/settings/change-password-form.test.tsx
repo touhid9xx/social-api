@@ -26,9 +26,14 @@ import { ChangePasswordForm } from './change-password-form';
 const CHANGE_PATH = '*/api/v1/auth/change-password';
 const LOGOUT_PATH = '*/api/auth/logout';
 
-const replace = vi.fn();
-const refresh = vi.fn();
-const toastSuccess = vi.fn();
+// `vi.mock` is hoisted above these declarations, so the spies must be created
+// with `vi.hoisted` — a plain `const` would still be in its TDZ when the
+// factories run.
+const { replace, refresh, toastSuccess } = vi.hoisted(() => ({
+  replace: vi.fn(),
+  refresh: vi.fn(),
+  toastSuccess: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, refresh, push: vi.fn(), back: vi.fn() }),

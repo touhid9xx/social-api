@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearTokens } from '@/lib/api';
 import { renderWithProviders } from '@/lib/testing/render';
@@ -9,6 +9,12 @@ import { server } from '@/mocks/server';
 import type { ApiErrorBody } from '@/types';
 
 import { ProfilePage } from './profile-page';
+
+// The header mounts `MessageButton`, which calls `useRouter()`. With no App
+// Router mounted that invariant throws and takes the whole page down with it.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+}));
 
 /**
  * `/profile/[id]`.

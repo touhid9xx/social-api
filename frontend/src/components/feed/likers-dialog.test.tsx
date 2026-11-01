@@ -240,7 +240,8 @@ describe('LikersDialog', () => {
       locale: 'bn',
     });
 
-    await user.click(screen.getByRole('button', { name: 'যাঁরা লাইক করেছেন (3 জন) তাঁদের দেখুন' }));
+    // `bn` formats the ICU `#` with Bengali digits, so this is ৩, not 3.
+    await user.click(screen.getByRole('button', { name: 'যাঁরা লাইক করেছেন (৩ জন) তাঁদের দেখুন' }));
 
     const panel = await dialog();
     expect(within(panel).getByText('লাইক করেছেন')).toBeInTheDocument();
