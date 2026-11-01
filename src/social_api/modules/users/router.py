@@ -190,6 +190,46 @@ async def admin_activate_user(
     return result
 
 
+@router.post("/{user_id}/verify", response_model=AdminUserView)
+async def admin_verify_user(
+    user_id: int,
+    admin: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+) -> AdminUserView:
+    """Admin-only: vouch for an account without touching its active flag.
+
+    The manual half of email verification — for an operator who has checked
+    the address by other means. Idempotent by design (see the service), so a
+    retried request is never a 409.
+    """
+    result = await _svc(session).admin_verify_user(actor_id=admin.user.id, user_id=user_id)
+    await session.commit()
+    return result
+
+
+@router.post("/{user_id}/resend-verification", response_model=AdminUserView)
+async def admin_resend_verification(
+    user_id: int,
+    request: Request,
+    admin: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+) -> AdminUserView:
+    """Admin-only: mail the account a fresh verification link.
+
+    `accept-language` is forwarded the same way `POST /auth/register` does,
+    so the message the user receives is in the language their browser asked
+    for rather than a hardcoded default. 409 when the account is already
+    verified — see `admin_resend_verification` in the service.
+    """
+    result = await _svc(session).admin_resend_verification(
+        actor_id=admin.user.id,
+        user_id=user_id,
+        locale=request.headers.get("accept-language"),
+    )
+    await session.commit()
+    return result
+
+
 @router.delete("/{user_id}", response_model=AdminUserView)
 async def admin_delete_user(
     user_id: int,

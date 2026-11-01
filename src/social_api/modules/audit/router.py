@@ -43,6 +43,8 @@ AuditActionLiteral = Literal[
     # admin account management
     "ADMIN_USER_UPDATE",
     "USER_ACTIVATED",
+    "ADMIN_USER_VERIFY",
+    "RESEND_VERIFICATION",
     "ADMIN_USER_DELETE",
     # posts
     "DELETE_POST",

@@ -1,12 +1,14 @@
-"""End-to-end admin account management: PATCH / activate / DELETE /users/{id}.
+"""End-to-end admin account management: PATCH / activate / verify / resend /
+DELETE on `/users/{id}`.
 
 The unit suite (`tests/unit/test_users_service.py`) covers the service rules
 against a fake directory. What only a live app can prove is the wiring:
 
-* the RBAC gate on all four routes (403 for a signed-in non-admin),
+* the RBAC gate on all six routes (403 for a signed-in non-admin),
 * route precedence — `/users/me` must keep winning over `/users/{user_id}`,
 * the response is the full `AdminUserView`, re-read after the write,
-* a soft delete really removes the account from every read path.
+* a soft delete really removes the account from every read path,
+* `verify` and `activate` stay distinct: only one of them clears `is_active`.
 
 RBAC reads the role claim off the JWT, so promotion needs a re-login.
 """
@@ -78,7 +80,7 @@ async def uc(use_testcontainers_db: str, fake_redis: object) -> AsyncIterator[As
 
 
 async def test_non_admin_is_denied_on_every_admin_route(uc: AsyncClient) -> None:
-    """All four admin routes share require_roles(ADMIN) -> 403 FORBIDDEN."""
+    """All six admin routes share require_roles(ADMIN) -> 403 FORBIDDEN."""
     actor = await _login(uc, "adm-nonadmin@example.com")
     target = await _login(uc, "adm-nonadmin-target@example.com")
     h = _auth(actor)
@@ -91,6 +93,12 @@ async def test_non_admin_is_denied_on_every_admin_route(uc: AsyncClient) -> None
     assert r.status_code == 403, r.text
 
     r = await uc.post(f"/api/v1/users/{target['user_id']}/activate", headers=h)
+    assert r.status_code == 403, r.text
+
+    r = await uc.post(f"/api/v1/users/{target['user_id']}/verify", headers=h)
+    assert r.status_code == 403, r.text
+
+    r = await uc.post(f"/api/v1/users/{target['user_id']}/resend-verification", headers=h)
     assert r.status_code == 403, r.text
 
     r = await uc.delete(f"/api/v1/users/{target['user_id']}", headers=h)
@@ -180,6 +188,79 @@ async def test_activate_clears_deactivation_and_marks_verified(uc: AsyncClient) 
     assert r.json()["is_active"] is True
 
 
+async def test_verify_flips_only_is_verified_and_is_idempotent(uc: AsyncClient) -> None:
+    """Vouching for an address is not the same act as lifting a suspension.
+
+    `is_verified` and `is_active` answer different questions, so an operator
+    confirming an address must not resurrect an account they suspended on
+    purpose. That is why this is its own route rather than `activate`.
+    """
+    h = await _admin_headers(uc, "adm-verify@example.com")
+    target = await _login(uc, "adm-verify-target@example.com")
+    path = f"/api/v1/users/{target['user_id']}"
+
+    # Suspend first, so "verify leaves is_active alone" is observable rather
+    # than vacuously true on an active account.
+    r = await uc.patch(path, headers=h, json={"is_active": False})
+    assert r.status_code == 200, r.text
+    assert r.json()["is_verified"] is False
+
+    r = await uc.post(f"{path}/verify", headers=h)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["is_verified"] is True
+    assert body["is_active"] is False, f"verify resurrected a suspended account: {body}"
+
+    # Idempotent: the desired end state already holds, so a retry after a
+    # dropped response is a 200 with the unchanged row, never a 409.
+    r = await uc.post(f"{path}/verify", headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["is_verified"] is True
+
+
+async def test_resend_mails_an_unverified_account_and_refuses_a_verified_one(
+    uc: AsyncClient,
+) -> None:
+    """The reset link confirms nothing, and there is no link worth sending twice.
+
+    A fresh registration is unverified, so it is exactly the account this route
+    exists for. Once the flag is set the only possible effect is to set it
+    again, hence 409 rather than a cheerful no-op.
+    """
+    h = await _admin_headers(uc, "adm-resend@example.com")
+    target = await _login(uc, "adm-resend-target@example.com")
+    user_path = f"/api/v1/users/{target['user_id']}"
+    resend_path = f"{user_path}/resend-verification"
+
+    r = await uc.post(resend_path, headers=h)
+    assert r.status_code == 200, r.text
+    # Sending a link must not pretend the address is now confirmed — the user
+    # still has to click it.
+    assert r.json()["is_verified"] is False
+
+    r = await uc.post(f"{user_path}/verify", headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["is_verified"] is True
+
+    r = await uc.post(resend_path, headers=h)
+    assert r.status_code == 409, r.text
+    assert r.json()["error"] == "ALREADY_VERIFIED", r.text
+
+
+async def test_verification_routes_404_on_a_deleted_account(uc: AsyncClient) -> None:
+    """A soft-deleted row is gone from every admin action, not just the list."""
+    h = await _admin_headers(uc, "adm-verify-404@example.com")
+    target = await _login(uc, "adm-verify-404-target@example.com")
+    user_path = f"/api/v1/users/{target['user_id']}"
+
+    r = await uc.delete(user_path, headers=h)
+    assert r.status_code == 200, r.text
+
+    for suffix in ("verify", "resend-verification"):
+        r = await uc.post(f"{user_path}/{suffix}", headers=h)
+        assert r.status_code == 404, f"{suffix}: {r.status_code} {r.text}"
+
+
 async def test_admin_cannot_act_on_their_own_account(uc: AsyncClient) -> None:
     """Self-deactivate/demote/delete would lock the operator out of the console."""
     h = await _admin_headers(uc, "adm-self@example.com")
@@ -191,13 +272,15 @@ async def test_admin_cannot_act_on_their_own_account(uc: AsyncClient) -> None:
         ("patch", f"/api/v1/users/{my_id}", {"is_active": False}),
         ("patch", f"/api/v1/users/{my_id}", {"role": "user"}),
         ("post", f"/api/v1/users/{my_id}/activate", None),
+        ("post", f"/api/v1/users/{my_id}/verify", None),
+        ("post", f"/api/v1/users/{my_id}/resend-verification", None),
         ("delete", f"/api/v1/users/{my_id}", None),
     ):
         r = await uc.request(method, path, headers=h, json=payload)
         assert r.status_code == 403, f"{method} {path}: {r.status_code} {r.text}"
         assert r.json()["error"] == "CANNOT_MODIFY_SELF", f"{method} {path}: {r.text}"
 
-    # The account is intact after all four refusals.
+    # The account is intact after all six refusals.
     still = await uc.get("/api/v1/users/me", headers=h)
     assert still.status_code == 200
 

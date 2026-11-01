@@ -130,6 +130,7 @@ export const ERROR_MESSAGE_KEY = {
   CANNOT_MODIFY_SELF: 'cannotModifySelf',
   LAST_ADMIN_PROTECTED: 'lastAdminProtected',
   EMPTY_UPDATE: 'emptyUpdate',
+  ALREADY_VERIFIED: 'alreadyVerified',
   // modules/posts
   POST_NOT_FOUND: 'postNotFound',
   COMMENT_NOT_FOUND: 'commentNotFound',

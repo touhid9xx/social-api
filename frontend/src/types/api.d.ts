@@ -1192,6 +1192,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Resend Verification
+         * @description Admin-only: mail the account a fresh verification link.
+         *
+         *     `accept-language` is forwarded the same way `POST /auth/register` does,
+         *     so the message the user receives is in the language their browser asked
+         *     for rather than a hardcoded default. 409 when the account is already
+         *     verified — see `admin_resend_verification` in the service.
+         */
+        post: operations["admin_resend_verification_api_v1_users__user_id__resend_verification_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Verify User
+         * @description Admin-only: vouch for an account without touching its active flag.
+         *
+         *     The manual half of email verification — for an operator who has checked
+         *     the address by other means. Idempotent by design (see the service), so a
+         *     retried request is never a 409.
+         */
+        post: operations["admin_verify_user_api_v1_users__user_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1880,7 +1929,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "follow" | "like_post" | "like_comment" | "comment_post" | "comment_reply";
+            type: "follow" | "like_post" | "like_comment" | "comment_post" | "comment_reply" | "admin_new_user";
         };
         /**
          * PathClassRow
@@ -2502,7 +2551,7 @@ export interface operations {
         parameters: {
             query?: {
                 actor_id?: number | null;
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "ADMIN_USER_UPDATE" | "USER_ACTIVATED" | "ADMIN_USER_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "ADMIN_USER_UPDATE" | "USER_ACTIVATED" | "ADMIN_USER_VERIFY" | "RESEND_VERIFICATION" | "ADMIN_USER_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
                 entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
@@ -2537,7 +2586,7 @@ export interface operations {
     my_audit_api_v1_audit_me_get: {
         parameters: {
             query?: {
-                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "ADMIN_USER_UPDATE" | "USER_ACTIVATED" | "ADMIN_USER_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
+                action?: ("REGISTER" | "LOGIN" | "LOGOUT" | "VERIFY_EMAIL" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "PROFILE_UPDATE" | "CONSENT_GRANTED" | "CONSENT_REVOKED" | "USER_SOFT_DELETE" | "ADMIN_USER_UPDATE" | "USER_ACTIVATED" | "ADMIN_USER_VERIFY" | "RESEND_VERIFICATION" | "ADMIN_USER_DELETE" | "DELETE_POST" | "DELETE_COMMENT" | "BLOCK" | "UNBLOCK" | "MUTE" | "UNMUTE" | "CREATE_CHAT_GROUP" | "UPDATE_CHAT_GROUP_TITLE" | "ADD_CHAT_MEMBER" | "REMOVE_CHAT_MEMBER" | "DELETE_CHAT_MESSAGE" | "MODERATION_STATUS_UPDATE" | "GDPR_DELETE_SCHEDULED" | "GDPR_DELETE_CANCELLED" | "FEATURE_FLAG_OVERRIDE" | "USER_HARD_DELETED" | "RETENTION_NOTIFICATIONS_PURGED" | "RETENTION_AUDIT_PURGED" | "RETENTION_ORPHAN_MEDIA_PURGED" | "RETENTION_MESSAGES_PURGED") | null;
                 entity?: ("user" | "profile" | "post" | "comment" | "message" | "chat_room" | "report" | "notification" | "audit_log" | "media") | null;
                 entity_id?: number | null;
                 cursor?: string | null;
@@ -4941,6 +4990,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FollowListPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_resend_verification_api_v1_users__user_id__resend_verification_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_verify_user_api_v1_users__user_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserView"];
                 };
             };
             /** @description Validation Error */

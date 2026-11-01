@@ -1553,7 +1553,8 @@
               "like_post",
               "like_comment",
               "comment_post",
-              "comment_reply"
+              "comment_reply",
+              "admin_new_user"
             ],
             "title": "Type",
             "type": "string"
@@ -3238,6 +3239,8 @@
                     "USER_SOFT_DELETE",
                     "ADMIN_USER_UPDATE",
                     "USER_ACTIVATED",
+                    "ADMIN_USER_VERIFY",
+                    "RESEND_VERIFICATION",
                     "ADMIN_USER_DELETE",
                     "DELETE_POST",
                     "DELETE_COMMENT",
@@ -3407,6 +3410,8 @@
                     "USER_SOFT_DELETE",
                     "ADMIN_USER_UPDATE",
                     "USER_ACTIVATED",
+                    "ADMIN_USER_VERIFY",
+                    "RESEND_VERIFICATION",
                     "ADMIN_USER_DELETE",
                     "DELETE_POST",
                     "DELETE_COMMENT",
@@ -7361,6 +7366,102 @@
         "summary": "Following",
         "tags": [
           "follows"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/resend-verification": {
+      "post": {
+        "description": "Admin-only: mail the account a fresh verification link.\n\n`accept-language` is forwarded the same way `POST /auth/register` does,\nso the message the user receives is in the language their browser asked\nfor rather than a hardcoded default. 409 when the account is already\nverified — see `admin_resend_verification` in the service.",
+        "operationId": "admin_resend_verification_api_v1_users__user_id__resend_verification_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Resend Verification",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/verify": {
+      "post": {
+        "description": "Admin-only: vouch for an account without touching its active flag.\n\nThe manual half of email verification — for an operator who has checked\nthe address by other means. Idempotent by design (see the service), so a\nretried request is never a 409.",
+        "operationId": "admin_verify_user_api_v1_users__user_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Verify User",
+        "tags": [
+          "users"
         ]
       }
     },

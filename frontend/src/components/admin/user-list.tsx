@@ -5,6 +5,7 @@ import {
   BadgeX,
   Loader2,
   Lock,
+  MailCheck,
   MoreHorizontal,
   ShieldOff,
   Trash2,
@@ -42,7 +43,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   useActivateAdminUser,
   useDeleteAdminUser,
+  useResendAdminVerification,
   useUpdateAdminUser,
+  useVerifyAdminUser,
 } from '@/hooks/use-admin-user-actions';
 import { useAdminUsers } from '@/hooks/use-admin-users';
 import { useInView } from '@/hooks/use-in-view';
@@ -54,8 +57,9 @@ import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 
 /**
- * The staff-only user directory — `GET /api/v1/users`, plus the three admin
- * account writes (`PATCH`, `POST /activate`, `DELETE` on `/users/{id}`).
+ * The staff-only user directory — `GET /api/v1/users`, plus the five admin
+ * account writes (`PATCH`, `POST /activate`, `POST /verify`,
+ * `POST /resend-verification`, `DELETE` on `/users/{id}`).
  *
  * `AdminUserView` already carries `display_name`, `avatar_url` and
  * `email_masked`, so a row is one request's worth of data and must not fan out
@@ -219,12 +223,19 @@ function UserRow({ user, isSelf }: { user: AdminUserView; isSelf: boolean }) {
 
   const update = useUpdateAdminUser();
   const activate = useActivateAdminUser();
+  const verify = useVerifyAdminUser();
+  const resend = useResendAdminVerification();
   const remove = useDeleteAdminUser();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const name = user.display_name?.trim() || t('nameFallback', { id: user.id });
   const initial = name.slice(0, 1).toUpperCase();
-  const pending = update.isPending || activate.isPending || remove.isPending;
+  const pending =
+    update.isPending ||
+    activate.isPending ||
+    verify.isPending ||
+    resend.isPending ||
+    remove.isPending;
 
   // One refusal path for all three writes: the code decides the copy, so a
   // `CANNOT_MODIFY_SELF` and a `LAST_ADMIN_PROTECTED` each explain themselves
@@ -253,16 +264,39 @@ function UserRow({ user, isSelf }: { user: AdminUserView; isSelf: boolean }) {
     });
   }
 
+  // Vouching goes through the named endpoint; withdrawing a vouch stays a plain
+  // `PATCH`. The asymmetry is the backend's on purpose — the manual stand-in can
+  // only ever add trust, so there is no `/unverify` route to call.
+  //
+  // `verify` is idempotent (200 with the unchanged row, not 409), so the menu
+  // item is safe to retry after a dropped response.
   function setVerified(isVerified: boolean) {
-    const changes: AdminUserUpdate = { is_verified: isVerified };
+    if (isVerified) {
+      verify.mutate(user.id, {
+        onSuccess: () => toast.success(t('actions.verified', { name })),
+        onError: reportError,
+      });
+      return;
+    }
+
     update.mutate(
-      { userId: user.id, changes },
+      { userId: user.id, changes: { is_verified: false } },
       {
-        onSuccess: () =>
-          toast.success(t(isVerified ? 'actions.verified' : 'actions.unverified', { name })),
+        onSuccess: () => toast.success(t('actions.unverified', { name })),
         onError: reportError,
       },
     );
+  }
+
+  // Mails a fresh link; the account stays unverified until it is clicked, so the
+  // toast names the masked address rather than claiming the account is verified.
+  // A `409 ALREADY_VERIFIED` here means someone confirmed it elsewhere while the
+  // console sat open — `reportError` maps that to its own copy.
+  function runResend() {
+    resend.mutate(user.id, {
+      onSuccess: () => toast.success(t('actions.resendSent', { masked: user.email_masked })),
+      onError: reportError,
+    });
   }
 
   function changeRole(next: string) {
@@ -384,6 +418,17 @@ function UserRow({ user, isSelf }: { user: AdminUserView; isSelf: boolean }) {
                   hint={t(user.is_verified ? 'actions.unverifyHint' : 'actions.verifyHint')}
                 />
               </DropdownMenuItem>
+
+              {/* Only on unverified rows: mailing a link to a confirmed account
+                  can only answer 409, and a permanent control that exists to be
+                  refused is noise. Verification is one-way here, so this hides
+                  itself the moment the row flips. */}
+              {user.is_verified ? null : (
+                <DropdownMenuItem onSelect={runResend}>
+                  <MailCheck aria-hidden="true" />
+                  <MenuCopy label={t('actions.resend')} hint={t('actions.resendHint')} />
+                </DropdownMenuItem>
+              )}
 
               <DropdownMenuSeparator />
 

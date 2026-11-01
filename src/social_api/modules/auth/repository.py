@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.core.security import hash_email
-from social_api.modules.auth.models import User
+from social_api.modules.auth.models import User, UserRole
 
 
 class UserRepository:
@@ -43,6 +43,26 @@ class UserRepository:
 
     async def save(self, user: User) -> None:
         await self._s.flush()
+
+    async def list_active_admin_ids(self) -> list[int]:
+        """Ids of the admins who should hear about a new registration.
+
+        The audience for the staff alert created by `AuthService.register`:
+        active, non-deleted admins only. A deactivated admin can't act on the
+        alert, and soft-deleted rows still match `role == ADMIN` (soft delete
+        only stamps `deleted_at`), so both filters are load-bearing.
+        """
+        stmt = (
+            select(User.id)
+            .where(
+                User.role == UserRole.ADMIN,
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .order_by(User.id)
+        )
+        res = await self._s.execute(stmt)
+        return [int(uid) for uid in res.scalars().all()]
 
     async def get_by_id_including_deleted(self, user_id: int) -> User | None:
         """Fetch a user even if soft-deleted.

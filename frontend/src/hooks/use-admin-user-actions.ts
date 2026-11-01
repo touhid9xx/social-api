@@ -4,10 +4,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { queryKeys } from '@/lib/api/query-keys';
 import type { AdminUserUpdate } from '@/lib/api/users';
-import { activateAdminUser, deleteAdminUser, updateAdminUser } from '@/lib/api/users';
+import {
+  activateAdminUser,
+  deleteAdminUser,
+  resendAdminVerification,
+  updateAdminUser,
+  verifyAdminUser,
+} from '@/lib/api/users';
 
 /**
- * The three admin account writes, as mutations that agree on one thing:
+ * The admin account writes, as mutations that agree on one thing:
  * the directory is the authority on what happened.
  *
  * Deliberately NOT optimistic — the same reasoning as `useUpdateReport`. The
@@ -51,6 +57,38 @@ export function useActivateAdminUser() {
 
   return useMutation({
     mutationFn: (userId: number) => activateAdminUser(userId),
+    onSuccess: () => invalidate(),
+  });
+}
+
+/**
+ * `POST /users/{id}/verify` — vouch for the account by hand.
+ *
+ * The manual equivalent of the user clicking the emailed link: it flips only
+ * `is_verified`, never `is_active`, so a suspended account stays suspended.
+ * Idempotent, so a double-click is harmless.
+ */
+export function useVerifyAdminUser() {
+  const invalidate = useInvalidateDirectory();
+
+  return useMutation({
+    mutationFn: (userId: number) => verifyAdminUser(userId),
+    onSuccess: () => invalidate(),
+  });
+}
+
+/**
+ * `POST /users/{id}/resend-verification` — mail the account a fresh link.
+ *
+ * Changes no state on the server (the account stays unverified until the link
+ * is clicked), but it still invalidates the directory: the row is unchanged, and
+ * the refetch keeps the console honest if the user clicks while it is open.
+ */
+export function useResendAdminVerification() {
+  const invalidate = useInvalidateDirectory();
+
+  return useMutation({
+    mutationFn: (userId: number) => resendAdminVerification(userId),
     onSuccess: () => invalidate(),
   });
 }

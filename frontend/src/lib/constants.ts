@@ -25,6 +25,10 @@ export const ROUTES = {
    * `/admin/audit`, so it is offered only to the `admin` role.
    */
   adminDashboard: '/admin/dashboard',
+  /** The staff-only user directory (`GET /users`). Admin-only. */
+  adminUsers: '/admin/users',
+  /** The privileged-action trail (`GET /audit`). Admin-only. */
+  adminAudit: '/admin/audit',
   /**
    * The only page a **moderator** can use: `/admin` (flags) and `/admin/audit`
    * are admin-only (`require_roles(UserRole.ADMIN)`), while the report queue

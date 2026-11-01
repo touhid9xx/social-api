@@ -12,6 +12,9 @@ from social_api.core.pagination import (
     decode_cursor,
     encode_cursor,
 )
+from social_api.core.security import issue_verification_token
+from social_api.email import dispatch_email
+from social_api.email.templates import render_verification
 from social_api.exceptions import BadRequestError
 from social_api.logging_config import get_logger
 from social_api.modules.audit.service import AuditService
@@ -19,6 +22,7 @@ from social_api.modules.auth.models import User, UserRole
 from social_api.modules.auth.repository import UserRepository
 from social_api.modules.follows.repository import FollowsRepository
 from social_api.modules.users.exceptions import (
+    AlreadyVerifiedError,
     LastAdminError,
     OptimisticLockError,
     ProfileNotFoundError,
@@ -526,6 +530,77 @@ class UsersService:
                 after={"is_active": True, "is_verified": True},
             )
         logger.info("admin_user_activated", actor_id=actor_id, user_id=user_id)
+        return await self._admin_row(user_id)
+
+    async def admin_verify_user(self, *, actor_id: int, user_id: int) -> AdminUserView:
+        """Admin vouches for an account — the manual equivalent of the email click.
+
+        Deliberately narrower than `admin_activate_user`: this flips only
+        `is_verified` and leaves `is_active` exactly as it was. The two are
+        separate questions ("is this address real?" vs "may this account sign
+        in?"), and an operator confirming an address must not silently
+        resurrect an account they suspended on purpose.
+
+        Idempotent: verifying an already-verified account returns the
+        unchanged row instead of a 409, because the desired end state
+        already holds — a retry after a dropped response is not an error.
+        """
+        user = await self._guarded_user(actor_id=actor_id, user_id=user_id)
+
+        if user.is_verified:
+            return await self._admin_row(user_id)
+
+        user.is_verified = True
+        await self._users.save(user)
+
+        await self._audit(
+            actor_id=actor_id,
+            action="ADMIN_USER_VERIFY",
+            entity_id=user_id,
+            after={"is_verified": True},
+        )
+        logger.info("admin_user_verified", actor_id=actor_id, user_id=user_id)
+        return await self._admin_row(user_id)
+
+    async def admin_resend_verification(
+        self, *, actor_id: int, user_id: int, locale: str | None = None
+    ) -> AdminUserView:
+        """Mail the account a fresh verification link on the operator's behalf.
+
+        Same token/rendering path as registration (`issue_verification_token`
+        + `render_verification`), so the link a user receives here is
+        indistinguishable from the one they would have got at signup — and
+        dies under the same TTL.
+
+        Refuses an already-verified account with 409: mailing a link that can
+        only re-set a flag that is already set is an action with no effect,
+        and a button that reports success while changing nothing teaches
+        operators to distrust it.
+
+        `dispatch_email` never raises (a mail outage must not fail an admin
+        action), so the audit row records the *attempt*. It is written after
+        dispatch so the trail reflects that the operator's request reached
+        the mail layer.
+        """
+        user = await self._guarded_user(actor_id=actor_id, user_id=user_id)
+        if user.is_verified:
+            raise AlreadyVerifiedError()
+
+        token, _jti, _exp = issue_verification_token(user_id=user.id, role=user.role.value)
+        content = render_verification(token=token, locale=locale)
+        await dispatch_email(to=user.email, subject=content.subject, body=content.body)
+
+        await self._audit(
+            actor_id=actor_id,
+            action="RESEND_VERIFICATION",
+            entity_id=user_id,
+            after={"dispatched": True},
+        )
+        logger.info(
+            "admin_verification_resent",
+            actor_id=actor_id,
+            user_id=user_id,
+        )
         return await self._admin_row(user_id)
 
     async def admin_delete_user(self, *, actor_id: int, user_id: int) -> AdminUserView:

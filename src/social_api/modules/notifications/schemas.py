@@ -13,6 +13,7 @@ NotificationTypeLiteral = Literal[
     "like_comment",
     "comment_post",
     "comment_reply",
+    "admin_new_user",
 ]
 
 NotificationTargetTypeLiteral = Literal["user", "post", "comment"]

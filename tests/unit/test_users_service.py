@@ -12,6 +12,7 @@ from social_api.core.pagination import decode_cursor
 from social_api.exceptions import BadRequestError
 from social_api.modules.auth.models import UserRole
 from social_api.modules.users.exceptions import (
+    AlreadyVerifiedError,
     LastAdminError,
     OptimisticLockError,
     ProfileNotFoundError,
@@ -278,6 +279,9 @@ def _admin_user(**overrides: Any) -> SimpleNamespace:
         "is_active": True,
         "is_verified": True,
         "deleted_at": None,
+        # Resend reads the *real* address off the account, never the masked
+        # one from the directory row, so the fake has to carry it.
+        "email": "alice@example.com",
     }
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -598,3 +602,109 @@ def test_directory_rows_carry_a_masked_email_never_the_raw_one() -> None:
 )
 def test_mask_email_shapes(raw: str, expected: str) -> None:
     assert _mask_email(raw) == expected
+
+
+# ---- Manual verification + resend ----
+#
+# `is_verified` is normally set by clicking the emailed link, which neither an
+# admin nor a support agent can do on a user's behalf. These two actions are
+# that click's manual equivalents.
+
+
+@pytest.mark.asyncio
+async def test_admin_verify_flips_only_the_verified_flag() -> None:
+    svc, users, _, _, audit = _admin_service(
+        user=_admin_user(id=42, is_verified=False), row=_admin_row(42, is_verified=False)
+    )
+    assert users.user is not None
+
+    await svc.admin_verify_user(actor_id=1, user_id=42)
+
+    assert users.user.is_verified is True
+    # The whole point of `admin_verify_user` versus `admin_activate_user`: a
+    # suspended account must NOT be resurrected by vouching for its address.
+    assert users.user.is_active is True
+    assert len(users.saves) == 1
+    assert [a["action"] for a in audit] == ["ADMIN_USER_VERIFY"]
+
+
+@pytest.mark.asyncio
+async def test_admin_verify_is_idempotent_and_writes_no_second_audit_row() -> None:
+    svc, users, _, _, audit = _admin_service(
+        user=_admin_user(id=42, is_verified=True), row=_admin_row(42, is_verified=True)
+    )
+
+    await svc.admin_verify_user(actor_id=1, user_id=42)
+
+    # A retry after a dropped response must not append a duplicate audit row
+    # describing a change that did not happen.
+    assert users.saves == []
+    assert audit == []
+
+
+@pytest.mark.asyncio
+async def test_admin_verify_refuses_your_own_account() -> None:
+    svc, users, _, _, audit = _admin_service(
+        user=_admin_user(id=7, is_verified=False), row=_admin_row(7, is_verified=False)
+    )
+
+    with pytest.raises(SelfActionError) as excinfo:
+        await svc.admin_verify_user(actor_id=7, user_id=7)
+
+    assert excinfo.value.code == "CANNOT_MODIFY_SELF"
+    assert users.saves == []
+    assert audit == []
+
+
+@pytest.mark.asyncio
+async def test_resend_verification_emails_the_link_and_audits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    svc, users, _, _, audit = _admin_service(
+        user=_admin_user(id=42, is_verified=False), row=_admin_row(42, is_verified=False)
+    )
+    sent: list[dict[str, Any]] = []
+
+    async def _capture(**kwargs: Any) -> None:
+        sent.append(kwargs)
+
+    monkeypatch.setattr("social_api.modules.users.service.dispatch_email", _capture)
+    monkeypatch.setattr(
+        "social_api.modules.users.service.issue_verification_token",
+        lambda *, user_id, role: ("tok-abc", "jti-1", datetime(2026, 1, 1)),
+    )
+
+    await svc.admin_resend_verification(actor_id=1, user_id=42, locale="bn")
+
+    assert len(sent) == 1
+    # It must go to the real address, not the masked one shown in the row.
+    assert sent[0]["to"] == "alice@example.com"
+    # The one-time token has to reach the message body, else the link is dead.
+    assert "tok-abc" in sent[0]["body"]
+    assert [a["action"] for a in audit] == ["RESEND_VERIFICATION"]
+    # Resending mails a link; it must not silently verify the account itself.
+    assert users.saves == []
+
+
+@pytest.mark.asyncio
+async def test_resend_verification_refuses_an_already_verified_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    svc, _, _, _, audit = _admin_service(
+        user=_admin_user(id=42, is_verified=True), row=_admin_row(42, is_verified=True)
+    )
+    sent: list[dict[str, Any]] = []
+
+    async def _capture(**kwargs: Any) -> None:
+        sent.append(kwargs)
+
+    monkeypatch.setattr("social_api.modules.users.service.dispatch_email", _capture)
+
+    with pytest.raises(AlreadyVerifiedError) as excinfo:
+        await svc.admin_resend_verification(actor_id=1, user_id=42)
+
+    assert excinfo.value.code == "ALREADY_VERIFIED"
+    assert excinfo.value.status_code == 409
+    # Refused before the mail layer: no pointless email, no audit row.
+    assert sent == []
+    assert audit == []

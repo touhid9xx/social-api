@@ -1316,6 +1316,69 @@ export const handlers = [
     return HttpResponse.json({ ...row, is_active: true, is_verified: true });
   }),
 
+  // `POST /users/{id}/verify` — the narrower sibling of `activate`: only
+  // `is_verified` moves, so a deactivated row stays deactivated. Idempotent by
+  // design (the backend returns the unchanged row, not a 409), which is what
+  // makes the menu item safe to retry after a dropped response.
+  http.post('*/api/v1/users/:user_id/verify', ({ params }) => {
+    const userId = Number(params.user_id);
+    const path = `/api/v1/users/${String(userId)}/verify`;
+    const row = adminDirectory.items.find((user) => user.id === userId);
+
+    if (!row) {
+      return HttpResponse.json(errorBody('NOT_FOUND', 404, path, 'User not found'), {
+        status: 404,
+      });
+    }
+
+    if (userId === adminProfile.user_id) {
+      return HttpResponse.json(
+        errorBody('CANNOT_MODIFY_SELF', 403, path, 'Admins cannot act on their own account'),
+        {
+          status: 403,
+        },
+      );
+    }
+
+    return HttpResponse.json({ ...row, is_verified: true });
+  }),
+
+  // `POST /users/{id}/resend-verification` — mails a fresh link and changes no
+  // state, so the response is the row exactly as it was. The 409 is the part
+  // worth mocking: it is the only refusal this route has, and the console has to
+  // show it as its own message rather than a generic failure.
+  http.post('*/api/v1/users/:user_id/resend-verification', ({ params }) => {
+    const userId = Number(params.user_id);
+    const path = `/api/v1/users/${String(userId)}/resend-verification`;
+    const row = adminDirectory.items.find((user) => user.id === userId);
+
+    if (!row) {
+      return HttpResponse.json(errorBody('NOT_FOUND', 404, path, 'User not found'), {
+        status: 404,
+      });
+    }
+
+    if (userId === adminProfile.user_id) {
+      return HttpResponse.json(
+        errorBody('CANNOT_MODIFY_SELF', 403, path, 'Admins cannot act on their own account'),
+        {
+          status: 403,
+        },
+      );
+    }
+
+    if (row.is_verified) {
+      return HttpResponse.json(
+        errorBody('ALREADY_VERIFIED', 409, path, 'This account is already verified'),
+        {
+          status: 409,
+        },
+      );
+    }
+
+    return HttpResponse.json(row);
+  }),
+
   http.delete('*/api/v1/users/:user_id', ({ params }) => {
     const userId = Number(params.user_id);
     const path = `/api/v1/users/${String(userId)}`;

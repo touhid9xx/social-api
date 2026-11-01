@@ -327,8 +327,10 @@ export const exploreFeedPosts: PostView[] = [
  * `unreadNotificationCount` above advertises, so a badge and the list it points
  * at cannot disagree.
  *
- * Every `type` in `NOTIFICATION_TYPES` except `comment_reply` appears, and the
- * rows deliberately vary in two ways that the UI must handle:
+ * Every user-facing `type` in `NOTIFICATION_TYPES` except `comment_reply` appears
+ * (`admin_new_user` is omitted: it is only ever addressed to an admin, and these
+ * rows stand in for an ordinary inbox), and the rows deliberately vary in two
+ * ways that the UI must handle:
  *  - `target_type` is `post` (linkable, `/posts/{id}`), `user` (linkable,
  *    `/profile/{id}`) and `comment` (NOT linkable: a comment id is not a post
  *    id and there is no comment route);

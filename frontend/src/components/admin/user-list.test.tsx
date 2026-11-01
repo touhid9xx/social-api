@@ -44,6 +44,13 @@ import { UserList } from './user-list';
  * sign in to a verified-only screen. Your own row is asserted to carry no menu at
  * all, and both server refusals are asserted to reach the user as their own copy.
  *
+ * The verification pair is asymmetric on purpose, and pinned that way: vouching
+ * goes to `POST /users/{id}/verify` (never `PATCH { is_verified: true }`, which is
+ * the same silent no-op as `{ is_active: true }` would be), while withdrawing a
+ * vouch stays a `PATCH` because the backend has no `/unverify`. The resend item
+ * must not appear on a confirmed account at all — that request can only answer
+ * `409`, so offering it would be a control that exists to be refused.
+ *
  * (প্রতি সারিতে আলাদা অনুরোধ নয়; 403 মানে "শুধু অ্যাডমিন", ব্যর্থতা নয়।
  * অ্যাক্টিভেট আলাদা এন্ডপয়েন্ট — `is_active` আর `is_verified` একসাথে সেট হয়।)
  */
@@ -398,6 +405,116 @@ describe('UserList', () => {
     expect(patches).toBe(0);
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('User 31 is now active.'));
+  });
+
+  it('marks verified through the named endpoint rather than a PATCH', async () => {
+    const user = userEvent.setup();
+    const verifications: number[] = [];
+    let patches = 0;
+
+    server.use(
+      http.patch('*/api/v1/users/:user_id', () => {
+        patches += 1;
+        return HttpResponse.json(adminDirectory.items[2]);
+      }),
+      http.post('*/api/v1/users/:user_id/verify', ({ params }) => {
+        verifications.push(Number(params.user_id));
+        return HttpResponse.json({ ...adminDirectory.items[2], is_verified: true });
+      }),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    // Row three is the unverified account, so it is the one offering a vouch.
+    await openMenu(user, 'User 31');
+    await user.click(await screen.findByRole('menuitem', { name: /Mark verified/ }));
+
+    await waitFor(() => expect(verifications).toEqual([31]));
+    // `PATCH { is_verified: true }` would work today but skips the endpoint that
+    // owns the rule, so the wire is asserted rather than the visible outcome —
+    // which is identical either way.
+    expect(patches).toBe(0);
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('User 31 is marked verified.'));
+  });
+
+  it('offers the verification link only on an unconfirmed account', async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    // Row two is verified. Mailing it a link can only answer `409`, so the item
+    // must not be there to press.
+    await openMenu(user, 'Tanvir Ahmed');
+    expect(
+      screen.queryByRole('menuitem', { name: /Send verification link/ }),
+    ).not.toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    // Row three is not, so it is exactly the account this control is for.
+    await openMenu(user, 'User 31');
+    expect(screen.getByRole('menuitem', { name: /Send verification link/ })).toBeInTheDocument();
+  });
+
+  it('mails a fresh link without claiming the account is now verified', async () => {
+    const user = userEvent.setup();
+    const resends: number[] = [];
+
+    server.use(
+      http.post('*/api/v1/users/:user_id/resend-verification', ({ params }) => {
+        resends.push(Number(params.user_id));
+        // The account comes back unchanged: the link has been sent, nothing has
+        // been confirmed. Returning `is_verified: true` would be a lie the toast
+        // could then repeat.
+        return HttpResponse.json(adminDirectory.items[2]);
+      }),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'User 31');
+    await user.click(await screen.findByRole('menuitem', { name: /Send verification link/ }));
+
+    await waitFor(() => expect(resends).toEqual([31]));
+
+    // The toast names the masked address — the admin needs to know which inbox to
+    // chase — and stops short of "verified", because it is not.
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('A verification link was sent to s***@gmail.com.'),
+    );
+    expect(screen.getByText('Unverified')).toBeInTheDocument();
+  });
+
+  it('surfaces ALREADY_VERIFIED instead of a generic failure', async () => {
+    const user = userEvent.setup();
+
+    // The row was unverified when the list loaded and someone confirmed it
+    // afterwards, so the console cannot know until the server says so.
+    server.use(
+      http.post('*/api/v1/users/:user_id/resend-verification', () =>
+        HttpResponse.json(
+          errorBody('ALREADY_VERIFIED', 409, '/api/v1/users/31/resend-verification'),
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<UserList />);
+    await ready();
+
+    await openMenu(user, 'User 31');
+    await user.click(await screen.findByRole('menuitem', { name: /Send verification link/ }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'This account is already verified — there is nothing left to confirm.',
+      ),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('changes a role through PATCH and names the new role', async () => {

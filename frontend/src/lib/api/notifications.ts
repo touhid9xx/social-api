@@ -33,9 +33,14 @@ export type UnreadCount = components['schemas']['UnreadCount'];
 export type MarkReadResponse = components['schemas']['MarkReadResponse'];
 
 /**
- * The five kinds the backend can emit. Kept as a union of literals (matching
+ * Every kind the backend can emit. Kept as a union of literals (matching
  * `NotificationTypeLiteral`) so the UI's copy map is exhaustive: adding a type
  * on the server becomes a compile error here instead of a blank row.
+ *
+ * `admin_new_user` is the only staff-facing one — `notify_admins_new_user`
+ * creates it for each admin when someone registers, with the new account as the
+ * actor and `target_type="user"`, so an admin row links to the profile awaiting
+ * review.
  */
 export const NOTIFICATION_TYPES = [
   'follow',
@@ -43,6 +48,7 @@ export const NOTIFICATION_TYPES = [
   'like_comment',
   'comment_post',
   'comment_reply',
+  'admin_new_user',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -62,6 +68,7 @@ export const NOTIFICATION_COPY_KEYS: Record<NotificationType, string> = {
   like_comment: 'types.likeComment',
   comment_post: 'types.commentPost',
   comment_reply: 'types.commentReply',
+  admin_new_user: 'types.adminNewUser',
 };
 
 export type NotificationQuery = {

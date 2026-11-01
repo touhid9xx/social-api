@@ -71,11 +71,23 @@ function serveInbox(items: ApiNotification[], next: string | null = null) {
   );
 }
 
+/**
+ * Waits for the first rendered row.
+ *
+ * The inbox costs two round trips before any text exists — the page itself, then
+ * a profile fetch per actor — so `findByText`'s 1s budget is tight when the whole
+ * suite is running in parallel. Every "wait for the list" assertion goes through
+ * here with a wider window instead of re-timing each call site.
+ */
+function findFirstRow(text: string) {
+  return screen.findByText(text, undefined, { timeout: 5000 });
+}
+
 describe('NotificationList', () => {
   it('renders every row with the actor resolved and a total type map', async () => {
     renderWithProviders(<NotificationList />);
 
-    expect(await screen.findByText('Alice Rahman liked your post')).toBeInTheDocument();
+    expect(await findFirstRow('Alice Rahman liked your post')).toBeInTheDocument();
     expect(screen.getByText('Bashir Hossain started following you')).toBeInTheDocument();
     // Actor 24 has a null `display_name`: the sentence must fall back to
     // "User {id}" rather than render a nameless line.
@@ -91,7 +103,7 @@ describe('NotificationList', () => {
   it('links post and user targets, leaving comment targets unlinked', async () => {
     renderWithProviders(<NotificationList />);
 
-    await screen.findByText('Alice Rahman liked your post');
+    await findFirstRow('Alice Rahman liked your post');
 
     // 301 (like_post) and 303 (comment_post) both target post 101.
     const postLinks = screen
@@ -135,7 +147,7 @@ describe('NotificationList', () => {
     const user = userEvent.setup();
     renderWithProviders(<NotificationList />);
 
-    await screen.findByText('Alice Rahman liked your post');
+    await findFirstRow('Alice Rahman liked your post');
     expect(screen.getAllByText('Unread')).toHaveLength(3);
 
     const [firstMarkRead] = screen.getAllByRole('button', { name: 'Mark as read' });
@@ -176,7 +188,7 @@ describe('NotificationList', () => {
     const user = userEvent.setup();
     renderWithProviders(<NotificationList />);
 
-    await screen.findByText('Alice Rahman liked your post');
+    await findFirstRow('Alice Rahman liked your post');
     await user.click(screen.getByRole('button', { name: 'Mark all as read' }));
 
     await waitFor(() => {
@@ -209,7 +221,7 @@ describe('NotificationList', () => {
     const user = userEvent.setup();
     renderWithProviders(<NotificationList />);
 
-    await screen.findByText('Bashir Hossain started following you');
+    await findFirstRow('Bashir Hossain started following you');
 
     // Row 302 — the follow notification.
     const deleteButtons = screen.getAllByRole('button', { name: 'Delete notification' });
@@ -254,7 +266,7 @@ describe('NotificationList', () => {
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
-    expect(await screen.findByText('Alice Rahman liked your post')).toBeInTheDocument();
+    expect(await findFirstRow('Alice Rahman liked your post')).toBeInTheDocument();
   });
 
   it('reports a failed next page without losing the rows already read', async () => {
@@ -274,7 +286,7 @@ describe('NotificationList', () => {
     const user = userEvent.setup();
     renderWithProviders(<NotificationList />);
 
-    expect(await screen.findByText('Alice Rahman liked your post')).toBeInTheDocument();
+    expect(await findFirstRow('Alice Rahman liked your post')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Load more' }));
 

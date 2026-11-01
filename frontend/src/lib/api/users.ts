@@ -215,6 +215,42 @@ export async function activateAdminUser(userId: number): Promise<AdminUserView> 
 }
 
 /**
+ * `POST /api/v1/users/{user_id}/verify` — vouch for an account by hand.
+ *
+ * The manual half of the emailed link, and deliberately narrower than
+ * `activateAdminUser`: it flips only `is_verified`, leaving the sign-in block
+ * exactly as the operator left it. Confirming an address must not resurrect an
+ * account that was suspended on purpose.
+ *
+ * Idempotent — verifying an already-verified account answers 200 with the
+ * unchanged row rather than 409, so a retry after a dropped response is safe.
+ */
+export async function verifyAdminUser(userId: number): Promise<AdminUserView> {
+  return apiRequest(() =>
+    apiClient.POST('/api/v1/users/{user_id}/verify', { params: { path: { user_id: userId } } }),
+  );
+}
+
+/**
+ * `POST /api/v1/users/{user_id}/resend-verification` — mail a fresh link.
+ *
+ * Sends the same message registration would have sent, in the language the
+ * browser asked for. It does NOT verify anything: the account stays unverified
+ * until the user clicks. Distinct from `verifyAdminUser`, which vouches
+ * immediately — an operator picks which of the two the situation calls for.
+ *
+ * 409 `ALREADY_VERIFIED` when there is nothing to confirm; that is a real
+ * answer, not a failure, so the caller decides whether to show it as an error.
+ */
+export async function resendAdminVerification(userId: number): Promise<AdminUserView> {
+  return apiRequest(() =>
+    apiClient.POST('/api/v1/users/{user_id}/resend-verification', {
+      params: { path: { user_id: userId } },
+    }),
+  );
+}
+
+/**
  * `DELETE /api/v1/users/{user_id}` — soft-delete another account.
  *
  * Not a hard delete, and not the same operation as `DELETE /users/me`: this one

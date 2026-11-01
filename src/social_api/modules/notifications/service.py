@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,6 +127,25 @@ class NotificationsService:
             target_id=post_id,
             preview=excerpt,
         )
+
+    async def notify_admins_new_user(self, *, new_user_id: int, admin_ids: Sequence[int]) -> None:
+        """Tell every admin that an account is waiting for review.
+
+        Registration is the trigger, so there is no human actor to block or
+        dedupe against beyond the new user themselves; the actor is the new
+        account so the inbox row links straight to it (`target_type="user"`).
+        A registration by an admin must not notify that same admin.
+        """
+        for admin_id in dict.fromkeys(admin_ids):
+            if admin_id == new_user_id:
+                continue
+            await self._safe_create(
+                user_id=admin_id,
+                actor_id=new_user_id,
+                type_="admin_new_user",
+                target_type="user",
+                target_id=new_user_id,
+            )
 
     # ---- Internal: create + best-effort WS push ----
     async def _safe_create(

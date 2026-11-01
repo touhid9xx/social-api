@@ -1,5 +1,12 @@
 {
   "admin": {
+    "tabs": {
+      "label": "Staff sections",
+      "dashboard": "Dashboard",
+      "users": "Users",
+      "reports": "Reports",
+      "audit": "Audit log"
+    },
     "reports": {
       "title": "Moderation queue",
       "subtitle": "Review what people reported, and decide what happens next.",
@@ -153,6 +160,8 @@
         "verifyHint": "Records the email as confirmed without sending a message.",
         "unverify": "Mark unverified",
         "unverifyHint": "The account stays usable, but is flagged as unconfirmed.",
+        "resend": "Send verification link",
+        "resendHint": "Emails a fresh link. The account stays unverified until it is clicked.",
         "roleLabel": "Role",
         "roleHint": "Admins can reach this console. Moderators get the report queue.",
         "delete": "Delete account",
@@ -166,6 +175,7 @@
         "deactivated": "{name} is now deactivated.",
         "verified": "{name} is marked verified.",
         "unverified": "{name} is marked unverified.",
+        "resendSent": "A verification link was sent to {masked}.",
         "roleChanged": "{name} is now a {role}.",
         "deleted": "{name} has been deleted.",
         "working": "Saving…"
@@ -593,6 +603,7 @@
     "cannotModifySelf": "You cannot do this to your own account. Ask another admin.",
     "lastAdminProtected": "At least one active admin has to remain, so this account cannot be demoted, deactivated or deleted.",
     "emptyUpdate": "Nothing was changed — pick at least one thing to update.",
+    "alreadyVerified": "This account is already verified — there is nothing left to confirm.",
     "postNotFound": "This post has been removed or does not exist.",
     "commentNotFound": "This comment has been removed or does not exist.",
     "postForbidden": "You cannot change this post.",
@@ -842,7 +853,8 @@
       "likePost": "{name} liked your post",
       "likeComment": "{name} liked your comment",
       "commentPost": "{name} commented on your post",
-      "commentReply": "{name} replied to your comment"
+      "commentReply": "{name} replied to your comment",
+      "adminNewUser": "{name} just signed up and is awaiting review"
     }
   },
   "realtime": {

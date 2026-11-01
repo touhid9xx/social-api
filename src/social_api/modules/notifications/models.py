@@ -28,6 +28,9 @@ class NotificationType(enum.StrEnum):
     LIKE_COMMENT = "like_comment"
     COMMENT_POST = "comment_post"
     COMMENT_REPLY = "comment_reply"
+    # Staff-only: a new account registered and is waiting for manual review.
+    # Recipients are admins, the actor is the freshly registered user.
+    ADMIN_NEW_USER = "admin_new_user"
 
 
 class NotificationTargetType(enum.StrEnum):

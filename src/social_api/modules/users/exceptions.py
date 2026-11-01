@@ -45,6 +45,19 @@ class SelfActionError(AppError):
     message = "You cannot perform this action on your own account"
 
 
+class AlreadyVerifiedError(AppError):
+    """A verification link was requested for an account that is already verified.
+
+    Answering 409 rather than mailing anyway: the link would only flip a flag
+    that is already set, and silently sending mail to an account nobody needs
+    to verify trains operators to ignore a button that appears to work.
+    """
+
+    code = "ALREADY_VERIFIED"
+    status_code = 409
+    message = "This account is already verified"
+
+
 class LastAdminError(AppError):
     """The change would leave the system with zero active admins.
 

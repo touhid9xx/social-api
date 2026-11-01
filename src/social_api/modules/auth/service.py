@@ -108,6 +108,7 @@ class AuthService:
         )
 
         await self._send_verification_email(user=user, locale=locale)
+        await self._notify_admins_of_new_user(user_id=user.id)
 
         return RegisterResponse(
             user=_to_public(user),
@@ -197,6 +198,32 @@ class AuthService:
             user_id=user.id,
             ttl_seconds=settings.email_verify_ttl_seconds,
         )
+
+    async def _notify_admins_of_new_user(self, *, user_id: int) -> None:
+        """Alert every active admin that an account is waiting for review.
+
+        Registration is the only trigger, so a mail outage or an empty admin
+        list must never fail the signup that fired it — the whole call is
+        wrapped, not just the per-row inserts. The row it writes is the only
+        thing that tells staff an unverified account exists: a fresh
+        registration has no `display_name`, and the directory shows a masked
+        email, so the alert is what turns "someone signed up" into an action.
+
+        Imported here rather than at module scope: `notifications.service`
+        reaches into the posts/comments/follows repositories, and auth is the
+        lowest layer in the import graph.
+        """
+        try:
+            from social_api.modules.notifications.service import NotificationsService
+
+            admin_ids = await self._repo.list_active_admin_ids()
+            if not admin_ids:
+                return
+            await NotificationsService(self._s).notify_admins_new_user(
+                new_user_id=user_id, admin_ids=admin_ids
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.warning("admin_new_user_notify_failed", user_id=user_id, error=str(exc))
 
     async def verify_email(self, *, token: str) -> User:
         """Consume a purpose='verify' token and flip `is_verified`.
