@@ -3,6 +3,7 @@
 import {
   Flag,
   Images,
+  LayoutDashboard,
   Loader2,
   LogOut,
   Settings as SettingsIcon,
@@ -143,6 +144,19 @@ export function UserMenu() {
               <Link href={staffHref}>
                 {isAdmin ? <ShieldCheck aria-hidden="true" /> : <Flag aria-hidden="true" />}
                 {isAdmin ? t('adminConsole') : t('moderationQueue')}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+
+          {/* The dashboard is a second admin-only destination next to the console
+              root, not a replacement for it: `staffHref` still points moderators
+              at the report queue, and pointing them here would be a guaranteed
+              403. Same reasoning as above — this is a hint, not the access check. */}
+          {isAdmin ? (
+            <DropdownMenuItem asChild>
+              <Link href={ROUTES.adminDashboard}>
+                <LayoutDashboard aria-hidden="true" />
+                {t('adminDashboard')}
               </Link>
             </DropdownMenuItem>
           ) : null}

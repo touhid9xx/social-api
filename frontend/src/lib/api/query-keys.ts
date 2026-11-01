@@ -138,6 +138,16 @@ export const queryKeys = {
     list: () => ['social', 'flags', 'list'] as const,
   },
 
+  dashboard: {
+    all: ['social', 'dashboard'] as const,
+    /**
+     * The window IS the identity of the read: a 7-day overview is a different
+     * aggregate, not a page of the 30-day one. No cursor, so `listKey()` is not
+     * involved — this is a plain query, not an infinite list.
+     */
+    overview: (windowDays: number) => ['social', 'dashboard', 'overview', windowDays] as const,
+  },
+
   search: {
     all: ['social', 'search'] as const,
     /**

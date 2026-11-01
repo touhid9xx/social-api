@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from social_api.api.v1 import (
+    admin_dashboard,
     audit,
     auth,
     chat,
@@ -40,3 +41,4 @@ api_router.include_router(moderation.router)
 api_router.include_router(audit.router)
 api_router.include_router(gdpr.router)
 api_router.include_router(flags.router)
+api_router.include_router(admin_dashboard.router)

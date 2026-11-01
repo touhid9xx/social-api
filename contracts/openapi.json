@@ -570,6 +570,128 @@
         "title": "ConsentRecord",
         "type": "object"
       },
+      "ContentSummary": {
+        "description": "Volume plus the last N days of posting/commenting/messaging activity.",
+        "properties": {
+          "activity_by_day": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPoint"
+            },
+            "title": "Activity By Day",
+            "type": "array"
+          },
+          "chat_rooms": {
+            "title": "Chat Rooms",
+            "type": "integer"
+          },
+          "comments": {
+            "title": "Comments",
+            "type": "integer"
+          },
+          "comments_in_window": {
+            "title": "Comments In Window",
+            "type": "integer"
+          },
+          "follows": {
+            "title": "Follows",
+            "type": "integer"
+          },
+          "likes": {
+            "title": "Likes",
+            "type": "integer"
+          },
+          "messages": {
+            "title": "Messages",
+            "type": "integer"
+          },
+          "messages_in_window": {
+            "title": "Messages In Window",
+            "type": "integer"
+          },
+          "posts": {
+            "title": "Posts",
+            "type": "integer"
+          },
+          "posts_in_window": {
+            "title": "Posts In Window",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "posts",
+          "comments",
+          "likes",
+          "follows",
+          "chat_rooms",
+          "messages",
+          "posts_in_window",
+          "comments_in_window",
+          "messages_in_window",
+          "activity_by_day"
+        ],
+        "title": "ContentSummary",
+        "type": "object"
+      },
+      "DailyPoint": {
+        "description": "One day of a time series. Days with no rows are omitted, not zero-filled.",
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "value"
+        ],
+        "title": "DailyPoint",
+        "type": "object"
+      },
+      "DashboardOverview": {
+        "description": "Everything the admin dashboard needs, in one response.",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ContentSummary"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageSummary"
+          },
+          "traffic": {
+            "$ref": "#/components/schemas/TrafficSummary"
+          },
+          "users": {
+            "$ref": "#/components/schemas/UsersSummary"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          },
+          "workers": {
+            "$ref": "#/components/schemas/WorkersSummary"
+          }
+        },
+        "required": [
+          "generated_at",
+          "window_days",
+          "users",
+          "content",
+          "storage",
+          "traffic",
+          "workers"
+        ],
+        "title": "DashboardOverview",
+        "type": "object"
+      },
       "DeleteMeResponse": {
         "properties": {
           "hard_delete_after": {
@@ -1400,6 +1522,35 @@
         "title": "NotificationView",
         "type": "object"
       },
+      "PathClassRow": {
+        "description": "Per endpoint-family traffic: volume, errors and latency.",
+        "properties": {
+          "avg_latency_ms": {
+            "title": "Avg Latency Ms",
+            "type": "number"
+          },
+          "error_requests": {
+            "title": "Error Requests",
+            "type": "integer"
+          },
+          "path_class": {
+            "title": "Path Class",
+            "type": "string"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path_class",
+          "requests",
+          "error_requests",
+          "avg_latency_ms"
+        ],
+        "title": "PathClassRow",
+        "type": "object"
+      },
       "PostCreate": {
         "additionalProperties": false,
         "properties": {
@@ -2015,6 +2166,62 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "RegionRow": {
+        "description": "Where requests came from. Country is ISO-3166 alpha-2, NULL when unresolved.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "share": {
+            "description": "Fraction of windowed requests, 0..1",
+            "title": "Share",
+            "type": "number"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "country",
+          "city",
+          "timezone",
+          "requests",
+          "share"
+        ],
+        "title": "RegionRow",
+        "type": "object"
+      },
       "RegisterRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2511,6 +2718,172 @@
         "title": "SearchUserHit",
         "type": "object"
       },
+      "StorageConsumers": {
+        "description": "A single heavy media owner.",
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "media_count": {
+            "title": "Media Count",
+            "type": "integer"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "media_count",
+          "total_bytes"
+        ],
+        "title": "StorageConsumers",
+        "type": "object"
+      },
+      "StorageSummary": {
+        "description": "Media volume from `media.size_bytes`, split by kind and attachment state.",
+        "properties": {
+          "average_bytes_per_user": {
+            "title": "Average Bytes Per User",
+            "type": "integer"
+          },
+          "image_bytes": {
+            "title": "Image Bytes",
+            "type": "integer"
+          },
+          "media_count": {
+            "title": "Media Count",
+            "type": "integer"
+          },
+          "orphan_bytes": {
+            "title": "Orphan Bytes",
+            "type": "integer"
+          },
+          "orphan_count": {
+            "title": "Orphan Count",
+            "type": "integer"
+          },
+          "top_consumers": {
+            "items": {
+              "$ref": "#/components/schemas/StorageConsumers"
+            },
+            "title": "Top Consumers",
+            "type": "array"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          },
+          "users_with_media": {
+            "title": "Users With Media",
+            "type": "integer"
+          },
+          "video_bytes": {
+            "title": "Video Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "media_count",
+          "total_bytes",
+          "image_bytes",
+          "video_bytes",
+          "orphan_count",
+          "orphan_bytes",
+          "users_with_media",
+          "average_bytes_per_user",
+          "top_consumers"
+        ],
+        "title": "StorageSummary",
+        "type": "object"
+      },
+      "TrafficSummary": {
+        "description": "Aggregate request telemetry.\n\n`available` is False when visit analytics is disabled or empty — the\ndashboard renders a \"no data yet\" state instead of a wall of zeros.",
+        "properties": {
+          "authenticated_requests": {
+            "title": "Authenticated Requests",
+            "type": "integer"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "avg_latency_ms": {
+            "title": "Avg Latency Ms",
+            "type": "number"
+          },
+          "by_class": {
+            "items": {
+              "$ref": "#/components/schemas/PathClassRow"
+            },
+            "title": "By Class",
+            "type": "array"
+          },
+          "error_rate": {
+            "title": "Error Rate",
+            "type": "number"
+          },
+          "error_requests": {
+            "title": "Error Requests",
+            "type": "integer"
+          },
+          "p95_latency_ms": {
+            "title": "P95 Latency Ms",
+            "type": "integer"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/RegionRow"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "requests_by_day": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPoint"
+            },
+            "title": "Requests By Day",
+            "type": "array"
+          },
+          "unique_visitors": {
+            "title": "Unique Visitors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "requests",
+          "authenticated_requests",
+          "unique_visitors",
+          "error_requests",
+          "error_rate",
+          "avg_latency_ms",
+          "p95_latency_ms",
+          "requests_by_day",
+          "by_class",
+          "regions"
+        ],
+        "title": "TrafficSummary",
+        "type": "object"
+      },
       "UnreadCount": {
         "properties": {
           "unread": {
@@ -2562,6 +2935,73 @@
           "created_at"
         ],
         "title": "UserPublic",
+        "type": "object"
+      },
+      "UsersSummary": {
+        "description": "Registration and activity counts derived from `users` / `last_login_at`.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "active_last_24h": {
+            "title": "Active Last 24H",
+            "type": "integer"
+          },
+          "active_last_30d": {
+            "title": "Active Last 30D",
+            "type": "integer"
+          },
+          "active_last_7d": {
+            "title": "Active Last 7D",
+            "type": "integer"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "new_in_window": {
+            "title": "New In Window",
+            "type": "integer"
+          },
+          "new_previous_window": {
+            "title": "New Previous Window",
+            "type": "integer"
+          },
+          "signups_by_day": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPoint"
+            },
+            "title": "Signups By Day",
+            "type": "array"
+          },
+          "staff": {
+            "title": "Staff",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "active",
+          "verified",
+          "staff",
+          "deleted",
+          "new_in_window",
+          "new_previous_window",
+          "active_last_24h",
+          "active_last_7d",
+          "active_last_30d",
+          "signups_by_day"
+        ],
+        "title": "UsersSummary",
         "type": "object"
       },
       "ValidationError": {
@@ -2619,6 +3059,25 @@
         ],
         "title": "VerifyEmailRequest",
         "type": "object"
+      },
+      "WorkersSummary": {
+        "description": "Celery broker depth, read straight from Redis.\n\n`available` is False when Redis could not be reached; the panel then shows\n\"unknown\" rather than a misleading zero.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "queue_depth": {
+            "title": "Queue Depth",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "queue_depth"
+        ],
+        "title": "WorkersSummary",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -2635,6 +3094,57 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/dashboard": {
+      "get": {
+        "description": "Admin-only: one-shot overview of users, content, storage and traffic.\n\n`_admin` is deliberately unused in the body — it is the RBAC gate. The\ndependency raises 403 before the handler runs for non-admins.",
+        "operationId": "dashboard_overview_api_v1_admin_dashboard_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window_days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Window Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dashboard Overview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/audit": {
       "get": {
         "description": "Admin-only: full audit log across all users.\n\n`_admin` is deliberately unused in the body — it's the RBAC gate.\nThe dependency raises 403 before the handler runs for non-admins.",

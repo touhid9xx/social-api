@@ -2,7 +2,43 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `e39208d2864d`
+**Generated from commit:** `e0c94bba2d35`
+
+---
+
+
+## admin
+
+### `GET` /api/v1/admin/dashboard
+
+**Summary:** Dashboard Overview
+
+**Auth:** authenticated
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| window_days | query | False | `{"type": "integer", "maximum": 365, "minimum": 1, "default": 30, "title": "Window Days"}` |
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/admin/dashboard
+```
 
 ---
 

@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from social_api.config import get_settings
 from social_api.logging_config import get_logger
+from social_api.modules.analytics import recorder as analytics_recorder
 
 # OTel is optional — bind trace_id when available, stay silent when not.
 _otel_trace: Any = None
@@ -27,6 +28,33 @@ except ImportError:  # pragma: no cover — otel extra not installed
 logger = get_logger(__name__)
 
 RequestHandler = Callable[[Request], Awaitable[Response]]
+
+
+def _record_visit(request: Request, response: Response, elapsed_ms: float) -> None:
+    """Queue one aggregate analytics visit. Best-effort, never affects the response.
+
+    Reads the identity facts from the structlog contextvars that
+    `get_current_user` binds, rather than `request.state` — the latter is only
+    shared with this middleware on some Starlette versions.
+
+    `record_request` itself decides whether the path/consent/sampling rules
+    allow the event; this wrapper only shields the response from any error.
+    """
+    try:
+        ctx = structlog.contextvars.get_contextvars()
+        user_id = ctx.get("user_id")
+        client_ip = ctx.get("client_ip")
+        user_agent = ctx.get("user_agent")
+        analytics_recorder.record_request(
+            path=request.url.path,
+            status_code=response.status_code,
+            latency_ms=round(elapsed_ms),
+            user_id=user_id if isinstance(user_id, int) else None,
+            ip=client_ip if isinstance(client_ip, str) else None,
+            user_agent=user_agent if isinstance(user_agent, str) else None,
+        )
+    except Exception as exc:  # analytics must never fail a request
+        logger.debug("analytics_record_failed", error=type(exc).__name__)
 
 
 def _build_request_context(request: Request, request_id: str) -> dict[str, Any]:
@@ -103,6 +131,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             status=response.status_code,
             latency_ms=round(elapsed_ms, 2),
         )
+        # Before the clear below, so the user_id / client_ip / user_agent
+        # contextvars are still bound when the visit is queued.
+        _record_visit(request, response, elapsed_ms)
         # Clear AFTER request_completed so trace_id/request_id appear on
         # the latency log too. The finally-block clear was the bug: it
         # fired before this log, leaving request_completed without

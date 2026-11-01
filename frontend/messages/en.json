@@ -142,6 +142,110 @@
         "moderator": "Moderator",
         "admin": "Admin"
       }
+    },
+    "dashboard": {
+      "title": "Overview",
+      "subtitle": "Signups, activity, storage and traffic for the whole instance, in one place.",
+      "loading": "Loading the overview…",
+      "windowLabel": "Window",
+      "windowOption": "{days} days",
+      "generatedAt": "Snapshot from {time}",
+      "adminOnlyTitle": "Admins only",
+      "adminOnlyBody": "The overview is limited to administrators. If you think you should have access, ask an administrator.",
+      "errorTitle": "Couldn't load the overview",
+      "errorBody": "The aggregate didn't come back. Check your connection and try again.",
+      "retry": "Try again",
+      "users": {
+        "title": "People",
+        "description": "Registrations and sign-in activity over the last {days} days.",
+        "total": "Accounts",
+        "active": "Active",
+        "verified": "Verified",
+        "staff": "Staff",
+        "deleted": "Deleted",
+        "newInWindow": "New",
+        "previousWindow": "{count} in the previous window",
+        "active24h": "Active 24h",
+        "active7d": "Active 7d",
+        "active30d": "Active 30d",
+        "signupsTitle": "Signups per day",
+        "signupsEmpty": "No signups in this window."
+      },
+      "content": {
+        "title": "Content",
+        "description": "Everything published so far, and how much of it is recent.",
+        "posts": "Posts",
+        "comments": "Comments",
+        "likes": "Likes",
+        "follows": "Follows",
+        "rooms": "Chat rooms",
+        "messages": "Messages",
+        "postsInWindow": "Posts (window)",
+        "commentsInWindow": "Comments (window)",
+        "messagesInWindow": "Messages (window)",
+        "activityTitle": "Activity per day",
+        "activityHint": "Posts, comments and messages combined.",
+        "activityEmpty": "Nothing was written in this window."
+      },
+      "storage": {
+        "title": "Storage",
+        "description": "Media volume from the stored objects, split by kind.",
+        "total": "Total stored",
+        "mediaCount": "Files",
+        "images": "Images",
+        "videos": "Video",
+        "usersWithMedia": "People with media",
+        "averagePerUser": "Average per person",
+        "orphans": "Unattached files",
+        "orphansHint": "{bytes} uploaded but never attached to a post or an avatar.",
+        "topConsumersTitle": "Heaviest accounts",
+        "topConsumersEmpty": "Nobody has uploaded media yet.",
+        "consumerLine": "{count} files",
+        "userFallback": "User {id}"
+      },
+      "traffic": {
+        "title": "Traffic",
+        "description": "Sampled requests recorded over the last {days} days.",
+        "requests": "Requests",
+        "authenticated": "Signed in",
+        "uniqueVisitors": "Unique visitors",
+        "errorRate": "Error rate",
+        "errorsHint": "{count} errors",
+        "avgLatency": "Average latency",
+        "p95Latency": "p95 latency",
+        "requestsTitle": "Requests per day",
+        "requestsEmpty": "No requests were recorded in this window.",
+        "byClassTitle": "By endpoint family",
+        "classColumn": "Family",
+        "requestsColumn": "Requests",
+        "errorsColumn": "Errors",
+        "latencyColumn": "Avg latency",
+        "regionsTitle": "Where requests came from",
+        "regionsEmpty": "No geo data. Install GeoLite2 to resolve countries.",
+        "regionUnknown": "Unknown",
+        "unavailableTitle": "No traffic data yet",
+        "unavailableBody": "Visit analytics is switched off, or nothing has been recorded since it was turned on.",
+        "class": {
+          "auth": "Auth",
+          "feed": "Feed",
+          "posts": "Posts",
+          "comments": "Comments",
+          "media": "Media",
+          "chat": "Chat",
+          "search": "Search",
+          "profile": "Profile",
+          "notifications": "Notifications",
+          "admin": "Admin",
+          "other": "Other"
+        }
+      },
+      "workers": {
+        "title": "Workers",
+        "description": "Jobs waiting in the Celery queue.",
+        "queueDepth": "Queued jobs",
+        "unavailableTitle": "Queue depth unavailable",
+        "unavailableBody": "The broker could not be reached, so this counter is unknown rather than zero."
+      }
     }
   },
   "app": {
@@ -678,7 +782,8 @@
       "settings": "Settings",
       "adminConsole": "Admin console",
       "moderationQueue": "Moderation queue",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "adminDashboard": "Dashboard"
     }
   },
   "notifications": {

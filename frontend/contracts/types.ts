@@ -105,6 +105,34 @@ export interface ConsentRecord {
   revoked_at: string | null;
 }
 
+export interface ContentSummary {
+  posts: number;
+  comments: number;
+  likes: number;
+  follows: number;
+  chat_rooms: number;
+  messages: number;
+  posts_in_window: number;
+  comments_in_window: number;
+  messages_in_window: number;
+  activity_by_day: DailyPoint[];
+}
+
+export interface DailyPoint {
+  day: string;
+  value: number;
+}
+
+export interface DashboardOverview {
+  generated_at: string;
+  window_days: number;
+  users: UsersSummary;
+  content: ContentSummary;
+  storage: StorageSummary;
+  traffic: TrafficSummary;
+  workers: WorkersSummary;
+}
+
 export interface DeleteMeResponse {
   message: string;
   hard_delete_after: string;
@@ -274,6 +302,13 @@ export interface NotificationView {
   created_at: string;
 }
 
+export interface PathClassRow {
+  path_class: string;
+  requests: number;
+  error_requests: number;
+  avg_latency_ms: number;
+}
+
 export interface PostCreate {
   body: string;
   visibility?: string;
@@ -365,6 +400,14 @@ export interface RefreshRequest {
   refresh_token: string;
 }
 
+export interface RegionRow {
+  country: string | null;
+  city: string | null;
+  timezone: string | null;
+  requests: number;
+  share: number;
+}
+
 export interface RegisterRequest {
   email: string;
   password: string;
@@ -452,6 +495,39 @@ export interface SearchUserHit {
   avatar_url?: string | null;
 }
 
+export interface StorageConsumers {
+  user_id: number;
+  display_name: string | null;
+  media_count: number;
+  total_bytes: number;
+}
+
+export interface StorageSummary {
+  media_count: number;
+  total_bytes: number;
+  image_bytes: number;
+  video_bytes: number;
+  orphan_count: number;
+  orphan_bytes: number;
+  users_with_media: number;
+  average_bytes_per_user: number;
+  top_consumers: StorageConsumers[];
+}
+
+export interface TrafficSummary {
+  available: boolean;
+  requests: number;
+  authenticated_requests: number;
+  unique_visitors: number;
+  error_requests: number;
+  error_rate: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  requests_by_day: DailyPoint[];
+  by_class: PathClassRow[];
+  regions: RegionRow[];
+}
+
 export interface UnreadCount {
   unread: number;
 }
@@ -464,6 +540,20 @@ export interface UserPublic {
   created_at: string;
 }
 
+export interface UsersSummary {
+  total: number;
+  active: number;
+  verified: number;
+  staff: number;
+  deleted: number;
+  new_in_window: number;
+  new_previous_window: number;
+  active_last_24h: number;
+  active_last_7d: number;
+  active_last_30d: number;
+  signups_by_day: DailyPoint[];
+}
+
 export interface ValidationError {
   loc: string | number[];
   msg: string;
@@ -474,4 +564,9 @@ export interface ValidationError {
 
 export interface VerifyEmailRequest {
   token: string;
+}
+
+export interface WorkersSummary {
+  available: boolean;
+  queue_depth: number;
 }

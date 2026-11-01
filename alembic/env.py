@@ -25,7 +25,18 @@ from social_api.db.base import Base
 # At M5, add each model module here. At M6 we'll consolidate into a single
 # `social_api.models` registry module so `env.py` never needs touching again.
 # ─────────────────────────────────────────────────────────────────────────
+from social_api.modules.analytics import models as _analytics_models  # noqa: F401
+from social_api.modules.audit import models as _audit_models  # noqa: F401
 from social_api.modules.auth import models as _auth_models  # noqa: F401
+from social_api.modules.chat import models as _chat_models  # noqa: F401
+from social_api.modules.comments import models as _comments_models  # noqa: F401
+from social_api.modules.follows import models as _follows_models  # noqa: F401
+from social_api.modules.gdpr import models as _gdpr_models  # noqa: F401
+from social_api.modules.likes import models as _likes_models  # noqa: F401
+from social_api.modules.media import models as _media_models  # noqa: F401
+from social_api.modules.moderation import models as _moderation_models  # noqa: F401
+from social_api.modules.notifications import models as _notifications_models  # noqa: F401
+from social_api.modules.posts import models as _posts_models  # noqa: F401
 from social_api.modules.users import models as _users_models  # noqa: F401
 
 config = context.config
@@ -36,7 +47,7 @@ if config.config_file_name is not None:
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
-target_metadata = Base.metadata   # NOW populated: users, profiles, user_consent
+target_metadata = Base.metadata  # NOW populated: users, profiles, user_consent
 
 
 def run_migrations_offline() -> None:

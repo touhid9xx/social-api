@@ -1,19 +1,58 @@
-# Local contract snapshot
+# API Contract Bundle
 
-Regenerate with `pnpm sync-api` (or `.\scripts\sync-api.ps1`):
+Auto-generated from commit `e0c94bba2d35` at 2026-11-01T15:39:39.613234+00:00.
 
-| file | origin | consumed by |
-| --- | --- | --- |
-| `openapi.json` | `..\social-api\contracts\openapi.json` | nothing at build time — a snapshot to read |
-| `api_reference.md` | `..\social-api\contracts\api_reference.md` | nothing at build time — read this before touching an endpoint |
-| `types.ts` | `..\social-api\contracts\types.ts` | `src/mocks/{handlers,fixtures}.ts`, via `../../contracts/types` |
+**Do not edit these files by hand.** Regenerate with:
 
-`pnpm gen-types` reads **`../contracts/openapi.json`** (the repo-root copy), not
-the `openapi.json` in this folder — see the `gen-types` script in
-`package.json`. So a stale snapshot here cannot break `pnpm type-check`; it only
-misleads whoever reads it. That is exactly how it drifted before: this table
-used to claim `openapi.json` here was the generator's input, so nobody noticed
-when the copy fell behind the root one. `types.ts` is the exception — it is a
-real import target, so a drift there *does* break the build.
+```powershell
+python scripts/export_api_contract.py
+```
 
-Never hand-edit these files. The backend is the single source of truth.
+## What's here
+
+| File | Purpose |
+|---|---|
+| `openapi.json` | OpenAPI 3.1 spec - machine-readable source of truth |
+| `api_reference.md` | Human-readable endpoint docs |
+| `api_reference.xlsx` | Spreadsheet view for reviews |
+| `types.ts` | TypeScript types generated from the OpenAPI schemas |
+| `index.md` | Landing page - base URL, auth, conventions |
+| `version_manifest.json` | Metadata: generated_at, commit SHA, counts |
+
+## How to consume (frontend project)
+
+### TypeScript (recommended)
+
+Import types directly:
+
+```ts
+import type { Post, User, Comment } from './contracts/types';
+```
+
+Or generate a client with `openapi-typescript`:
+
+```bash
+npx openapi-typescript ./contracts/openapi.json -o ./src/api/schema.ts
+```
+
+### Fetch client (framework-agnostic)
+
+```ts
+const res = await fetch(`${API_BASE}/api/v1/posts`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
+if (!res.ok) {
+  const err = await res.json();
+  throw new ApiError(err.error, err.status, err.detail, err.request_id);
+}
+```
+
+## When this changes
+
+- **Breaking change** -> new `/api/v2/` endpoint, v1 kept alive 12 months
+- **Additive change** (new optional field, new endpoint) -> no version bump, regenerate bundle
+- **Deprecation** -> `Deprecation` + `Sunset` headers on affected endpoints
+
+## Drift prevention
+
+CI runs `scripts/check_api_contract_drift.py` on every push. If `contracts/openapi.json` is stale relative to `src/`, CI fails. Regenerate locally before committing API changes.

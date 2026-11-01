@@ -19,6 +19,7 @@ from social_api.exceptions import register_exception_handlers
 from social_api.i18n import t
 from social_api.logging_config import configure_logging, get_logger
 from social_api.middleware import register_middleware
+from social_api.modules.analytics import recorder as analytics_recorder
 from social_api.modules.idempotency.middleware import IdempotencyMiddleware
 from social_api.observability.health import router as health_router
 from social_api.observability.metrics import setup_metrics
@@ -42,10 +43,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Wire infrastructure
     init_engine()
     init_redis()
+    # Buffered visit recorder — must start after Redis/DB so a flush has
+    # somewhere to write, and must be stopped before them so the final
+    # drain can still reach both.
+    analytics_recorder.start()
 
     try:
         yield
     finally:
+        await analytics_recorder.stop()
         await manager.close_all()
         await close_redis()
         await dispose_engine()

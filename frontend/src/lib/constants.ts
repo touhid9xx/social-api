@@ -21,6 +21,11 @@ export const ROUTES = {
   profile: '/profile',
   admin: '/admin',
   /**
+   * The aggregate overview. Admin-only, exactly like `/admin` and
+   * `/admin/audit`, so it is offered only to the `admin` role.
+   */
+  adminDashboard: '/admin/dashboard',
+  /**
    * The only page a **moderator** can use: `/admin` (flags) and `/admin/audit`
    * are admin-only (`require_roles(UserRole.ADMIN)`), while the report queue
    * accepts `MODERATOR` and `ADMIN`. Linking a moderator to `/admin` would be a

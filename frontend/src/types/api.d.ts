@@ -4,6 +4,29 @@
  */
 
 export interface paths {
+    "/api/v1/admin/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard Overview
+         * @description Admin-only: one-shot overview of users, content, storage and traffic.
+         *
+         *     `_admin` is deliberately unused in the body — it is the RBAC gate. The
+         *     dependency raises 403 before the handler runs for non-admins.
+         */
+        get: operations["dashboard_overview_api_v1_admin_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit": {
         parameters: {
             query?: never;
@@ -1443,6 +1466,63 @@ export interface components {
             /** Revoked At */
             revoked_at: string | null;
         };
+        /**
+         * ContentSummary
+         * @description Volume plus the last N days of posting/commenting/messaging activity.
+         */
+        ContentSummary: {
+            /** Activity By Day */
+            activity_by_day: components["schemas"]["DailyPoint"][];
+            /** Chat Rooms */
+            chat_rooms: number;
+            /** Comments */
+            comments: number;
+            /** Comments In Window */
+            comments_in_window: number;
+            /** Follows */
+            follows: number;
+            /** Likes */
+            likes: number;
+            /** Messages */
+            messages: number;
+            /** Messages In Window */
+            messages_in_window: number;
+            /** Posts */
+            posts: number;
+            /** Posts In Window */
+            posts_in_window: number;
+        };
+        /**
+         * DailyPoint
+         * @description One day of a time series. Days with no rows are omitted, not zero-filled.
+         */
+        DailyPoint: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Value */
+            value: number;
+        };
+        /**
+         * DashboardOverview
+         * @description Everything the admin dashboard needs, in one response.
+         */
+        DashboardOverview: {
+            content: components["schemas"]["ContentSummary"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            storage: components["schemas"]["StorageSummary"];
+            traffic: components["schemas"]["TrafficSummary"];
+            users: components["schemas"]["UsersSummary"];
+            /** Window Days */
+            window_days: number;
+            workers: components["schemas"]["WorkersSummary"];
+        };
         /** DeleteMeResponse */
         DeleteMeResponse: {
             /**
@@ -1740,6 +1820,20 @@ export interface components {
              */
             type: "follow" | "like_post" | "like_comment" | "comment_post" | "comment_reply";
         };
+        /**
+         * PathClassRow
+         * @description Per endpoint-family traffic: volume, errors and latency.
+         */
+        PathClassRow: {
+            /** Avg Latency Ms */
+            avg_latency_ms: number;
+            /** Error Requests */
+            error_requests: number;
+            /** Path Class */
+            path_class: string;
+            /** Requests */
+            requests: number;
+        };
         /** PostCreate */
         PostCreate: {
             /** Body */
@@ -1931,6 +2025,25 @@ export interface components {
         RefreshRequest: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /**
+         * RegionRow
+         * @description Where requests came from. Country is ISO-3166 alpha-2, NULL when unresolved.
+         */
+        RegionRow: {
+            /** City */
+            city: string | null;
+            /** Country */
+            country: string | null;
+            /** Requests */
+            requests: number;
+            /**
+             * Share
+             * @description Fraction of windowed requests, 0..1
+             */
+            share: number;
+            /** Timezone */
+            timezone: string | null;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -2125,6 +2238,75 @@ export interface components {
             /** User Id */
             user_id: number;
         };
+        /**
+         * StorageConsumers
+         * @description A single heavy media owner.
+         */
+        StorageConsumers: {
+            /** Display Name */
+            display_name: string | null;
+            /** Media Count */
+            media_count: number;
+            /** Total Bytes */
+            total_bytes: number;
+            /** User Id */
+            user_id: number;
+        };
+        /**
+         * StorageSummary
+         * @description Media volume from `media.size_bytes`, split by kind and attachment state.
+         */
+        StorageSummary: {
+            /** Average Bytes Per User */
+            average_bytes_per_user: number;
+            /** Image Bytes */
+            image_bytes: number;
+            /** Media Count */
+            media_count: number;
+            /** Orphan Bytes */
+            orphan_bytes: number;
+            /** Orphan Count */
+            orphan_count: number;
+            /** Top Consumers */
+            top_consumers: components["schemas"]["StorageConsumers"][];
+            /** Total Bytes */
+            total_bytes: number;
+            /** Users With Media */
+            users_with_media: number;
+            /** Video Bytes */
+            video_bytes: number;
+        };
+        /**
+         * TrafficSummary
+         * @description Aggregate request telemetry.
+         *
+         *     `available` is False when visit analytics is disabled or empty — the
+         *     dashboard renders a "no data yet" state instead of a wall of zeros.
+         */
+        TrafficSummary: {
+            /** Authenticated Requests */
+            authenticated_requests: number;
+            /** Available */
+            available: boolean;
+            /** Avg Latency Ms */
+            avg_latency_ms: number;
+            /** By Class */
+            by_class: components["schemas"]["PathClassRow"][];
+            /** Error Rate */
+            error_rate: number;
+            /** Error Requests */
+            error_requests: number;
+            /** P95 Latency Ms */
+            p95_latency_ms: number;
+            /** Regions */
+            regions: components["schemas"]["RegionRow"][];
+            /** Requests */
+            requests: number;
+            /** Requests By Day */
+            requests_by_day: components["schemas"]["DailyPoint"][];
+            /** Unique Visitors */
+            unique_visitors: number;
+        };
         /** UnreadCount */
         UnreadCount: {
             /** Unread */
@@ -2152,6 +2334,34 @@ export interface components {
              */
             role: "user" | "moderator" | "admin";
         };
+        /**
+         * UsersSummary
+         * @description Registration and activity counts derived from `users` / `last_login_at`.
+         */
+        UsersSummary: {
+            /** Active */
+            active: number;
+            /** Active Last 24H */
+            active_last_24h: number;
+            /** Active Last 30D */
+            active_last_30d: number;
+            /** Active Last 7D */
+            active_last_7d: number;
+            /** Deleted */
+            deleted: number;
+            /** New In Window */
+            new_in_window: number;
+            /** New Previous Window */
+            new_previous_window: number;
+            /** Signups By Day */
+            signups_by_day: components["schemas"]["DailyPoint"][];
+            /** Staff */
+            staff: number;
+            /** Total */
+            total: number;
+            /** Verified */
+            verified: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2173,6 +2383,19 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * WorkersSummary
+         * @description Celery broker depth, read straight from Redis.
+         *
+         *     `available` is False when Redis could not be reached; the panel then shows
+         *     "unknown" rather than a misleading zero.
+         */
+        WorkersSummary: {
+            /** Available */
+            available: boolean;
+            /** Queue Depth */
+            queue_depth: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -2182,6 +2405,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    dashboard_overview_api_v1_admin_dashboard_get: {
+        parameters: {
+            query?: {
+                window_days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_all_audit_api_v1_audit_get: {
         parameters: {
             query?: {

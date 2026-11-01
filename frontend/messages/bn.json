@@ -142,6 +142,110 @@
         "moderator": "মডারেটর",
         "admin": "অ্যাডমিন"
       }
+    },
+    "dashboard": {
+      "title": "সারসংক্ষেপ",
+      "subtitle": "সাইনআপ, সক্রিয়তা, স্টোরেজ ও ট্রাফিক—পুরো সাইটের এক জায়গায়।",
+      "loading": "সারসংক্ষেপ লোড হচ্ছে…",
+      "windowLabel": "সময়কাল",
+      "windowOption": "{days} দিন",
+      "generatedAt": "{time}-এর স্ন্যাপশট",
+      "adminOnlyTitle": "শুধু অ্যাডমিনের জন্য",
+      "adminOnlyBody": "সারসংক্ষেপ শুধু অ্যাডমিনদের জন্য। প্রবেশাধিকার থাকা উচিত মনে হলে অ্যাডমিনের সঙ্গে কথা বলুন।",
+      "errorTitle": "সারসংক্ষেপ লোড হয়নি",
+      "errorBody": "উত্তর আসেনি। সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন",
+      "users": {
+        "title": "ব্যবহারকারী",
+        "description": "গত {days} দিনের নিবন্ধন ও সাইন-ইন কার্যকলাপ।",
+        "total": "অ্যাকাউন্ট",
+        "active": "সক্রিয়",
+        "verified": "যাচাইকৃত",
+        "staff": "কর্মী",
+        "deleted": "মুছে ফেলা",
+        "newInWindow": "নতুন",
+        "previousWindow": "আগের সময়কালে {count}",
+        "active24h": "২৪ ঘণ্টায় সক্রিয়",
+        "active7d": "৭ দিনে সক্রিয়",
+        "active30d": "৩০ দিনে সক্রিয়",
+        "signupsTitle": "প্রতিদিনের নিবন্ধন",
+        "signupsEmpty": "এই সময়কালে কোনো নিবন্ধন নেই।"
+      },
+      "content": {
+        "title": "কনটেন্ট",
+        "description": "এখন পর্যন্ত প্রকাশিত সবকিছু এবং তার কতটা সাম্প্রতিক।",
+        "posts": "পোস্ট",
+        "comments": "মন্তব্য",
+        "likes": "লাইক",
+        "follows": "ফলো",
+        "rooms": "চ্যাট রুম",
+        "messages": "বার্তা",
+        "postsInWindow": "পোস্ট (সময়কালে)",
+        "commentsInWindow": "মন্তব্য (সময়কালে)",
+        "messagesInWindow": "বার্তা (সময়কালে)",
+        "activityTitle": "প্রতিদিনের কার্যকলাপ",
+        "activityHint": "পোস্ট, মন্তব্য ও বার্তা মিলিয়ে।",
+        "activityEmpty": "এই সময়কালে কিছু লেখা হয়নি।"
+      },
+      "storage": {
+        "title": "স্টোরেজ",
+        "description": "সংরক্ষিত ফাইল থেকে মিডিয়ার আকার, ধরন অনুযায়ী।",
+        "total": "মোট সংরক্ষিত",
+        "mediaCount": "ফাইল",
+        "images": "ছবি",
+        "videos": "ভিডিও",
+        "usersWithMedia": "মিডিয়াসহ ব্যবহারকারী",
+        "averagePerUser": "প্রতি ব্যবহারকারীতে গড়",
+        "orphans": "সংযুক্ত নয় এমন ফাইল",
+        "orphansHint": "{bytes} আপলোড হয়েছে কিন্তু কোনো পোস্ট বা অ্যাভাটারে যুক্ত হয়নি।",
+        "topConsumersTitle": "সবচেয়ে বেশি জায়গা নেওয়া অ্যাকাউন্ট",
+        "topConsumersEmpty": "কেউ এখনো মিডিয়া আপলোড করেনি।",
+        "consumerLine": "{count} ফাইল",
+        "userFallback": "ব্যবহারকারী {id}"
+      },
+      "traffic": {
+        "title": "ট্রাফিক",
+        "description": "গত {days} দিনে রেকর্ড করা নমুনা অনুরোধ।",
+        "requests": "অনুরোধ",
+        "authenticated": "সাইন-ইন করা",
+        "uniqueVisitors": "স্বতন্ত্র দর্শনার্থী",
+        "errorRate": "ত্রুটির হার",
+        "errorsHint": "{count} ত্রুটি",
+        "avgLatency": "গড় বিলম্ব",
+        "p95Latency": "p95 বিলম্ব",
+        "requestsTitle": "প্রতিদিনের অনুরোধ",
+        "requestsEmpty": "এই সময়কালে কোনো অনুরোধ রেকর্ড হয়নি।",
+        "byClassTitle": "এন্ডপয়েন্ট ধরন অনুযায়ী",
+        "classColumn": "ধরন",
+        "requestsColumn": "অনুরোধ",
+        "errorsColumn": "ত্রুটি",
+        "latencyColumn": "গড় বিলম্ব",
+        "regionsTitle": "অনুরোধ কোথা থেকে এসেছে",
+        "regionsEmpty": "ভৌগোলিক তথ্য নেই। দেশ নির্ধারণে GeoLite2 যুক্ত করুন।",
+        "regionUnknown": "অজানা",
+        "unavailableTitle": "এখনো ট্রাফিক তথ্য নেই",
+        "unavailableBody": "ভিজিট অ্যানালিটিক্স বন্ধ, অথবা চালু হওয়ার পর কিছু রেকর্ড হয়নি।",
+        "class": {
+          "auth": "অথ",
+          "feed": "ফিড",
+          "posts": "পোস্ট",
+          "comments": "মন্তব্য",
+          "media": "মিডিয়া",
+          "chat": "চ্যাট",
+          "search": "সার্চ",
+          "profile": "প্রোফাইল",
+          "notifications": "নোটিফিকেশন",
+          "admin": "অ্যাডমিন",
+          "other": "অন্যান্য"
+        }
+      },
+      "workers": {
+        "title": "ওয়ার্কার",
+        "description": "Celery সারিতে অপেক্ষমাণ কাজ।",
+        "queueDepth": "অপেক্ষমাণ কাজ",
+        "unavailableTitle": "সারির গভীরতা পাওয়া যায়নি",
+        "unavailableBody": "ব্রোকারে পৌঁছানো যায়নি, তাই এই সংখ্যা শূন্য নয়—অজানা।"
+      }
     }
   },
   "app": {
@@ -678,7 +782,8 @@
       "settings": "সেটিংস",
       "adminConsole": "অ্যাডমিন কনসোল",
       "moderationQueue": "মডারেশন কিউ",
-      "signOut": "সাইন আউট"
+      "signOut": "সাইন আউট",
+      "adminDashboard": "সারসংক্ষেপ"
     }
   },
   "notifications": {

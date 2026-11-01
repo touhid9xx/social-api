@@ -91,6 +91,30 @@ class Settings(BaseSettings):
     textbee_device_id: str = ""
     sms_timeout_seconds: float = 10.0
 
+    # --- Visit analytics / admin dashboard ---
+    # Recording is consent-gated (ConsentChannel.ANALYTICS) for signed-in users
+    # and stores no raw IP — see modules/analytics. Turning this off makes the
+    # dashboard fall back to "unavailable" rather than erroring.
+    analytics_enabled: bool = True
+    # Fraction of eligible requests to record. 1.0 = every request; lower it on
+    # high-traffic deployments without changing any query.
+    analytics_sample_rate: float = 1.0
+    # Rows older than this are purged by the retention worker.
+    analytics_retention_days: int = 90
+    # Buffered writer: rows are flushed when the buffer fills or this elapses.
+    analytics_flush_seconds: float = 5.0
+    analytics_buffer_size: int = 200
+    # Pepper for the daily one-way visitor hash that feeds the Redis
+    # HyperLogLog unique counters. The hash is never persisted, so a weak
+    # value only weakens the (approximate) uniques estimate — but set a real
+    # secret in production. Empty = derive from `app_name` + UTC day.
+    analytics_hash_salt: str = ""
+
+    # Offline MaxMind GeoLite2 City database. Resolution degrades to `null`
+    # columns (never an error) when the file or the `geoip2` package is absent.
+    geoip_enabled: bool = True
+    geoip_db_path: str = "./data/GeoLite2-City.mmdb"
+
     # --- Observability ---
     log_level: str = "DEBUG"
     log_format: Literal["console", "json"] = "console"

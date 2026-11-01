@@ -33,3 +33,8 @@ class RedisKeys:
     @staticmethod
     def idempotency(key: str) -> str:
         return f"idem:{key}"
+
+    @staticmethod
+    def analytics_unique_visitors(day: str) -> str:
+        """HyperLogLog sketch of distinct visitors for one UTC day (ISO date)."""
+        return f"analytics:uv:{day}"
