@@ -85,6 +85,13 @@ async def get_current_user(
     cu = CurrentUser(user=user, raw_token=token)
     if request is not None:
         request.state.user = user
+        # `request.state` is the only channel that survives the
+        # BaseHTTPMiddleware boundary: this dependency resolves in a child
+        # task with a *copy* of the contextvars context, so the middleware —
+        # which resumes in the outer task after `call_next` — cannot see a
+        # contextvar bound here. The ASGI scope (and therefore request.state)
+        # is shared, so the analytics recorder reads the id from there.
+        request.state.user_id = user.id
         import structlog
 
         structlog.contextvars.bind_contextvars(user_id=user.id)
@@ -116,6 +123,9 @@ async def get_current_user_allow_deleted(
     cu = CurrentUser(user=user, raw_token=token)
     if request is not None:
         request.state.user = user
+        # Same reason as get_current_user: analytics needs this off the ASGI
+        # scope to classify the visit as authenticated.
+        request.state.user_id = user.id
     return cu
 
 

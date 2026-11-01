@@ -33,23 +33,35 @@ RequestHandler = Callable[[Request], Awaitable[Response]]
 def _record_visit(request: Request, response: Response, elapsed_ms: float) -> None:
     """Queue one aggregate analytics visit. Best-effort, never affects the response.
 
-    Reads the identity facts from the structlog contextvars that
-    `get_current_user` binds, rather than `request.state` — the latter is only
-    shared with this middleware on some Starlette versions.
+    Identity is read from `request.state.user_id`, which `get_current_user`
+    sets: this middleware is a BaseHTTPMiddleware, so the endpoint and its
+    dependencies run in a child task with a *copy* of the contextvars
+    context. Anything bound there (`structlog.contextvars.bind_contextvars`)
+    is invisible once `call_next` returns and we resume in the outer task —
+    which is exactly why every visit was previously recorded as anonymous.
+    The ASGI scope is the one object shared across that boundary, so
+    `request.state` is the authoritative source. The contextvars lookup stays
+    as a fallback for routes that bind a user id without touching state.
+
+    client_ip and user_agent are bound by this middleware itself, before
+    `call_next`, so those contextvars *are* visible here.
 
     `record_request` itself decides whether the path/consent/sampling rules
     allow the event; this wrapper only shields the response from any error.
     """
     try:
         ctx = structlog.contextvars.get_contextvars()
-        user_id = ctx.get("user_id")
+        user_id = getattr(request.state, "user_id", None)
+        if not isinstance(user_id, int):
+            candidate = ctx.get("user_id")
+            user_id = candidate if isinstance(candidate, int) else None
         client_ip = ctx.get("client_ip")
         user_agent = ctx.get("user_agent")
         analytics_recorder.record_request(
             path=request.url.path,
             status_code=response.status_code,
             latency_ms=round(elapsed_ms),
-            user_id=user_id if isinstance(user_id, int) else None,
+            user_id=user_id,
             ip=client_ip if isinstance(client_ip, str) else None,
             user_agent=user_agent if isinstance(user_agent, str) else None,
         )
