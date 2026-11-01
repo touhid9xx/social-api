@@ -254,11 +254,15 @@ jobs:
             social-api:test \
             python -c "import social_api.main; print('import ok')"
 
+      # gunicorn is deliberately NOT here: pyproject.toml dropped it (uvicorn
+      # --workers N supervises the app directly — see the `prod` extra comment),
+      # so asserting `gunicorn` fails on a correct image. Keep this list equal
+      # to the binaries the entrypoint actually execs: api/worker/beat/migrate.
       - name: Verify image — CLIs are on PATH
         run: |
           docker run --rm social-api:test sh -c "
             set -e
-            for bin in gunicorn celery alembic; do
+            for bin in uvicorn celery alembic; do
               command -v \$bin >/dev/null || (echo \"missing \$bin\" && exit 1)
               echo \"\$bin: \$(command -v \$bin)\"
             done
@@ -300,16 +304,17 @@ jobs:
           # api will fail to bind DB and stay unhealthy — that's OK,
           # we're proving the process *starts*, not that it serves.
           # Give it 5s, then check the process is alive and log for
-          # the "starting gunicorn" line.
+          # the "starting uvicorn" line.
           sleep 5
           docker logs social-api-smoke 2>&1 | tee /tmp/api.log
           docker stop social-api-smoke || true
           docker rm social-api-smoke || true
 
-          # The process should have reached "starting gunicorn" before
+          # The process should have reached "starting uvicorn" before
           # dying on DB connect. This catches a Dockerfile that forgot
-          # to copy social_api/, entrypoint.sh, or uvicorn deps.
-          if ! grep -q "starting gunicorn" /tmp/api.log; then
-            echo "::error::api failed before logging 'starting gunicorn' — check entrypoint + CMD"
+          # to copy social_api/, entrypoint.sh, or uvicorn deps. The string
+          # comes from deploy/docker-entrypoint.sh's api branch.
+          if ! grep -q "starting uvicorn" /tmp/api.log; then
+            echo "::error::api failed before logging 'starting uvicorn' — check entrypoint + CMD"
             exit 1
           fi
