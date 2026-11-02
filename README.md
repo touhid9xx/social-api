@@ -256,8 +256,12 @@ Redis 7 in Docker.
 | Total sustained RPS | ~3,200 |
 | Error rate | 0.03% |
 
-Reproduce with `.\tests\load\run.ps1` after starting uvicorn. The table is a
-reference point, not a guarantee — replace it with your own measurements.
+Reproduce with `.\tests\load\run.ps1` after starting uvicorn with
+`RATE_LIMIT_ENABLED=false` and seeding the demo accounts
+(`python scripts/seed_demo_data.py`) — the profile signs in as those accounts
+rather than registering, because register/login allow only 5 requests per minute
+per IP. The table is a reference point, not a guarantee — replace it with your
+own measurements.
 
 ## Chaos testing
 
@@ -284,8 +288,8 @@ default, because they stop and restart MySQL/Redis mid-run.
 | E2E flakes on rate limits | 429 on login | Integration conftest disables the limiter; E2E runs under `fake_redis` too |
 | Chaos tests run in normal CI | Hang (no Docker in the job) | `pytest -m chaos` is opt-in; `check_all.ps1` excludes chaos |
 | Chaos leaves infra broken | MySQL stopped after a failed test | `finally:` block restarts services |
-| Locust user creation is slow | 5,000 users × register = 5,000 upfront requests | 30–60 s ramp; acceptable for a 3-minute run |
-| Load test pollutes the DB | ~15 K test users, ~100 K posts | Fresh DB per run: `docker compose down -v && docker compose up -d` |
+| Locust burst of 429s at spawn | Every virtual user trying to register or log in from one IP | Both endpoints are limited to 5/minute per IP. The profile signs in as the 30 seeded demo accounts and caches one token per account per process; run the API with `RATE_LIMIT_ENABLED=false` and seed first (`python scripts/seed_demo_data.py`) |
+| Load test pollutes the DB | Demo accounts accumulate the run's posts, likes and comments | Re-seed with `python scripts/seed_demo_data.py --reset`, or start from a fresh DB |
 | Locust `/metrics` returns 403 | Expecting an auth error | `/metrics` is public; the breaker check is parse-only |
 | Chaos `sleep(32)` is long | Test takes ~40 s | Acceptable for opt-in runs; skipped in normal CI |
 | WS E2E hangs on `ping` | Waiting for a notification that never arrives | Drain loop — `while type == "ping": receive again` |
