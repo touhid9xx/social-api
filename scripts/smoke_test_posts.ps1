@@ -36,6 +36,15 @@ try {
     }
 }
 
+# Registering alone no longer yields a usable account: POST /auth/login
+# answers 403 EMAIL_NOT_VERIFIED until the mailed link is clicked. There is
+# no inbox here, so the CLI flips the flag — same escape hatch as --create.
+$verifyOut = python "$PSScriptRoot\..\promote_user.py" writer@example.com --role user --verify
+if ($LASTEXITCODE -ne 0) {
+    throw "could not verify writer@example.com (is DATABASE_URL set?): $verifyOut"
+}
+Assert-Ok "writer verified"
+
 # ─── 2. Login writer ─────────────────────────────────────────────
 Write-Host ""
 Write-Host "=== 2. Login writer ==="

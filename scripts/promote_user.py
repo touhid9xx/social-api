@@ -1,4 +1,4 @@
-"""Change a user's role (RBAC) from the command line.
+"""Change a user's role (RBAC) or verification flag from the command line.
 
 There is no HTTP endpoint that grants a role on purpose — a self-service
 privilege escalation route would be the single worst thing to expose. Roles
@@ -15,6 +15,11 @@ Usage:
 
     # account exists but you do not know the password (e.g. after a reseed):
     python scripts/promote_user.py me@example.com --reset-password
+
+    # account self-registered over HTTP and still has is_verified=false, so
+    # POST /auth/login answers 403 EMAIL_NOT_VERIFIED (the CLI has no inbox
+    # to click the mailed link from):
+    python scripts/promote_user.py me@example.com --role user --verify
 
 Lookup is by ``email_hash`` (sha256 of the lowercased address), not by the
 encrypted ``email`` column, so it needs no decryption and no PII in query logs.
@@ -87,6 +92,7 @@ async def set_role(
     create: bool,
     password: str,
     reset_password: bool = False,
+    verify: bool = False,
 ) -> int:
     """Set ``role`` on the account owning ``email``. Returns a process exit code."""
     email_hash = _hash(email)
@@ -123,9 +129,24 @@ async def set_role(
             user.role = role
             changes.append(f"{previous.value} -> {role.value}")
 
+        # The gate in AuthService.login() rejects an unverified account, so a
+        # dev-created row needs this to become usable again. Idempotent.
+        if verify and not user.is_verified:
+            user.is_verified = True
+            changes.append("verified")
+
         if not changes:
             print(f"= {email} (user_id={user.id}) is already {role.value}; nothing to do")
             return 0
+
+        if "verified" in changes:
+            await AuditService(session).write(
+                actor_id=user.id,
+                action="VERIFY_EMAIL",
+                entity="user",
+                entity_id=user.id,
+                after={"source": "promote_user.py"},
+            )
 
         await session.commit()
         print(f">> {email} (user_id={user.id}): {', '.join(changes)}")
@@ -161,6 +182,15 @@ def main(argv: list[str] | None = None) -> int:
             "Used after a database reseed, when the stored hash is unknown."
         ),
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help=(
+            "Mark an existing account verified so it can log in. Needed for "
+            "rows created through POST /auth/register in a dev database, which "
+            "the login gate otherwise rejects with 403 EMAIL_NOT_VERIFIED."
+        ),
+    )
     args = parser.parse_args(argv)
     return asyncio.run(
         set_role(
@@ -169,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
             create=args.create,
             password=args.password,
             reset_password=args.reset_password,
+            verify=args.verify,
         )
     )
 

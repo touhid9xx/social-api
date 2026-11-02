@@ -20,8 +20,11 @@ function Assert-Fail {
 Write-Host ""
 Write-Host "=== 1. Register ==="
 
-$reg1 = @{ email = "alice@example.com"; password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
-$reg2 = @{ email = "bob@example.com";   password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
+# Deliberately NOT the seeded demo addresses (alice@example.com, bob@example.com)
+# — those already exist with DemoPass123!, so register would 409 and the login
+# below would 401 on the password rather than exercise this flow.
+$reg1 = @{ email = "alice@smoke.local"; password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
+$reg2 = @{ email = "bob@smoke.local";   password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
 
 try {
     Invoke-RestMethod -Method Post -Uri "$base/api/v1/auth/register" -Body $reg1 -ContentType "application/json" | Out-Null
@@ -41,11 +44,22 @@ try {
     else { throw }
 }
 
+# Registering alone no longer yields a usable account: POST /auth/login
+# answers 403 EMAIL_NOT_VERIFIED until the mailed link is clicked. There is
+# no inbox here, so the CLI flips the flag for both accounts.
+foreach ($email in @("alice@smoke.local", "bob@smoke.local")) {
+    $verifyOut = python "$PSScriptRoot\..\promote_user.py" $email --role user --verify
+    if ($LASTEXITCODE -ne 0) {
+        throw "could not verify $email (is DATABASE_URL set?): $verifyOut"
+    }
+    Assert-Ok "$email verified"
+}
+
 # ─── 2. Login alice ─────────────────────────────────────────────
 Write-Host ""
 Write-Host "=== 2. Login alice ==="
 
-$loginBody = @{ email = "alice@example.com"; password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
+$loginBody = @{ email = "alice@smoke.local"; password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
 $loginResp = Invoke-RestMethod -Method Post -Uri "$base/api/v1/auth/login" -Body $loginBody -ContentType "application/json"
 
 $aliceToken   = $loginResp.tokens.access_token
@@ -106,7 +120,7 @@ try {
 Write-Host ""
 Write-Host "=== 6. Bob views alice's public profile ==="
 
-$loginBob = @{ email = "bob@example.com"; password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
+$loginBob = @{ email = "bob@smoke.local"; password = "Str0ng!Passw0rd" } | ConvertTo-Json -Compress
 $bobResp  = Invoke-RestMethod -Method Post -Uri "$base/api/v1/auth/login" -Body $loginBob -ContentType "application/json"
 $bobToken = $bobResp.tokens.access_token
 

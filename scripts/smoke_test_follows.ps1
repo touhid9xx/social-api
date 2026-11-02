@@ -38,6 +38,17 @@ foreach ($pair in @(@{label="alice"; body=$regA}, @{label="bob"; body=$regB})) {
     }
 }
 
+# Registering alone no longer yields a usable account: POST /auth/login
+# answers 403 EMAIL_NOT_VERIFIED until the mailed link is clicked. There is
+# no inbox here, so the CLI flips the flag for both accounts.
+foreach ($email in @("alice@follow.com", "bob@follow.com")) {
+    $verifyOut = python "$PSScriptRoot\..\promote_user.py" $email --role user --verify
+    if ($LASTEXITCODE -ne 0) {
+        throw "could not verify $email (is DATABASE_URL set?): $verifyOut"
+    }
+    Assert-Ok "$email verified"
+}
+
 # ─── 2. Login both ───────────────────────────────────────────────
 Write-Host ""
 Write-Host "=== 2. Login ==="

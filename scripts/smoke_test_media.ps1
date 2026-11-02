@@ -36,6 +36,14 @@ try {
     }
 }
 
+# POST /auth/login answers 403 EMAIL_NOT_VERIFIED until the mailed link is
+# clicked; there is no inbox here, so the CLI flips the flag.
+$verifyOut = python "$PSScriptRoot\..\promote_user.py" medialive@example.com --role user --verify
+if ($LASTEXITCODE -ne 0) {
+    throw "could not verify medialive@example.com (is DATABASE_URL set?): $verifyOut"
+}
+Assert-Ok "user verified"
+
 # === 2. Login, capture token + user_id ===
 Write-Host ""
 Write-Host "=== 2. Login ==="

@@ -20,8 +20,8 @@ by CI.
 
 **Frontend: complete.** Every screen the client ships is backed by a real endpoint —
 there are no placeholder routes left. The Next.js app in
-[`frontend/`](frontend/README.md) covers the landing page; auth (sign in, sign up,
-verify email, forgot and reset password); home and explore feeds; post detail with
+[`frontend/`](frontend/README.md) covers the landing page; auth (sign up → verify
+email → sign in, forgot and reset password); home and explore feeds; post detail with
 comments; search; profiles with the follow graph, followers/following lists and a
 photo gallery; settings (profile, avatar, consent, GDPR export and account
 deletion); and a staff area with five screens:
@@ -201,6 +201,19 @@ Every seeded account uses the password **`DemoPass123!`**:
 | `alice@example.com` | celebrity — everyone follows her |
 | `bob@example.com`, `carol@example.com` | regular users |
 | …15 more | regular users |
+
+Seeded accounts are stored with `is_verified=True`, so they sign in immediately.
+An account you create yourself — through `POST /auth/register` or the sign-up form —
+cannot: login answers `403 EMAIL_NOT_VERIFIED` until the link in the verification
+message is opened, and so does `POST /auth/refresh` and the WebSocket handshake.
+With no local inbox to click from, flip the flag out-of-band instead:
+
+```powershell
+python scripts/promote_user.py you@example.com --role user --verify
+```
+
+The `scripts/smoke_test_*.ps1` scripts do exactly this for their own throwaway
+accounts.
 
 Avatars are written as real PNG bytes to `MEDIA_ROOT` so `<img src>` works offline;
 use `--avatar external` if you don't serve `/media/*`.
