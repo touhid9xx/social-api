@@ -18,7 +18,12 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { useInView } from '@/hooks/use-in-view';
 import { errorMessageKey } from '@/lib/api';
 import { mediaUrl } from '@/lib/api/media';
-import { NOTIFICATION_COPY_KEYS, type NotificationView } from '@/lib/api/notifications';
+import {
+  NOTIFICATION_COPY_KEYS,
+  SOCIAL_SCOPE,
+  type NotificationScope,
+  type NotificationView,
+} from '@/lib/api/notifications';
 import { ROUTES } from '@/lib/constants';
 import { formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -178,10 +183,20 @@ function NotificationRow({ notification }: { notification: NotificationView }) {
   );
 }
 
-export function NotificationList() {
+/**
+ * One inbox implementation, two scopes.
+ *
+ * `scope` picks the slice: the personal inbox at `/notifications` (`social`, the
+ * default) or the staff alert screen at `/admin/system` (`system`). Everything
+ * below — rows, actions, pagination — is identical, so the only thing that
+ * varies is which query key is read and which copy the empty state uses. Passing
+ * `scope` through to *every* hook matters: a mark-all-read that forgot it would
+ * silently clear the other inbox's badge.
+ */
+export function NotificationList({ scope = SOCIAL_SCOPE }: { scope?: NotificationScope } = {}) {
   const t = useTranslations('notifications');
   const tRoot = useTranslations();
-  const markAll = useMarkAllNotificationsRead();
+  const markAll = useMarkAllNotificationsRead(scope);
   const {
     data,
     isPending,
@@ -193,7 +208,7 @@ export function NotificationList() {
     isFetchingNextPage,
     fetchNextPage,
     isFetchNextPageError,
-  } = useNotifications();
+  } = useNotifications({ scope });
 
   const canLoadMore = hasNextPage && !isFetchingNextPage;
   const sentinelRef = useInView<HTMLDivElement>(() => {
@@ -230,11 +245,16 @@ export function NotificationList() {
   }
 
   if (items.length === 0) {
+    // The social inbox promises likes and followers; the staff inbox would be
+    // lying, so each scope gets its own pair of strings.
+    const emptyTitle = scope === SOCIAL_SCOPE ? t('emptyTitle') : t('emptySystemTitle');
+    const emptyBody = scope === SOCIAL_SCOPE ? t('emptyBody') : t('emptySystemBody');
+
     return (
       <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-8 text-center">
         <BellOff aria-hidden="true" className="size-6 text-muted-foreground" />
-        <h2 className="text-base font-semibold text-foreground">{t('emptyTitle')}</h2>
-        <p className="text-sm text-pretty text-muted-foreground">{t('emptyBody')}</p>
+        <h2 className="text-base font-semibold text-foreground">{emptyTitle}</h2>
+        <p className="text-sm text-pretty text-muted-foreground">{emptyBody}</p>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { Flag, LayoutDashboard, ScrollText, Users } from 'lucide-react';
+import { Flag, LayoutDashboard, ScrollText, ShieldAlert, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -12,9 +12,9 @@ import { cn } from '@/lib/utils';
 /**
  * Section navigation across the staff area.
  *
- * The four screens already existed as independent routes with no shared
- * affordance — the only way from the dashboard to the audit trail was the
- * account menu, one destination at a time. This renders them as one section.
+ * The screens already existed as independent routes with no shared affordance —
+ * the only way from the dashboard to the audit trail was the account menu, one
+ * destination at a time. This renders them as one section.
  *
  * **Links, not Radix `Tabs`.** These are real routes, so they must stay
  * deeplinkable, middle-clickable, openable in a new tab and reachable with the
@@ -37,6 +37,7 @@ const LINKS = [
   { href: ROUTES.adminUsers, key: 'users', Icon: Users, adminOnly: true },
   { href: ROUTES.adminReports, key: 'reports', Icon: Flag, adminOnly: false },
   { href: ROUTES.adminAudit, key: 'audit', Icon: ScrollText, adminOnly: true },
+  { href: ROUTES.adminSystem, key: 'system', Icon: ShieldAlert, adminOnly: true },
 ] as const;
 
 export function AdminTabs() {

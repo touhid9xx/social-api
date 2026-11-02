@@ -6,6 +6,8 @@ import {
   deleteNotification,
   markAllNotificationsRead,
   markNotificationRead,
+  SOCIAL_SCOPE,
+  type NotificationScope,
 } from '@/lib/api/notifications';
 import { queryKeys } from '@/lib/api/query-keys';
 
@@ -21,7 +23,10 @@ import { queryKeys } from '@/lib/api/query-keys';
  * `markAllRead` — same reasoning inverted: the response only says HOW MANY rows
  * changed, not which ones, so every loaded page has to be rewritten from that
  * number (the first `updated` unread rows, matching the backend's oldest-first
- * ordering) and the list is invalidated afterwards so the next read agrees.
+ * ordering) and the list is invalidated afterwards so the next read agrees. It
+ * is SCOPED: "mark all read" on the staff alert screen must not clear the
+ * personal inbox the user has not opened, so both the request and the rewritten
+ * cache entries are limited to the caller's scope.
  *
  * `remove` — no body at all, so the row is dropped from every loaded page and
  * the badge is invalidated.
@@ -33,27 +38,30 @@ export function useMarkNotificationRead() {
     mutationFn: (notificationId: number) => markNotificationRead(notificationId),
 
     onSuccess: (updated) => {
+      // Every scope: a row can be read from either screen, and the id is the
+      // only thing the response identifies — which list it lived in is not sent.
       queryClient.setQueriesData<unknown>(
-        { queryKey: queryKeys.notifications.all },
+        { queryKey: queryKeys.notifications.listRoot() },
         (data: unknown) => replaceNotification(data, updated),
       );
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCountRoot() });
     },
   });
 }
 
-export function useMarkAllNotificationsRead() {
+export function useMarkAllNotificationsRead(scope: NotificationScope = SOCIAL_SCOPE) {
   const queryClient = useQueryClient();
+  const scoped = queryKeys.notifications.listByScope(scope);
 
   return useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead(scope),
 
     onSuccess: ({ updated }) => {
-      queryClient.setQueriesData<unknown>(
-        { queryKey: queryKeys.notifications.all },
-        (data: unknown) => markFirstUnread(data, updated),
+      queryClient.setQueriesData<unknown>({ queryKey: scoped }, (data: unknown) =>
+        markFirstUnread(data, updated),
       );
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+      void queryClient.invalidateQueries({ queryKey: scoped });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount(scope) });
     },
   });
 }
@@ -66,10 +74,10 @@ export function useDeleteNotification() {
 
     onSuccess: (_result, notificationId) => {
       queryClient.setQueriesData<unknown>(
-        { queryKey: queryKeys.notifications.all },
+        { queryKey: queryKeys.notifications.listRoot() },
         (data: unknown) => removeNotification(data, notificationId),
       );
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCountRoot() });
     },
   });
 }

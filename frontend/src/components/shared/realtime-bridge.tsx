@@ -5,7 +5,11 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { useWsEvent } from '@/hooks/use-websocket';
-import { NOTIFICATION_COPY_KEYS, type NotificationView } from '@/lib/api/notifications';
+import {
+  NOTIFICATION_COPY_KEYS,
+  scopeOfNotification,
+  type NotificationView,
+} from '@/lib/api/notifications';
 import { queryKeys } from '@/lib/api/query-keys';
 
 /**
@@ -98,14 +102,21 @@ export function RealtimeBridge() {
     const data = event.data;
 
     if (data.kind === undefined) {
+      // The frame carries no `scope`, so the kind decides which inbox it belongs
+      // to: an `admin_new_user` alert is staff traffic and must land on the
+      // console's cache entry, never among the recipient's follows and likes.
+      const scope = scopeOfNotification(data.type);
+
       // `cached` is annotated because `setQueriesData`'s updater parameter does
       // not resolve from the generic here (same shape as `use-room-live`).
       queryClient.setQueriesData<unknown>(
-        { queryKey: queryKeys.notifications.all },
+        { queryKey: queryKeys.notifications.listByScope(scope) },
         (cached: unknown) => prependNotification(cached, data),
       );
 
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.unreadCount(scope),
+      });
 
       // The frame carries `actor_id`, not a name, and firing a profile request per
       // notification would be worse than the fallback the inbox already shows.
@@ -141,17 +152,26 @@ export function RealtimeBridge() {
   });
 
   useWsEvent('unread_count', (event) => {
-    const { unread } = event.data;
-    const key = queryKeys.notifications.unreadCount();
+    const { unread, scope } = event.data;
 
     if (typeof unread === 'number') {
-      // Authoritative after `mark_all_read` — the only absolute the server sends.
-      queryClient.setQueryData(key, { unread });
+      // Authoritative after `mark_all_read` — the only absolute the server sends,
+      // and it is per scope: clearing the staff console leaves the personal badge
+      // untouched. Writing it to an unscoped key would move both.
+      if (scope) {
+        queryClient.setQueryData(queryKeys.notifications.unreadCount(scope), { unread });
+      } else {
+        // A delta-shaped frame from an older server, or one that cannot name its
+        // counter: refetch every badge rather than guess which is zero.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCountRoot() });
+      }
       return;
     }
 
     if (typeof event.data.unread_delta === 'number') {
-      void queryClient.invalidateQueries({ queryKey: key });
+      // mark-read does not know which scope the row came from, so all badges are
+      // revalidated. One extra request is cheaper than a stale number.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCountRoot() });
     }
   });
 

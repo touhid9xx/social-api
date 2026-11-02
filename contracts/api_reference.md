@@ -2,7 +2,7 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `fd64edc359aa`
+**Generated from commit:** `b1803b6b9c95`
 
 ---
 
@@ -2159,6 +2159,7 @@ curl -X PATCH -H "Content-Type: application/json" -H "Authorization: Bearer $TOK
 | unread_only | query | False | `{"type": "boolean", "default": false, "title": "Unread Only"}` |
 | cursor | query | False | `{"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Cursor"}` |
 | limit | query | False | `{"anyOf": [{"type": "integer", "maximum": 50, "minimum": 1}, {"type": "null"}], "title": "Limit"}` |
+| scope | query | False | `{"enum": ["all", "social", "system"], "type": "string", "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).", "default": "all", "title": "Scope"}` |
 
 
 **Responses:**
@@ -2184,12 +2185,20 @@ curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN
 
 **Rate limit:** —
 
-**Errors:** —
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| scope | query | False | `{"enum": ["all", "social", "system"], "type": "string", "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).", "default": "all", "title": "Scope"}` |
 
 
 **Responses:**
 
 - `200` — Successful Response
+- `422` — Validation Error
 
 
 **Example:**
@@ -2209,12 +2218,20 @@ curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKE
 
 **Rate limit:** —
 
-**Errors:** —
+**Errors:** 422
+
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|---|---|---|---|
+| scope | query | False | `{"enum": ["all", "social", "system"], "type": "string", "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).", "default": "all", "title": "Scope"}` |
 
 
 **Responses:**
 
 - `200` — Successful Response
+- `422` — Validation Error
 
 
 **Example:**

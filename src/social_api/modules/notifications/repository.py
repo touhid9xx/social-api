@@ -4,16 +4,31 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import ColumnElement, and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from social_api.db.helpers import execute_dml
 from social_api.modules.notifications.models import (
+    SYSTEM_NOTIFICATION_TYPES,
     Notification,
     NotificationTargetType,
     NotificationType,
 )
+
+
+def _scope_clause(scope: str) -> ColumnElement[bool] | None:
+    """SQL predicate for a `NotificationScopeLiteral`, or `None` for "all".
+
+    Expressed as `IN`/`NOT IN` over the system types rather than an enumerated
+    allow-list for the social side: a new person-to-person type joins the social
+    inbox automatically, and only the staff-only types have to be listed here.
+    """
+    if scope == "system":
+        return Notification.type.in_(SYSTEM_NOTIFICATION_TYPES)
+    if scope == "social":
+        return Notification.type.not_in(SYSTEM_NOTIFICATION_TYPES)
+    return None
 
 
 class NotificationsRepository:
@@ -71,11 +86,15 @@ class NotificationsRepository:
         cursor_ts: datetime | None,
         cursor_id: int | None,
         limit: int,
+        scope: str = "all",
     ) -> list[Notification]:
         stmt = select(Notification).where(
             Notification.user_id == user_id,
             Notification.deleted_at.is_(None),
         )
+        scoped = _scope_clause(scope)
+        if scoped is not None:
+            stmt = stmt.where(scoped)
         if unread_only:
             stmt = stmt.where(Notification.is_read.is_(False))
         if cursor_ts is not None and cursor_id is not None:
@@ -93,7 +112,7 @@ class NotificationsRepository:
         res = await self._s.execute(stmt)
         return list(res.scalars().all())
 
-    async def unread_count(self, *, user_id: int) -> int:
+    async def unread_count(self, *, user_id: int, scope: str = "all") -> int:
         stmt = (
             select(func.count())
             .select_from(Notification)
@@ -103,6 +122,9 @@ class NotificationsRepository:
                 Notification.deleted_at.is_(None),
             )
         )
+        scoped = _scope_clause(scope)
+        if scoped is not None:
+            stmt = stmt.where(scoped)
         res = await self._s.execute(stmt)
         return int(res.scalar_one())
 
@@ -116,7 +138,7 @@ class NotificationsRepository:
             await self._s.flush()
         return row
 
-    async def mark_all_read(self, *, user_id: int) -> int:
+    async def mark_all_read(self, *, user_id: int, scope: str = "all") -> int:
         now = datetime.now(UTC).replace(tzinfo=None)
         stmt = (
             update(Notification)
@@ -127,6 +149,9 @@ class NotificationsRepository:
             )
             .values(is_read=True, read_at=now)
         )
+        scoped = _scope_clause(scope)
+        if scoped is not None:
+            stmt = stmt.where(scoped)
         return await execute_dml(self._s, stmt)
 
     async def soft_delete(self, *, user_id: int, notif_id: int) -> bool:

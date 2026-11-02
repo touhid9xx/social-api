@@ -66,8 +66,13 @@ async def push_unread_delta(*, user_id: int, delta: int) -> None:
         )
 
 
-async def push_unread_reset(*, user_id: int) -> None:
-    """Push authoritative unread=0 (after mark_all_read)."""
+async def push_unread_reset(*, user_id: int, scope: str = "all") -> None:
+    """Push authoritative unread=0 (after mark_all_read).
+
+    `scope` names WHICH counter was cleared: an inbox scoped to `social` is
+    already zero while the `system` one may still hold unread row alerts, so the
+    client cannot spread one absolute number across every badge it renders.
+    """
     if not get_flags().is_enabled("ws_enabled"):
         return
     try:
@@ -75,7 +80,10 @@ async def push_unread_reset(*, user_id: int) -> None:
         await publish_to_user(
             redis=redis,
             user_id=user_id,
-            payload=build_event(type_="unread_count", data={"unread": 0}),
+            payload=build_event(
+                type_="unread_count",
+                data={"unread": 0, "scope": scope},
+            ),
         )
     except Exception as exc:  # pragma: no cover — defensive
         logger.warning(

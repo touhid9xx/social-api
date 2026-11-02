@@ -100,15 +100,29 @@ function inboxRow(id: number) {
   };
 }
 
-function seedInbox(ids: number[]): void {
-  client().setQueryData(queryKeys.notifications.list(), {
-    pages: [{ items: ids.map((id) => inboxRow(id)), next_cursor: 'cursor-1' }],
+/** The staff variant: `admin_new_user`, the one `SYSTEM_NOTIFICATION_TYPES` member. */
+function systemRow(id: number) {
+  return { ...inboxRow(id), type: 'admin_new_user' };
+}
+
+/**
+ * Seed one scope's inbox. The key is built through `list({ scope })`, i.e. the
+ * exact key `useNotifications` uses, so a prefix write that misses it fails here
+ * rather than in production.
+ */
+function seedInbox(
+  ids: number[],
+  scope: string = 'social',
+  make: (id: number) => { id: number } = inboxRow,
+): void {
+  client().setQueryData(queryKeys.notifications.list({ scope }), {
+    pages: [{ items: ids.map(make), next_cursor: 'cursor-1' }],
     pageParams: [null],
   });
 }
 
-function cachedInbox(): CachedInbox {
-  return client().getQueryData(queryKeys.notifications.list()) as CachedInbox;
+function cachedInbox(scope: string = 'social'): CachedInbox {
+  return client().getQueryData(queryKeys.notifications.list({ scope })) as CachedInbox;
 }
 
 function isInvalidated(key: readonly unknown[]): boolean {
@@ -171,6 +185,38 @@ describe('<RealtimeBridge> — an inbox notification', () => {
     expect(toastMessage).toHaveBeenCalledWith('New notification', {
       description: 'User 23 started following you',
     });
+  });
+
+  it('routes an admin_new_user row to the staff inbox and nowhere else', async () => {
+    const open = mount();
+    seedInbox([11]);
+    seedInbox([21], 'system', systemRow);
+    const socialKey = queryKeys.notifications.unreadCount('social');
+    const systemKey = queryKeys.notifications.unreadCount('system');
+    client().setQueryData(socialKey, { unread: 4 });
+    client().setQueryData(systemKey, { unread: 2 });
+
+    deliver(open, { type: 'notification', ts: TS, data: systemRow(22) });
+
+    // The frame carries no scope, so the type has to decide: staff traffic must
+    // never appear among the recipient's follows and likes.
+    expect(cachedInbox('system').pages[0]?.items.map((item) => item.id)).toEqual([22, 21]);
+    expect(cachedInbox('social').pages[0]?.items.map((item) => item.id)).toEqual([11]);
+
+    // Only the staff badge is stale; the personal one did not move.
+    await waitFor(() => expect(isInvalidated(systemKey)).toBe(true));
+    expect(isInvalidated(socialKey)).toBe(false);
+  });
+
+  it('leaves a person-to-person row out of the staff inbox', () => {
+    const open = mount();
+    seedInbox([11]);
+    seedInbox([21], 'system', systemRow);
+
+    deliver(open, { type: 'notification', ts: TS, data: inboxRow(12) });
+
+    expect(cachedInbox('social').pages[0]?.items.map((item) => item.id)).toEqual([12, 11]);
+    expect(cachedInbox('system').pages[0]?.items.map((item) => item.id)).toEqual([21]);
   });
 });
 
@@ -251,14 +297,30 @@ describe('<RealtimeBridge> — the kind-tagged payloads', () => {
 });
 
 describe('<RealtimeBridge> — unread_count', () => {
-  it('applies an absolute count straight to the cache', () => {
+  it('applies a scoped absolute count to that badge only', () => {
     const open = mount();
-    const unreadKey = queryKeys.notifications.unreadCount();
-    client().setQueryData(unreadKey, { unread: 4 });
+    const socialKey = queryKeys.notifications.unreadCount('social');
+    const systemKey = queryKeys.notifications.unreadCount('system');
+    client().setQueryData(socialKey, { unread: 4 });
+    client().setQueryData(systemKey, { unread: 2 });
 
-    deliver(open, { type: 'unread_count', ts: TS, data: { unread: 7 } });
+    deliver(open, { type: 'unread_count', ts: TS, data: { unread: 7, scope: 'social' } });
 
-    expect(client().getQueryData(unreadKey)).toEqual({ unread: 7 });
+    expect(client().getQueryData(socialKey)).toEqual({ unread: 7 });
+    // An absolute is per counter; clearing one screen must not move the other.
+    expect(client().getQueryData(systemKey)).toEqual({ unread: 2 });
+  });
+
+  it('refetches rather than guess when the frame names no counter', async () => {
+    const open = mount();
+    const socialKey = queryKeys.notifications.unreadCount('social');
+    client().setQueryData(socialKey, { unread: 4 });
+
+    deliver(open, { type: 'unread_count', ts: TS, data: { unread: 3 } });
+
+    // Which badge does 3 belong to? Unknowable, so the number is not trusted.
+    await waitFor(() => expect(isInvalidated(socialKey)).toBe(true));
+    expect(client().getQueryData(socialKey)).toEqual({ unread: 4 });
   });
 
   it('refetches on a delta rather than doing the arithmetic itself', async () => {

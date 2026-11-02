@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import type { NotificationPage } from '@/lib/api/notifications';
+import { SYSTEM_SCOPE, type NotificationPage } from '@/lib/api/notifications';
 import { renderWithProviders } from '@/lib/testing/render';
 import { FIXTURE_NOW, notifications } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
@@ -244,6 +244,29 @@ describe('NotificationList', () => {
 
     expect(await screen.findByText('Nothing to catch up on')).toBeInTheDocument();
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('shows the staff empty copy and asks for the system slice', async () => {
+    // The system screen is the same component over `?scope=system`. Two things
+    // must differ from the personal inbox: the query it sends (otherwise the
+    // staff screen would show social traffic) and the empty copy (promising
+    // likes and followers to staff would be a lie).
+    let seenScope: string | null = null;
+
+    server.use(
+      http.get(`*${LIST_PATH}`, ({ request }) => {
+        seenScope = new URL(request.url).searchParams.get('scope');
+        const body: NotificationPage = { items: [], next_cursor: null };
+        return HttpResponse.json(body);
+      }),
+    );
+
+    renderWithProviders(<NotificationList scope={SYSTEM_SCOPE} />);
+
+    expect(await screen.findByText('No system alerts')).toBeInTheDocument();
+    expect(screen.getByText(/Operational alerts/)).toBeInTheDocument();
+    expect(screen.queryByText('Nothing to catch up on')).toBeNull();
+    expect(seenScope).toBe(SYSTEM_SCOPE);
   });
 
   it('shows a page-level error whose retry recovers the inbox', async () => {

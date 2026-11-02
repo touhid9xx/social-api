@@ -5969,6 +5969,23 @@
               ],
               "title": "Limit"
             }
+          },
+          {
+            "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).",
+              "enum": [
+                "all",
+                "social",
+                "system"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6007,6 +6024,25 @@
     "/api/v1/notifications/read-all": {
       "post": {
         "operationId": "mark_all_read_api_v1_notifications_read_all_post",
+        "parameters": [
+          {
+            "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).",
+              "enum": [
+                "all",
+                "social",
+                "system"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6017,6 +6053,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -6033,6 +6079,25 @@
     "/api/v1/notifications/unread-count": {
       "get": {
         "operationId": "unread_count_api_v1_notifications_unread_count_get",
+        "parameters": [
+          {
+            "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`).",
+              "enum": [
+                "all",
+                "social",
+                "system"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6043,6 +6108,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [

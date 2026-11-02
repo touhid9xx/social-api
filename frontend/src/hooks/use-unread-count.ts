@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { getUnreadCount } from '@/lib/api/notifications';
+import { getUnreadCount, SOCIAL_SCOPE, type NotificationScope } from '@/lib/api/notifications';
 import { queryKeys } from '@/lib/api/query-keys';
 import { useSessionStore } from '@/lib/api/tokens';
 
@@ -16,19 +16,25 @@ import { useSessionStore } from '@/lib/api/tokens';
  * would silently cap at the page size. `GET /notifications/unread-count`
  * answers exactly the question asked.
  *
+ * The count is PER SCOPE. The nav badge asks for `social`, the same slice its
+ * inbox shows, so a number on screen can always be cleared by opening the list
+ * it points at; the staff alert screen counts `system` separately. Each scope is
+ * its own cache entry (`queryKeys.notifications.unreadCount(scope)`), and the
+ * `unreadCountRoot()` prefix invalidates all of them at once.
+ *
  * `enabled` on an access token because the nav sits in the shell, outside the
  * session guard: without a token the request would be a guaranteed 401 on the
  * landing page and every sign-in screen.
  *
- * No polling. There is a WebSocket module but no client yet (F16); a `refetch`
- * on focus keeps the number honest without a timer.
+ * No polling. A `refetch` on focus keeps the number honest without a timer; live
+ * changes arrive over the WebSocket bridge.
  */
-export function useUnreadCount() {
+export function useUnreadCount(scope: NotificationScope = SOCIAL_SCOPE) {
   const accessToken = useSessionStore((state) => state.accessToken);
 
   return useQuery({
-    queryKey: queryKeys.notifications.unreadCount(),
-    queryFn: getUnreadCount,
+    queryKey: queryKeys.notifications.unreadCount(scope),
+    queryFn: () => getUnreadCount(scope),
     enabled: Boolean(accessToken),
     refetchOnWindowFocus: true,
   });

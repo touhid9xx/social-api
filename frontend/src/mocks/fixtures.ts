@@ -388,6 +388,45 @@ export const notifications: NotificationView[] = [
 export const unreadNotificationCount = { unread: 3 };
 
 /**
+ * The staff slice of the same endpoint (`?scope=system`).
+ *
+ * Kept separate from `notifications` on purpose: the personal inbox fixtures
+ * stand in for an ordinary user's account, and mixing an `admin_new_user` row in
+ * would make every existing inbox test exercise the scope split by accident.
+ * These rows exist so the `/admin/system` screen — and the `?scope=` handler
+ * branch — has something real to render.
+ *
+ * One unread, one read, so "mark all read" and the badge both have a story.
+ */
+export const systemNotifications: NotificationView[] = [
+  {
+    id: 401,
+    type: 'admin_new_user',
+    target_type: 'user',
+    target_id: 31,
+    actor_id: 31,
+    is_read: false,
+    read_at: null,
+    preview: null,
+    created_at: '2026-01-15T09:58:00.000Z',
+  },
+  {
+    id: 402,
+    type: 'admin_new_user',
+    target_type: 'user',
+    target_id: 32,
+    actor_id: 32,
+    is_read: true,
+    read_at: '2026-01-15T09:30:00.000Z',
+    preview: null,
+    created_at: '2026-01-15T09:20:00.000Z',
+  },
+];
+
+/** One of the two staff rows above is unread. */
+export const unreadSystemNotificationCount = { unread: 1 };
+
+/**
  * Follow status, VIEWER-RELATIVE to the signed-in admin (user 21).
  *
  * `GET /users/{id}/follow-status` answers for the caller, so a shared value

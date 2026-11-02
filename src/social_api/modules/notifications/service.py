@@ -221,6 +221,7 @@ class NotificationsService:
         unread_only: bool,
         cursor: str | None,
         limit: int | None,
+        scope: str = "all",
     ) -> NotificationPage:
         lmt = clamp_limit(limit)
 
@@ -240,6 +241,7 @@ class NotificationsService:
             cursor_ts=cts,
             cursor_id=cid,
             limit=lmt,
+            scope=scope,
         )
 
         next_cursor: str | None = None
@@ -253,8 +255,8 @@ class NotificationsService:
             next_cursor=next_cursor,
         )
 
-    async def unread_count(self, *, user_id: int) -> UnreadCount:
-        n = await self._repo.unread_count(user_id=user_id)
+    async def unread_count(self, *, user_id: int, scope: str = "all") -> UnreadCount:
+        n = await self._repo.unread_count(user_id=user_id, scope=scope)
         return UnreadCount(unread=n)
 
     async def mark_read(self, *, user_id: int, notif_id: int) -> NotificationView:
@@ -283,15 +285,15 @@ class NotificationsService:
 
         return _to_view(updated)
 
-    async def mark_all_read(self, *, user_id: int) -> MarkReadResponse:
-        n = await self._repo.mark_all_read(user_id=user_id)
+    async def mark_all_read(self, *, user_id: int, scope: str = "all") -> MarkReadResponse:
+        n = await self._repo.mark_all_read(user_id=user_id, scope=scope)
         if n > 0:
             try:
                 from social_api.modules.notifications.realtime import (
                     push_unread_reset,
                 )
 
-                await push_unread_reset(user_id=user_id)
+                await push_unread_reset(user_id=user_id, scope=scope)
             except Exception as exc:  # pragma: no cover — defensive
                 logger.warning(
                     "ws_push_read_all_failed",

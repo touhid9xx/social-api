@@ -71,6 +71,54 @@ export const NOTIFICATION_COPY_KEYS: Record<NotificationType, string> = {
   admin_new_user: 'types.adminNewUser',
 };
 
+/**
+ * Which slice of the inbox a read or write applies to.
+ *
+ * `admin_new_user` is operational traffic aimed at staff, not social activity,
+ * so it is deliberately excluded from the personal inbox: an admin should not
+ * find "someone signed up" between a follow and a like. The backend owns that
+ * split (`SYSTEM_NOTIFICATION_TYPES` in `notifications/models.py`) and exposes
+ * it as a `scope` filter rather than a second table.
+ *
+ * `all` stays the server default so every other consumer can ignore this.
+ */
+export const NOTIFICATION_SCOPES = ['all', 'social', 'system'] as const;
+
+export type NotificationScope = (typeof NOTIFICATION_SCOPES)[number];
+
+/** The scope the personal inbox (`/notifications`) and its badge render. */
+export const SOCIAL_SCOPE: NotificationScope = 'social';
+
+/** The scope the staff alert screen (`/admin/system`) renders. */
+export const SYSTEM_SCOPE: NotificationScope = 'system';
+
+/**
+ * The kinds that belong to the staff console rather than the personal inbox.
+ *
+ * Mirrors `SYSTEM_NOTIFICATION_TYPES` in `notifications/models.py` — the backend
+ * is authoritative for *filtering*, but a pushed WebSocket row arrives with no
+ * `scope` field, so the client has to classify it to know which cache entry to
+ * prepend into. Keeping the list here means a new staff type is one edit, and
+ * `scopeOf()` stays total because it is a `Record` over the union.
+ */
+export const SYSTEM_NOTIFICATION_TYPES = ['admin_new_user'] as const;
+
+export type SystemNotificationType = (typeof SYSTEM_NOTIFICATION_TYPES)[number];
+
+const NOTIFICATION_SCOPE_BY_TYPE: Record<NotificationType, NotificationScope> = {
+  follow: SOCIAL_SCOPE,
+  like_post: SOCIAL_SCOPE,
+  like_comment: SOCIAL_SCOPE,
+  comment_post: SOCIAL_SCOPE,
+  comment_reply: SOCIAL_SCOPE,
+  admin_new_user: SYSTEM_SCOPE,
+};
+
+/** Which inbox a notification of this kind lives in. */
+export function scopeOfNotification(type: NotificationType): NotificationScope {
+  return NOTIFICATION_SCOPE_BY_TYPE[type];
+}
+
 export type NotificationQuery = {
   /** Opaque cursor from the previous page. `null`/omitted asks for the first. */
   cursor?: string | null;
@@ -78,22 +126,29 @@ export type NotificationQuery = {
   limit?: number;
   /** When true the backend skips read rows — used by the "Unread" filter. */
   unreadOnly?: boolean;
+  /** Which slice to list: `all` (server default), `social`, or `system`. */
+  scope?: NotificationScope;
 };
 
 export async function getNotifications({
   cursor = null,
   limit = DEFAULT_PAGE_SIZE,
   unreadOnly = false,
+  scope = SOCIAL_SCOPE,
 }: NotificationQuery = {}): Promise<NotificationPage> {
   return apiRequest(() =>
     apiClient.GET('/api/v1/notifications', {
-      params: { query: { cursor, limit, unread_only: unreadOnly } },
+      params: { query: { cursor, limit, unread_only: unreadOnly, scope } },
     }),
   );
 }
 
-export async function getUnreadCount(): Promise<UnreadCount> {
-  return apiRequest(() => apiClient.GET('/api/v1/notifications/unread-count'));
+export async function getUnreadCount(
+  scope: NotificationScope = SOCIAL_SCOPE,
+): Promise<UnreadCount> {
+  return apiRequest(() =>
+    apiClient.GET('/api/v1/notifications/unread-count', { params: { query: { scope } } }),
+  );
 }
 
 export async function markNotificationRead(notificationId: number): Promise<NotificationView> {
@@ -104,8 +159,12 @@ export async function markNotificationRead(notificationId: number): Promise<Noti
   );
 }
 
-export async function markAllNotificationsRead(): Promise<MarkReadResponse> {
-  return apiRequest(() => apiClient.POST('/api/v1/notifications/read-all'));
+export async function markAllNotificationsRead(
+  scope: NotificationScope = SOCIAL_SCOPE,
+): Promise<MarkReadResponse> {
+  return apiRequest(() =>
+    apiClient.POST('/api/v1/notifications/read-all', { params: { query: { scope } } }),
+  );
 }
 
 export async function deleteNotification(notificationId: number): Promise<void> {

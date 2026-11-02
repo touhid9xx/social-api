@@ -4196,6 +4196,8 @@ export interface operations {
                 unread_only?: boolean;
                 cursor?: string | null;
                 limit?: number | null;
+                /** @description Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`). */
+                scope?: "all" | "social" | "system";
             };
             header?: never;
             path?: never;
@@ -4225,7 +4227,10 @@ export interface operations {
     };
     mark_all_read_api_v1_notifications_read_all_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`). */
+                scope?: "all" | "social" | "system";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4241,11 +4246,23 @@ export interface operations {
                     "application/json": components["schemas"]["MarkReadResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     unread_count_api_v1_notifications_unread_count_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Which slice of the inbox to act on: `all` (default), `social` (person-to-person activity: follows, likes, comments) or `system` (staff traffic such as `admin_new_user`). */
+                scope?: "all" | "social" | "system";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4259,6 +4276,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

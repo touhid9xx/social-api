@@ -149,6 +149,13 @@ const unreadCountSchema = z
   .object({
     unread: z.number().int().optional(),
     unread_delta: z.number().int().optional(),
+    /**
+     * Which counter the absolute `unread` refers to (`social` | `system` | `all`).
+     * Set by `push_unread_reset`; omitted on delta frames, because mark-read does
+     * not know which inbox the row belonged to. Typed as a plain string so a new
+     * server-side scope is not a dropped frame.
+     */
+    scope: z.string().optional(),
   })
   .passthrough();
 

@@ -1,17 +1,25 @@
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { notifications, unreadNotificationCount } from '@/mocks/fixtures';
+import {
+  notifications,
+  systemNotifications,
+  unreadNotificationCount,
+  unreadSystemNotificationCount,
+} from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 import type { ApiErrorBody } from '@/types';
 
 import { AppApiError } from './errors';
 import {
+  SOCIAL_SCOPE,
+  SYSTEM_SCOPE,
   deleteNotification,
   getNotifications,
   getUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
+  scopeOfNotification,
 } from './notifications';
 
 /**
@@ -153,6 +161,100 @@ describe('markAllNotificationsRead', () => {
     server.use(http.post(READ_ALL_PATH, () => HttpResponse.json({ updated: 0 })));
 
     await expect(markAllNotificationsRead()).resolves.toEqual({ updated: 0 });
+  });
+});
+
+/**
+ * `scope` is what separates the personal inbox from the staff console: both
+ * screens read the SAME table, so a wrong default here would leak "someone
+ * signed up" between a follow and a like — or, worse, hide it from the admin
+ * who has to act on it.
+ */
+describe('scope', () => {
+  it('defaults the inbox to the personal (social) slice', async () => {
+    let search = '';
+    server.use(
+      http.get(LIST_PATH, ({ request }) => {
+        search = new URL(request.url).search;
+        return HttpResponse.json({ items: [], next_cursor: null });
+      }),
+    );
+
+    await getNotifications();
+
+    expect(new URLSearchParams(search).get('scope')).toBe(SOCIAL_SCOPE);
+    expect(SOCIAL_SCOPE).toBe('social');
+  });
+
+  it('passes an explicit slice through to the list endpoint', async () => {
+    let search = '';
+    server.use(
+      http.get(LIST_PATH, ({ request }) => {
+        search = new URL(request.url).search;
+        return HttpResponse.json({ items: [], next_cursor: null });
+      }),
+    );
+
+    await getNotifications({ scope: 'system' });
+
+    expect(new URLSearchParams(search).get('scope')).toBe('system');
+  });
+
+  it('scopes the unread count, so each badge counts its own screen', async () => {
+    const scopes: string[] = [];
+    server.use(
+      http.get('*/api/v1/notifications/unread-count', ({ request }) => {
+        const scope = new URL(request.url).searchParams.get('scope');
+        scopes.push(scope ?? '');
+        return HttpResponse.json(
+          scope === SYSTEM_SCOPE ? unreadSystemNotificationCount : unreadNotificationCount,
+        );
+      }),
+    );
+
+    // The nav badge is the default caller: it must not count staff traffic.
+    await expect(getUnreadCount()).resolves.toEqual(unreadNotificationCount);
+    await expect(getUnreadCount(SYSTEM_SCOPE)).resolves.toEqual(unreadSystemNotificationCount);
+
+    expect(scopes).toEqual([SOCIAL_SCOPE, SYSTEM_SCOPE]);
+  });
+
+  it('clears only the slice it was given', async () => {
+    const scopes: string[] = [];
+    server.use(
+      http.post(READ_ALL_PATH, ({ request }) => {
+        const scope = new URL(request.url).searchParams.get('scope');
+        scopes.push(scope ?? '');
+        // Mirrors the server: `updated` counts rows in THAT slice only.
+        return HttpResponse.json({
+          updated: scope === SYSTEM_SCOPE ? unreadSystemNotificationCount.unread : 0,
+        });
+      }),
+    );
+
+    await expect(markAllNotificationsRead(SYSTEM_SCOPE)).resolves.toEqual({
+      updated: unreadSystemNotificationCount.unread,
+    });
+
+    expect(scopes).toEqual([SYSTEM_SCOPE]);
+  });
+
+  it('classifies a pushed row by type, the way the bridge must', () => {
+    // A WebSocket frame carries no `scope`, so the client has to derive it.
+    expect(scopeOfNotification('follow')).toBe(SOCIAL_SCOPE);
+    expect(scopeOfNotification('like_post')).toBe(SOCIAL_SCOPE);
+    expect(scopeOfNotification('like_comment')).toBe(SOCIAL_SCOPE);
+    expect(scopeOfNotification('comment_post')).toBe(SOCIAL_SCOPE);
+    expect(scopeOfNotification('comment_reply')).toBe(SOCIAL_SCOPE);
+    expect(scopeOfNotification('admin_new_user')).toBe(SYSTEM_SCOPE);
+  });
+
+  it('keeps the staff fixture out of the personal inbox', async () => {
+    const page = await getNotifications();
+
+    expect(page.items).toEqual(notifications);
+    expect(page.items.some((row) => row.type === 'admin_new_user')).toBe(false);
+    expect(systemNotifications.every((row) => row.type === 'admin_new_user')).toBe(true);
   });
 });
 

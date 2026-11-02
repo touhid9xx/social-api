@@ -22,6 +22,17 @@ export type ListFilters = {
 };
 
 /**
+ * The inbox' own filters. `scope` is declared as a plain string rather than
+ * imported from `./notifications` so this module keeps its zero-import shape —
+ * the key factory is the bottom of the dependency graph, and the API layer
+ * imports it, not the other way round.
+ */
+export type NotificationListFilters = ListFilters & {
+  unreadOnly?: boolean;
+  scope?: string;
+};
+
+/**
  * Drop the pagination cursor before it reaches a cache key.
  *
  * `limit` and any other filter (status, targetType, …) stay: a different page
@@ -93,9 +104,26 @@ export const queryKeys = {
 
   notifications: {
     all: ['social', 'notifications'] as const,
-    list: (filters: ListFilters & { unreadOnly?: boolean } = {}) =>
-      ['social', 'notifications', 'list', listKey(filters)] as const,
-    unreadCount: () => ['social', 'notifications', 'unread-count'] as const,
+    /**
+     * The scope is a PATH segment, not part of the filter object, because the
+     * WebSocket bridge has to target exactly one inbox when a row is pushed:
+     * `[..., 'list', 'system']` selects the staff screen's cache, and a
+     * person-to-person row must never land in it.
+     */
+    listRoot: () => ['social', 'notifications', 'list'] as const,
+    /**
+     * Every filter variant of ONE scope — the prefix a scoped write needs.
+     * `list({ scope })` cannot serve that purpose: it appends an empty filter
+     * object, and prefix matching is elementwise, so `[...]'social', {}]` is not
+     * a prefix of `[...]'social', { limit: 20 }]`.
+     */
+    listByScope: (scope: string = 'social') => ['social', 'notifications', 'list', scope] as const,
+    list: ({ scope = 'social', ...filters }: NotificationListFilters = {}) =>
+      ['social', 'notifications', 'list', scope, listKey(filters)] as const,
+    /** Prefix over every scope — invalidating this refetches all badges. */
+    unreadCountRoot: () => ['social', 'notifications', 'unread-count'] as const,
+    unreadCount: (scope: string = 'social') =>
+      ['social', 'notifications', 'unread-count', scope] as const,
   },
 
   chat: {

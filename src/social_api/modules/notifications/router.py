@@ -11,12 +11,19 @@ from social_api.deps import CurrentUser, get_current_user
 from social_api.modules.notifications.schemas import (
     MarkReadResponse,
     NotificationPage,
+    NotificationScopeLiteral,
     NotificationView,
     UnreadCount,
 )
 from social_api.modules.notifications.service import NotificationsService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+_SCOPE_DOC = (
+    "Which slice of the inbox to act on: `all` (default), `social` "
+    "(person-to-person activity: follows, likes, comments) or `system` "
+    "(staff traffic such as `admin_new_user`)."
+)
 
 
 def _svc(session: AsyncSession) -> NotificationsService:
@@ -31,6 +38,7 @@ async def list_notifications(
     unread_only: bool = Query(default=False),
     cursor: str | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1, le=50),
+    scope: NotificationScopeLiteral = Query(default="all", description=_SCOPE_DOC),
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> NotificationPage:
@@ -39,6 +47,7 @@ async def list_notifications(
         unread_only=unread_only,
         cursor=cursor,
         limit=limit,
+        scope=scope,
     )
     await session.commit()
     return result
@@ -46,10 +55,11 @@ async def list_notifications(
 
 @router.get("/unread-count", response_model=UnreadCount)
 async def unread_count(
+    scope: NotificationScopeLiteral = Query(default="all", description=_SCOPE_DOC),
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> UnreadCount:
-    return await _svc(session).unread_count(user_id=user.user.id)
+    return await _svc(session).unread_count(user_id=user.user.id, scope=scope)
 
 
 @router.post("/{notif_id}/read", response_model=NotificationView)
@@ -63,10 +73,11 @@ async def mark_read(
 
 @router.post("/read-all", response_model=MarkReadResponse)
 async def mark_all_read(
+    scope: NotificationScopeLiteral = Query(default="all", description=_SCOPE_DOC),
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> MarkReadResponse:
-    return await _svc(session).mark_all_read(user_id=user.user.id)
+    return await _svc(session).mark_all_read(user_id=user.user.id, scope=scope)
 
 
 @router.delete(

@@ -30,6 +30,12 @@ export const ROUTES = {
   /** The privileged-action trail (`GET /audit`). Admin-only. */
   adminAudit: '/admin/audit',
   /**
+   * Staff traffic (`GET /notifications?scope=system`) — today just the
+   * `admin_new_user` alerts. Admin-only in practice: the endpoint itself is
+   * per-recipient, but only admins are ever recipients of a system notification.
+   */
+  adminSystem: '/admin/system',
+  /**
    * The only page a **moderator** can use: `/admin` (flags) and `/admin/audit`
    * are admin-only (`require_roles(UserRole.ADMIN)`), while the report queue
    * accepts `MODERATOR` and `ADMIN`. Linking a moderator to `/admin` would be a

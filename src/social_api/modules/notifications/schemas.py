@@ -18,6 +18,14 @@ NotificationTypeLiteral = Literal[
 
 NotificationTargetTypeLiteral = Literal["user", "post", "comment"]
 
+# Which slice of the inbox a read is about.
+#   all    — everything (the default; unchanged behaviour for existing callers);
+#   social — a person's personal activity: follows, likes, comments;
+#   system — staff traffic only (`admin_new_user` today).
+# Both read endpoints and the bulk read-all accept it, so a screen that shows a
+# slice can also clear that slice without touching the personal inbox.
+NotificationScopeLiteral = Literal["all", "social", "system"]
+
 
 class NotificationView(BaseModel):
     model_config = ConfigDict(from_attributes=True)

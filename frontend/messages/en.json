@@ -5,7 +5,8 @@
       "dashboard": "Dashboard",
       "users": "Users",
       "reports": "Reports",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "system": "System"
     },
     "reports": {
       "title": "Moderation queue",
@@ -180,6 +181,10 @@
         "deleted": "{name} has been deleted.",
         "working": "Saving…"
       }
+    },
+    "system": {
+      "title": "System alerts",
+      "subtitle": "Operational traffic for staff — kept out of the personal inbox."
     },
     "dashboard": {
       "title": "Overview",
@@ -838,6 +843,8 @@
     "loading": "Loading your notifications…",
     "emptyTitle": "Nothing to catch up on",
     "emptyBody": "Likes, replies and new followers will show up here.",
+    "emptySystemTitle": "No system alerts",
+    "emptySystemBody": "Operational alerts, like new accounts awaiting review, will show up here.",
     "errorTitle": "Couldn't load your notifications",
     "errorBody": "The inbox didn't come back. Check your connection and try again.",
     "retry": "Try again",

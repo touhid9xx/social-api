@@ -92,7 +92,9 @@ import {
   roomReadState,
   roomUnreadCounts,
   searchResults,
+  systemNotifications,
   unreadNotificationCount,
+  unreadSystemNotificationCount,
   VERIFY_EMAIL_TOKEN,
 } from './fixtures';
 
@@ -172,6 +174,28 @@ function applyProfileUpdate(base: ProfileSelf, patch: ProfileUpdate): ProfileSel
  * the mock layer, which every test loads.
  */
 const MIN_SEARCH_TERM = 2;
+
+/**
+ * The rows a `?scope=` value selects, mirroring the server's `IN` / `NOT IN`
+ * clause over `SYSTEM_NOTIFICATION_TYPES`.
+ *
+ * `all` is the server default when the parameter is absent, so an existing
+ * caller that knows nothing about scopes keeps seeing everything. The union is
+ * re-sorted newest-first because the two fixture arrays are sorted
+ * independently, and the real query orders by `created_at DESC` across the whole
+ * result set. ISO-8601 UTC strings sort lexicographically, so this is exact.
+ */
+function scopedInbox(scope: string | null): NotificationView[] {
+  if (scope === 'social') {
+    return notifications;
+  }
+  if (scope === 'system') {
+    return systemNotifications;
+  }
+  return [...notifications, ...systemNotifications].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
+}
 
 export const handlers = [
   // Public. Returns the NESTED envelope: { user, tokens }.
@@ -532,8 +556,16 @@ export const handlers = [
 
   // Registered BEFORE `GET /notifications` so the literal path wins over any
   // `:id` route a later milestone adds — MSW takes the first match.
-  http.get('*/api/v1/notifications/unread-count', () => {
-    const payload: UnreadCount = unreadNotificationCount;
+  // Scoped like the list: the nav badge asks for `social`, the staff console for
+  // `system`, and a caller that omits `scope` gets the server default (`all`).
+  http.get('*/api/v1/notifications/unread-count', ({ request }) => {
+    const scope = new URL(request.url).searchParams.get('scope');
+    const payload: UnreadCount =
+      scope === 'system'
+        ? unreadSystemNotificationCount
+        : scope === 'social'
+          ? unreadNotificationCount
+          : { unread: unreadNotificationCount.unread + unreadSystemNotificationCount.unread };
     return HttpResponse.json(payload);
   }),
 
@@ -549,7 +581,8 @@ export const handlers = [
     const start = cursor ? Number(cursor) : 0;
     const unreadOnly = url.searchParams.get('unread_only') === 'true';
 
-    const rows = unreadOnly ? notifications.filter((row) => !row.is_read) : notifications;
+    const scoped = scopedInbox(url.searchParams.get('scope'));
+    const rows = unreadOnly ? scoped.filter((row) => !row.is_read) : scoped;
     const items = rows.slice(start, start + limit);
 
     const payload: NotificationPage = {
@@ -584,9 +617,10 @@ export const handlers = [
 
   // `{ updated }` is the number of rows actually flipped; 0 is a normal answer,
   // so an already-read inbox is a 200 rather than an error or a 204.
-  http.post('*/api/v1/notifications/read-all', () => {
+  http.post('*/api/v1/notifications/read-all', ({ request }) => {
+    const scope = new URL(request.url).searchParams.get('scope');
     const payload: MarkReadResponse = {
-      updated: notifications.filter((row) => !row.is_read).length,
+      updated: scopedInbox(scope).filter((row) => !row.is_read).length,
     };
     return HttpResponse.json(payload);
   }),

@@ -33,6 +33,13 @@ class NotificationType(enum.StrEnum):
     ADMIN_NEW_USER = "admin_new_user"
 
 
+# Types addressed to staff rather than to a person. `admin_new_user` is a
+# registration alert: it is operational traffic about an account awaiting
+# review, not social activity, so the inbox hides it behind `scope=system` and
+# the staff console reads it from its own screen.
+SYSTEM_NOTIFICATION_TYPES: tuple[NotificationType, ...] = (NotificationType.ADMIN_NEW_USER,)
+
+
 class NotificationTargetType(enum.StrEnum):
     USER = "user"
     POST = "post"
