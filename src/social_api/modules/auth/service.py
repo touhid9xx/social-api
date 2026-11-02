@@ -32,6 +32,7 @@ from social_api.logging_config import get_logger
 from social_api.modules.audit.service import AuditService
 from social_api.modules.auth.exceptions import (
     EmailAlreadyRegisteredError,
+    EmailNotVerifiedError,
     InactiveUserError,
     InvalidCredentialsError,
     InvalidTokenError,
@@ -122,6 +123,12 @@ class AuthService:
             raise InvalidCredentialsError()
         if not user.is_active:
             raise InactiveUserError()
+        # Only after the password checked out: an unverified address must
+        # not reach a session, otherwise the mailed link is decorative.
+        # Ordered after `is_active` so a disabled account reports the real
+        # reason instead of looking like it merely needs a link clicked.
+        if not user.is_verified:
+            raise EmailNotVerifiedError()
 
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
         await self._repo.save(user)
@@ -158,6 +165,12 @@ class AuthService:
         user = await self._repo.get_by_id(user_id)
         if user is None or not user.is_active:
             raise InvalidTokenError()
+
+        # A refresh token minted before the verification gate existed (or
+        # before the account was un-verified) must not outlive it: rotating
+        # it would hand back a session the login path now refuses.
+        if not user.is_verified:
+            raise EmailNotVerifiedError()
 
         # Blacklist old refresh (TTL = remaining lifetime).
         await revoke_token(refresh_token, expected_type=REFRESH)
@@ -261,6 +274,32 @@ class AuthService:
         )
         logger.info("email_verified", user_id=user.id)
         return user
+
+    async def resend_verification(
+        self, *, email: str, locale: str | None = None
+    ) -> MessageResponse:
+        """Re-issue the verification link — without revealing who has an account.
+
+        The login gate makes this the only self-serve way back in for someone
+        who lost or never received the original mail, so it must not become an
+        enumeration oracle: unknown, inactive, soft-deleted and already-verified
+        addresses all take the same path and answer exactly like a real hit.
+        """
+        user = await self._repo.get_by_email(email)
+        if user is None or not user.is_active or user.is_verified:
+            logger.info("verification_resend_not_sent")
+            return MessageResponse(message=t("auth.verify.resent", locale=locale))
+
+        await self._send_verification_email(user=user, locale=locale)
+
+        await AuditService(self._s).write(
+            actor_id=user.id,
+            action="RESEND_VERIFICATION",
+            entity="user",
+            entity_id=user.id,
+        )
+        logger.info("verification_email_resent", user_id=user.id)
+        return MessageResponse(message=t("auth.verify.resent", locale=locale))
 
     async def forgot_password(self, *, email: str, locale: str | None = None) -> MessageResponse:
         """Email a reset link — without ever revealing whether the account exists.

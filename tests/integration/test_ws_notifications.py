@@ -8,13 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from social_api.main import create_app
+from tests.conftest import register_verified_sync
 
 pytestmark = [pytest.mark.integration]
 
 
 def _login_for_token(client: TestClient, email: str) -> str:
     pwd = "Str0ng!Passw0rd"
-    client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
+    register_verified_sync(client, email, pwd)
     r = client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
     token: str = r.json()["tokens"]["access_token"]
     return token

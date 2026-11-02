@@ -80,22 +80,25 @@ async def test_verify_email_token_flips_is_verified(
     assert r.status_code == 201, r.text
     token = _token_from(outbox[0]["body"])
 
-    # Before consuming the token: account exists but is unverified.
+    # Before consuming the token: the account exists but is unverified, and
+    # the gate in AuthService.login refuses to mint a session for it.
     r = await api.post("/api/v1/auth/login", json={"email": email, "password": password})
-    assert r.status_code == 200, r.text
-    access = r.json()["tokens"]["access_token"]
-
-    r = await api.get("/api/v1/auth/me", headers=_auth(access))
-    assert r.status_code == 200
-    assert r.json()["is_verified"] is False
+    assert r.status_code == 403, r.text
+    assert r.json()["error"] == "EMAIL_NOT_VERIFIED"
 
     # Consume the token.
     r = await api.post("/api/v1/auth/verify-email", json={"token": token})
     assert r.status_code == 200, r.text
     assert r.json()["message"]
 
-    # Persisted: /me re-reads the user row on every request.
+    # Only now does sign-in succeed, and /me reports the persisted flag
+    # (it re-reads the user row on every request).
+    r = await api.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    access = r.json()["tokens"]["access_token"]
+
     r = await api.get("/api/v1/auth/me", headers=_auth(access))
+    assert r.status_code == 200
     assert r.json()["is_verified"] is True
 
 

@@ -196,6 +196,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Verification
+         * @description Re-send the verification link to an address that never got one.
+         *
+         *     Unauthenticated by necessity: the whole point is that the caller cannot
+         *     sign in yet (login now refuses an unverified account). Reuses
+         *     `ForgotPasswordRequest` — same single `email` field — rather than
+         *     defining an identical schema twice.
+         *
+         *     Always 200 with the same body, exactly like `forgot-password`: the
+         *     response must not tell the caller whether the address exists, is
+         *     already verified, or was soft-deleted.
+         */
+        post: operations["resend_verification_api_v1_auth_resend_verification_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/reset-password": {
         parameters: {
             query?: never;
@@ -2808,6 +2837,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegisterResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resend_verification_api_v1_auth_resend_verification_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
                 };
             };
             /** @description Validation Error */

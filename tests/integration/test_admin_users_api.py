@@ -25,6 +25,7 @@ from sqlalchemy import update
 
 from social_api.main import create_app
 from social_api.modules.auth.models import User, UserRole
+from tests.conftest import register_unverified, register_verified
 
 pytestmark = [pytest.mark.integration]
 
@@ -32,15 +33,23 @@ PASSWORD = "Str0ng!Passw0rd"
 
 
 async def _login(client: AsyncClient, email: str) -> dict[str, str]:
-    """Register (or reuse) and login; returns the access token and user id."""
-    r = await client.post("/api/v1/auth/register", json={"email": email, "password": PASSWORD})
-    if r.status_code not in (201, 409):
-        pytest.fail(f"register failed: {r.status_code} {r.text}")
+    """Register (or reuse), verify the mailed link, then login."""
+    await register_verified(client, email, PASSWORD)
 
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD})
     assert r.status_code == 200, r.text
     body = r.json()
     return {"access": body["tokens"]["access_token"], "user_id": str(body["user"]["id"])}
+
+
+async def _target(client: AsyncClient, email: str) -> dict[str, str]:
+    """Create the account an admin acts on, left in the state a user leaves it.
+
+    A fresh registration is unverified, which is precisely the state `verify`
+    and `resend-verification` exist to change — so this must not walk the
+    emailed link the way `_login` does.
+    """
+    return {"user_id": str(await register_unverified(client, email, PASSWORD))}
 
 
 async def _promote_to_admin(email: str) -> None:
@@ -196,7 +205,7 @@ async def test_verify_flips_only_is_verified_and_is_idempotent(uc: AsyncClient) 
     purpose. That is why this is its own route rather than `activate`.
     """
     h = await _admin_headers(uc, "adm-verify@example.com")
-    target = await _login(uc, "adm-verify-target@example.com")
+    target = await _target(uc, "adm-verify-target@example.com")
     path = f"/api/v1/users/{target['user_id']}"
 
     # Suspend first, so "verify leaves is_active alone" is observable rather
@@ -228,7 +237,7 @@ async def test_resend_mails_an_unverified_account_and_refuses_a_verified_one(
     again, hence 409 rather than a cheerful no-op.
     """
     h = await _admin_headers(uc, "adm-resend@example.com")
-    target = await _login(uc, "adm-resend-target@example.com")
+    target = await _target(uc, "adm-resend-target@example.com")
     user_path = f"/api/v1/users/{target['user_id']}"
     resend_path = f"{user_path}/resend-verification"
 

@@ -12,13 +12,14 @@ from fastapi.websockets import WebSocketDisconnect
 from httpx import ASGITransport, AsyncClient
 
 from social_api.main import create_app
+from tests.conftest import register_verified
 
 pytestmark = [pytest.mark.integration]
 
 
 async def _register_and_login(client: AsyncClient, email: str) -> str:
     pwd = "Str0ng!Passw0rd"
-    await client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
+    await register_verified(client, email, pwd)
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
     # httpx.Response.json() returns Any; str() narrows to the runtime
     # type (access_token is guaranteed to be a string by the API contract).

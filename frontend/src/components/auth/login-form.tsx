@@ -10,7 +10,7 @@ import { type FormEvent, useState } from 'react';
 import { Field, fieldMessageId } from '@/components/shared/field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { apiClient, apiRequest, errorMessageKey, startSession } from '@/lib/api';
+import { apiClient, apiRequest, errorMessageKey, isAppApiError, startSession } from '@/lib/api';
 import { postSignInPath } from '@/lib/auth-routes';
 import { ROUTES } from '@/lib/constants';
 import {
@@ -58,6 +58,17 @@ export function LoginForm() {
   const [errors, setErrors] = useState<FieldErrors<LoginValues>>({});
   const [showPassword, setShowPassword] = useState(false);
 
+  // Re-request the verification link. Only offered once the login answered
+  // `EMAIL_NOT_VERIFIED`, which the backend raises *after* the password
+  // checked out — so it confirms nothing an attacker could not already learn,
+  // and the address it sends to is the one typed into the form.
+  const resend = useMutation({
+    mutationFn: () =>
+      apiRequest(() =>
+        apiClient.POST('/api/v1/auth/resend-verification', { body: { email: values.email } }),
+      ),
+  });
+
   const login = useMutation({
     mutationFn: (input: LoginValues) =>
       apiRequest(() => apiClient.POST('/api/v1/auth/login', { body: input })),
@@ -99,16 +110,37 @@ export function LoginForm() {
 
   const pending = login.isPending;
   const submitLabel = pending ? t('submitting') : t('submit');
+  // 403 EMAIL_NOT_VERIFIED — valid credentials, unusable account. Offer the
+  // one self-serve way out: a fresh link. (A 401 here would be a credential
+  // failure, and must NOT show this affordance.)
+  const needsVerification =
+    login.isError && isAppApiError(login.error) && login.error.code === 'EMAIL_NOT_VERIFIED';
 
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-5">
       {login.isError ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {tRoot(errorMessageKey(login.error))}
-        </p>
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p role="alert">{tRoot(errorMessageKey(login.error))}</p>
+          {needsVerification ? (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-sm font-medium text-destructive underline underline-offset-4"
+                onClick={() => resend.mutate()}
+                disabled={resend.isPending}
+              >
+                {resend.isPending ? t('resending') : t('resend')}
+              </Button>
+              {resend.isSuccess ? (
+                <span role="status" className="text-xs text-muted-foreground">
+                  {t('resent')}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <Field

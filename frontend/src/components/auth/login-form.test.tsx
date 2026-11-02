@@ -7,8 +7,16 @@ import { clearTokens, getAccessToken } from '@/lib/api';
 import { renderWithProviders } from '@/lib/testing/render';
 import { DEMO_ADMIN_EMAIL, DEMO_PASSWORD } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
+import type { ApiErrorBody } from '@/types';
 
 import { LoginForm } from './login-form';
+
+const LOGIN_PATH = '*/api/v1/auth/login';
+const RESEND_PATH = '*/api/v1/auth/resend-verification';
+
+function errorBody(error: string, status: number, path: string): ApiErrorBody {
+  return { error, status, detail: 'test', path, request_id: 'req-1' };
+}
 
 const replace = vi.fn();
 const refresh = vi.fn();
@@ -85,6 +93,43 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/email or password/i);
     expect(getAccessToken()).toBeNull();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('offers a resend link when the backend answers 403 EMAIL_NOT_VERIFIED', async () => {
+    let resent: unknown = null;
+    server.use(
+      http.post(LOGIN_PATH, () =>
+        HttpResponse.json(errorBody('EMAIL_NOT_VERIFIED', 403, '/api/v1/auth/login'), {
+          status: 403,
+        }),
+      ),
+      http.post(RESEND_PATH, async ({ request }) => {
+        resent = await request.json();
+        return new HttpResponse(null, { status: 202 });
+      }),
+    );
+
+    const user = await submit(DEMO_ADMIN_EMAIL, DEMO_PASSWORD);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/confirm your email/i);
+    expect(getAccessToken()).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Resend the verification link' }));
+
+    expect(await screen.findByText('Sent. Check your inbox.')).toBeInTheDocument();
+    // The link goes to the address already typed into the form — the backend
+    // answers identically for unknown/verified addresses, so nothing leaks here.
+    expect(resent).toEqual({ email: DEMO_ADMIN_EMAIL });
+  });
+
+  it('never offers the resend link for a 401 credential failure', async () => {
+    await submit(DEMO_ADMIN_EMAIL, 'wrong-password');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/email or password/i);
+    expect(
+      screen.queryByRole('button', { name: 'Resend the verification link' }),
+    ).not.toBeInTheDocument();
   });
 
   it('toggles password visibility without losing the typed value', async () => {

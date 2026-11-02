@@ -9,16 +9,20 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from social_api.main import create_app
+from tests.conftest import register_verified
 
 pytestmark = [pytest.mark.integration]
 
 
 async def _register_and_login(client: AsyncClient, email: str = "u@example.com") -> dict[str, str]:
-    """Register (or reuse) and login. Tolerates 409 for prior-run rows."""
+    """Register (or reuse), consume the mailed verification link, then log in.
+
+    `register_verified` tolerates the 409 that a row from an earlier test
+    produces and asks for a fresh link in that case, so the helper converges on
+    a signed-in session whether or not the account already existed.
+    """
     pwd = "Str0ng!Passw0rd"
-    r = await client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
-    if r.status_code not in (201, 409):
-        pytest.fail(f"register failed: {r.status_code} {r.text}")
+    await register_verified(client, email, pwd)
 
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
     assert r.status_code == 200, r.text

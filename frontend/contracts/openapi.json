@@ -3811,6 +3811,48 @@
         ]
       }
     },
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "description": "Re-send the verification link to an address that never got one.\n\nUnauthenticated by necessity: the whole point is that the caller cannot\nsign in yet (login now refuses an unverified account). Reuses\n`ForgotPasswordRequest` — same single `email` field — rather than\ndefining an identical schema twice.\n\nAlways 200 with the same body, exactly like `forgot-password`: the\nresponse must not tell the caller whether the address exists, is\nalready verified, or was soft-deleted.",
+        "operationId": "resend_verification_api_v1_auth_resend_verification_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Verification",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/reset-password": {
       "post": {
         "operationId": "reset_password_api_v1_auth_reset_password_post",

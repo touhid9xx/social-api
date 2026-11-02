@@ -120,6 +120,7 @@ export const ERROR_MESSAGE_KEY = {
   INVALID_CREDENTIALS: 'invalidCredentials',
   EMAIL_ALREADY_REGISTERED: 'emailAlreadyRegistered',
   INACTIVE_USER: 'inactiveUser',
+  EMAIL_NOT_VERIFIED: 'emailNotVerified',
   INVALID_TOKEN: 'invalidToken',
   TOKEN_REVOKED: 'tokenRevoked',
   // modules/users

@@ -8,6 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from social_api.main import create_app
+from tests.conftest import register_verified, verification_token_for
 
 pytestmark = [pytest.mark.integration]
 
@@ -42,12 +43,25 @@ async def test_register_login_me_logout_flow(auth_client: AsyncClient) -> None:
     assert r.status_code == 409
     assert r.json()["error"] == "EMAIL_ALREADY_REGISTERED"
 
-    # 3. Login wrong password -> 401
+    # 3. Login wrong password -> 401. The password is checked before the
+    # verification gate, so a wrong password never reveals account state.
     r = await auth_client.post(
         "/api/v1/auth/login", json={"email": email, "password": "Wrong!12345678"}
     )
     assert r.status_code == 401
     assert r.json()["error"] == "INVALID_CREDENTIALS"
+
+    # 3b. Correct password but unverified -> 403 (not 401: a 401 would make
+    # the client try to refresh a session that was never issued).
+    r = await auth_client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 403, r.text
+    assert r.json()["error"] == "EMAIL_NOT_VERIFIED"
+
+    # 3c. Open the emailed link, which is what unblocks sign-in.
+    r = await auth_client.post(
+        "/api/v1/auth/verify-email", json={"token": verification_token_for(email)}
+    )
+    assert r.status_code == 200, r.text
 
     # 4. Login correct -> tokens
     r = await auth_client.post("/api/v1/auth/login", json={"email": email, "password": password})
@@ -101,8 +115,7 @@ async def test_change_password_requires_current_password(auth_client: AsyncClien
     password = "Str0ng!Passw0rd"
     new_password = "An0ther!Passw0rd"
 
-    r = await auth_client.post("/api/v1/auth/register", json={"email": email, "password": password})
-    assert r.status_code == 201, r.text
+    await register_verified(auth_client, email, password)
 
     r = await auth_client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, r.text

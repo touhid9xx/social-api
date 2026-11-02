@@ -12,7 +12,10 @@ pytestmark = [pytest.mark.chaos, pytest.mark.asyncio]
 
 
 BASE = "http://localhost:8000"
-PWD = "Str0ng!Passw0rd"
+# Matches scripts/seed_demo_data.py. Chaos runs against a live stack with no
+# way to read the mailed verification link, and /auth/login refuses unverified
+# accounts, so these tests sign in as a pre-verified seeded demo user.
+DEMO_PASSWORD = "DemoPass123!"
 
 
 def _docker(*args: str) -> None:
@@ -21,19 +24,15 @@ def _docker(*args: str) -> None:
 
 async def _login(email: str) -> dict[str, str]:
     async with httpx.AsyncClient(base_url=BASE, timeout=15.0) as c:
-        await c.post(
-            "/api/v1/auth/register",
-            json={"email": email, "password": PWD},
-        )
         r = await c.post(
             "/api/v1/auth/login",
-            json={"email": email, "password": PWD},
+            json={"email": email, "password": DEMO_PASSWORD},
         )
         return {"access": r.json()["tokens"]["access_token"]}
 
 
 async def test_mysql_down_readiness_503(require_docker: None) -> None:
-    creds = await _login("chaos-mysql@test.com")
+    creds = await _login("user02@example.com")
     h = {"Authorization": f"Bearer {creds['access']}"}
 
     async with httpx.AsyncClient(base_url=BASE, timeout=30.0) as c:

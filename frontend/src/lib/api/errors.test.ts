@@ -163,11 +163,11 @@ describe('error catalogue covers the backend', () => {
   const bnErrors: Record<string, string> = bn.errors;
   const messageKeys = new Set<string>(Object.values(ERROR_MESSAGE_KEY));
 
-  it('declares all 67 backend codes plus the 2 synthetic ones', () => {
-    // 65 unique codes from src/social_api/**/exceptions.py
+  it('declares all 68 backend codes plus the 2 synthetic ones', () => {
+    // 66 unique codes from src/social_api/**/exceptions.py
     //  + APP_ERROR and INVALID_IDEMPOTENCY_KEY (declared outside the pattern)
     //  + NETWORK_ERROR and UNEXPECTED_ERROR (synthetic, never sent by the server)
-    expect(Object.keys(ERROR_MESSAGE_KEY)).toHaveLength(69);
+    expect(Object.keys(ERROR_MESSAGE_KEY)).toHaveLength(70);
   });
 
   it('has an English message for every code', () => {

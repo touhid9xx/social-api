@@ -303,6 +303,9 @@
       "forgot": "Forgot password?",
       "submit": "Sign in",
       "submitting": "Signing in…",
+      "resend": "Resend the verification link",
+      "resending": "Sending…",
+      "resent": "Sent. Check your inbox.",
       "noAccount": "Don't have an account?",
       "createAccount": "Create one"
     },
@@ -594,6 +597,7 @@
     "invalidCredentials": "Incorrect email or password.",
     "emailAlreadyRegistered": "An account with this email already exists.",
     "inactiveUser": "This account is not active.",
+    "emailNotVerified": "Confirm your email address before signing in.",
     "invalidToken": "This link is invalid or has expired.",
     "tokenRevoked": "Your session is no longer valid. Please sign in again.",
     "profileNotFound": "This profile does not exist.",

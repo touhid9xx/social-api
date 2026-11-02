@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import asyncio as _asyncio
 import contextlib
+import hashlib
 import os
+import re
 import socket
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -22,6 +24,7 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from social_api.cache import redis as redis_mod
@@ -278,3 +281,136 @@ def _reset_prometheus_registry() -> None:
     for collector in saved:
         with contextlib.suppress(Exception):
             REGISTRY.register(collector)
+
+
+# ---------------------------------------------------------------------------
+# Outbound mail capture + the verification step every session needs
+# ---------------------------------------------------------------------------
+
+_VERIFICATION_TOKEN_RE = re.compile(r"token=([\w\-.]+)")
+
+_SENT: list[dict[str, str]] = []
+
+
+@pytest.fixture(autouse=True)
+def _capture_email(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[dict[str, str]]]:
+    """Record dispatched mail instead of touching SMTP / Celery.
+
+    Autouse so no test can accidentally attempt a real send, and the single
+    capture every helper below reads. Modules that assert on the mail itself
+    (``test_email_verification.py``, ``test_password_reset.py``) take the
+    ``outbox`` fixture rather than patching ``dispatch_email`` a second time —
+    a later patch would silently redirect the mail away from ``_SENT`` and
+    break ``verification_token_for``.
+    """
+    _SENT.clear()
+
+    async def _capture(*, to: str, subject: str, body: str) -> None:
+        _SENT.append({"to": to, "subject": subject, "body": body})
+
+    from social_api.modules.auth import service as auth_service_mod
+
+    monkeypatch.setattr(auth_service_mod, "dispatch_email", _capture)
+    try:
+        yield _SENT
+    finally:
+        _SENT.clear()
+
+
+@pytest.fixture
+def outbox(_capture_email: list[dict[str, str]]) -> list[dict[str, str]]:
+    """The mail captured for this test — cleared before every test."""
+    return _capture_email
+
+
+def verification_token_for(email: str) -> str:
+    """Pull the one-time token out of the verification mail sent to ``email``."""
+    for message in reversed(_SENT):
+        if message["to"] != email:
+            continue
+        match = _VERIFICATION_TOKEN_RE.search(message["body"])
+        if match is not None:
+            return match.group(1)
+    raise AssertionError(f"no verification email was captured for {email}")
+
+
+def _verified_register_outcome(status_code: int, email: str) -> str | None:
+    """Decide what a ``POST /auth/register`` reply means for the caller.
+
+    Returns the token to consume, or ``None`` when there is nothing to do.
+    A ``409`` means an earlier test already created the row: ask for a fresh
+    link (sent only while the account is still unverified) so the second
+    caller converges on the same verified state instead of failing.
+    """
+    if status_code == 201:
+        return verification_token_for(email)
+    if status_code == 409:
+        return None
+    raise AssertionError(f"register failed with {status_code}")
+
+
+async def register_verified(client: AsyncClient, email: str, password: str) -> None:
+    """Register an account, then consume the link the app would have mailed.
+
+    ``register`` leaves ``is_verified`` False and ``/auth/login`` answers
+    ``403 EMAIL_NOT_VERIFIED`` to an unverified account, so any test that wants
+    a session has to walk the same path a real user does: register, open the
+    emailed link, then sign in. Sending itself is captured by
+    ``_capture_email`` — nothing leaves the process.
+    """
+    r = await client.post("/api/v1/auth/register", json={"email": email, "password": password})
+    token = _verified_register_outcome(r.status_code, email)
+    if token is None:
+        before = len(_SENT)
+        await client.post("/api/v1/auth/resend-verification", json={"email": email})
+        if len(_SENT) == before:  # already verified — no mail was owed
+            return
+        token = verification_token_for(email)
+    r = await client.post("/api/v1/auth/verify-email", json={"token": token})
+    assert r.status_code == 200, r.text
+
+
+async def _user_id_for(email: str) -> int:
+    """Resolve a user id by email hash, for callers that hold no session."""
+    from sqlalchemy import select
+
+    from social_api.db.session import get_sessionmaker
+    from social_api.modules.auth.models import User
+
+    email_hash = hashlib.sha256(email.strip().lower().encode()).hexdigest()
+    sm = get_sessionmaker()
+    async with sm() as session:
+        found = await session.scalar(select(User.id).where(User.email_hash == email_hash))
+    if found is None:
+        raise AssertionError(f"no user row for {email}")
+    return int(found)
+
+
+async def register_unverified(client: AsyncClient, email: str, password: str) -> int:
+    """Register an account *without* consuming the mailed link; return its id.
+
+    The admin ``verify`` and ``resend-verification`` flows only mean anything
+    for an address that has not been confirmed, and they address the account by
+    id rather than email — so this returns the id from the ``201`` body instead
+    of trading it for a session the way ``register_verified`` does.
+    """
+    r = await client.post("/api/v1/auth/register", json={"email": email, "password": password})
+    if r.status_code == 201:
+        return int(r.json()["user"]["id"])
+    if r.status_code == 409:  # an earlier caller already created the row
+        return await _user_id_for(email)
+    raise AssertionError(f"register failed with {r.status_code}: {r.text}")
+
+
+def register_verified_sync(client: TestClient, email: str, password: str) -> None:
+    """``register_verified`` for the sync ``TestClient`` WebSocket suites."""
+    r = client.post("/api/v1/auth/register", json={"email": email, "password": password})
+    token = _verified_register_outcome(r.status_code, email)
+    if token is None:
+        before = len(_SENT)
+        client.post("/api/v1/auth/resend-verification", json={"email": email})
+        if len(_SENT) == before:
+            return
+        token = verification_token_for(email)
+    r = client.post("/api/v1/auth/verify-email", json={"token": token})
+    assert r.status_code == 200, r.text

@@ -14,6 +14,7 @@ from social_api.db.session import get_sessionmaker
 from social_api.modules.auth.models import User
 from social_api.modules.gdpr.models import DeletionRequest, DeletionStatus
 from social_api.modules.users.models import Profile
+from tests.conftest import verification_token_for
 
 if TYPE_CHECKING:
     MonkeyPatch = pytest.MonkeyPatch
@@ -47,6 +48,14 @@ async def _register_and_login(client: AsyncClient) -> tuple[int, dict[str, str]]
     body = r.json()
     user_id = body.get("id") or body.get("user_id") or (body.get("user") or {}).get("id")
     assert isinstance(user_id, int), f"no user id in register response: {body}"
+
+    # A fresh account is unverified and /auth/login answers 403 to it, so
+    # consume the mailed link before signing in — the real user's path.
+    r = await client.post(
+        "/api/v1/auth/verify-email",
+        json={"token": verification_token_for(email)},
+    )
+    assert r.status_code == 200, r.text
 
     r = await client.post(
         "/api/v1/auth/login",

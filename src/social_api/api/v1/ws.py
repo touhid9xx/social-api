@@ -98,7 +98,8 @@ async def _authenticate_ws(token: str) -> int | None:
     except (KeyError, ValueError):
         return None
 
-    # Verify user exists and is active (mirror get_current_user's check).
+    # Verify user exists, is active and is verified — mirror
+    # get_current_user's checks so the socket cannot outlive the REST gate.
     # One DB read per connect — cost bounded by the 10/min rate limit.
     from social_api.db.session import get_sessionmaker
     from social_api.modules.auth.repository import UserRepository
@@ -106,7 +107,7 @@ async def _authenticate_ws(token: str) -> int | None:
     sm = get_sessionmaker()
     async with sm() as session:
         user = await UserRepository(session).get_by_id(user_id)
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or not user.is_verified:
             return None
     return user_id
 

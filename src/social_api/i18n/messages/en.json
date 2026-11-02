@@ -19,6 +19,7 @@
   "gdpr.export.ready": "Your data export is ready",
   "gdpr.delete.scheduled": "Account deletion scheduled, effective in 30 days",
   "auth.verify.success": "Email verified successfully",
+  "auth.verify.resent": "If that email is registered and still unverified, a new link is on its way",
   "auth.reset.sent": "If that email is registered, a reset link is on its way",
   "auth.reset.success": "Password updated successfully",
   "auth.password.changed": "Password changed successfully, please sign in again",

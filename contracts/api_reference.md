@@ -2,7 +2,7 @@
 
 **Version:** `0.1.0`
 
-**Generated from commit:** `588087a5aa1d`
+**Generated from commit:** `fd64edc359aa`
 
 ---
 
@@ -324,6 +324,37 @@ curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "RefreshRe
 ```bash
 curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "RegisterRequest"}' \
      http://localhost:8000/api/v1/auth/register
+```
+
+---
+
+### `POST` /api/v1/auth/resend-verification
+
+**Summary:** Resend Verification
+
+**Auth:** public
+
+**Rate limit:** —
+
+**Errors:** 422
+
+
+**Request body:**
+
+- `application/json` -> `ForgotPasswordRequest`
+
+
+**Responses:**
+
+- `200` — Successful Response
+- `422` — Validation Error
+
+
+**Example:**
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"<see schema>": "ForgotPasswordRequest"}' \
+     http://localhost:8000/api/v1/auth/resend-verification
 ```
 
 ---

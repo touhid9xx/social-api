@@ -171,6 +171,33 @@ async def verify_email(
     return MessageResponse(message=t("auth.verify.success", locale=locale))
 
 
+@router.post("/resend-verification", response_model=MessageResponse)
+@limiter.limit("3/hour", key_func=_key_by_user_or_ip)
+async def resend_verification(
+    request: Request,
+    response: Response,
+    payload: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    """Re-send the verification link to an address that never got one.
+
+    Unauthenticated by necessity: the whole point is that the caller cannot
+    sign in yet (login now refuses an unverified account). Reuses
+    `ForgotPasswordRequest` — same single `email` field — rather than
+    defining an identical schema twice.
+
+    Always 200 with the same body, exactly like `forgot-password`: the
+    response must not tell the caller whether the address exists, is
+    already verified, or was soft-deleted.
+    """
+    result = await _service(session).resend_verification(
+        email=payload.email,
+        locale=request.headers.get("accept-language"),
+    )
+    await session.commit()
+    return result
+
+
 @router.post("/forgot-password", response_model=MessageResponse)
 @limiter.limit("3/hour", key_func=_key_by_user_or_ip)
 async def forgot_password(

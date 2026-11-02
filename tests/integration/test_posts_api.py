@@ -8,13 +8,14 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from social_api.main import create_app
+from tests.conftest import register_verified
 
 pytestmark = [pytest.mark.integration]
 
 
 async def _login(client: AsyncClient, email: str) -> dict[str, str]:
     pwd = "Str0ng!Passw0rd"
-    await client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
+    await register_verified(client, email, pwd)
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
     body = r.json()
     return {

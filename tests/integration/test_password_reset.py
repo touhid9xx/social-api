@@ -49,16 +49,33 @@ def _token_from(body: str) -> str:
     return match.group(1)
 
 
-async def _register(api: AsyncClient, *, email: str, password: str = _OLD_PASSWORD) -> None:
+async def _register(
+    api: AsyncClient,
+    outbox: list[dict[str, str]],
+    *,
+    email: str,
+    password: str = _OLD_PASSWORD,
+) -> None:
+    """Register and consume the verification link.
+
+    ``/auth/login`` refuses an unverified account (403 ``EMAIL_NOT_VERIFIED``),
+    and several cases below assert on sign-in, so the account has to be
+    verified first. This uses the file's own ``outbox`` rather than the shared
+    helper because the local ``outbox`` fixture re-patches ``dispatch_email``
+    and the conftest capture would therefore see nothing.
+    """
     r = await api.post("/api/v1/auth/register", json={"email": email, "password": password})
     assert r.status_code == 201, r.text
+    token = _token_from(outbox[0]["body"])
+    r = await api.post("/api/v1/auth/verify-email", json={"token": token})
+    assert r.status_code == 200, r.text
 
 
 async def test_forgot_password_emails_reset_token(
     api: AsyncClient, outbox: list[dict[str, str]]
 ) -> None:
     email = "reset-email@example.com"
-    await _register(api, email=email)
+    await _register(api, outbox, email=email)
     outbox.clear()
 
     r = await api.post("/api/v1/auth/forgot-password", json={"email": email})
@@ -71,7 +88,7 @@ async def test_forgot_password_emails_reset_token(
 
 async def test_reset_password_flow(api: AsyncClient, outbox: list[dict[str, str]]) -> None:
     email = "reset-flow@example.com"
-    await _register(api, email=email)
+    await _register(api, outbox, email=email)
     outbox.clear()
 
     r = await api.post("/api/v1/auth/forgot-password", json={"email": email})
@@ -108,7 +125,7 @@ async def test_forgot_password_does_not_reveal_account_existence(
 ) -> None:
     known = "reset-known@example.com"
     unknown = "reset-unknown@example.com"
-    await _register(api, email=known)
+    await _register(api, outbox, email=known)
     outbox.clear()
 
     known_response = await api.post("/api/v1/auth/forgot-password", json={"email": known})
@@ -136,7 +153,7 @@ async def test_reset_password_rejects_verification_token(
 ) -> None:
     """Token types are not interchangeable: 'verify' cannot reset a password."""
     email = "reset-wrong-type@example.com"
-    await _register(api, email=email)
+    await _register(api, outbox, email=email)
     verification_token = _token_from(outbox[0]["body"])
 
     r = await api.post(
@@ -156,7 +173,7 @@ async def test_reset_password_enforces_password_policy(
     api: AsyncClient, outbox: list[dict[str, str]]
 ) -> None:
     email = "reset-weak@example.com"
-    await _register(api, email=email)
+    await _register(api, outbox, email=email)
     outbox.clear()
 
     r = await api.post("/api/v1/auth/forgot-password", json={"email": email})

@@ -15,6 +15,7 @@ from sqlalchemy import update
 from social_api.db.session import get_sessionmaker
 from social_api.main import create_app
 from social_api.modules.auth.models import User, UserRole
+from tests.conftest import register_verified, register_verified_sync
 
 pytestmark = [pytest.mark.e2e]
 
@@ -34,7 +35,8 @@ async def _promote(email: str, role: UserRole) -> None:
 
 
 async def _register_and_login(client: AsyncClient, email: str) -> dict[str, str]:
-    await client.post("/api/v1/auth/register", json={"email": email, "password": PWD})
+    # Sign-in requires a verified address, so walk register → verify → login.
+    await register_verified(client, email, PWD)
     r = await client.post("/api/v1/auth/login", json={"email": email, "password": PWD})
     body = r.json()
     return {
@@ -204,10 +206,7 @@ def test_full_lifecycle_ws_notification() -> None:
         pwd = PWD
 
         for email in ("ws-alice@e2e.com", "ws-bob@e2e.com"):
-            client.post(
-                "/api/v1/auth/register",
-                json={"email": email, "password": pwd},
-            )
+            register_verified_sync(client, email, pwd)
 
         alice_t = client.post(
             "/api/v1/auth/login",

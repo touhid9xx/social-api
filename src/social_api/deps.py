@@ -38,6 +38,7 @@ async def _load_user_from_token(
       2. Reject blacklisted JTI (logout / rotation).
       3. Load user — including soft-deleted when allow_deleted=True.
       4. Active check (skipped when allow_deleted=True).
+      5. Verified check (skipped when allow_deleted=True).
 
     Keeping this inline (instead of calling _load_user_from_token twice
     in the public deps) avoids double decoding in the fast path.
@@ -66,6 +67,18 @@ async def _load_user_from_token(
         raise UnauthorizedError("User not found or inactive")
 
     if not allow_deleted and not user.is_active:
+        raise UnauthorizedError("User not found or inactive")
+
+    # Mirrors `AuthService.login`: an access token minted before the account
+    # was un-verified must not keep working. Same 401 as the active check so
+    # this stays an opaque "this credential does not authenticate" — the
+    # gate reveals nothing an unauthenticated caller could not already see.
+    #
+    # Skipped for allow_deleted=True on purpose: the only endpoints on that
+    # dependency are the GDPR cancellation pair, and a user inside the
+    # deletion grace window must be able to cancel regardless of verification
+    # state — otherwise the deletion becomes unrecoverable.
+    if not allow_deleted and not user.is_verified:
         raise UnauthorizedError("User not found or inactive")
 
     return user
